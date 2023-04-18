@@ -9,7 +9,10 @@ use sysinfo::{
 };
 
 use crate::item::{
+    battery::Battery,
     cpu::Cpu,
+    disk::Disk,
+    mem::Mem,
     net_usage::NetUsage,
     nic::Nic,
     time::Time,
@@ -27,21 +30,21 @@ fn main() {
 
     let mut sys = System::new_all();
     let mut bar = Bar(vec![
-        Box::new(Item::text("Hello")),
-        Box::new(Time::default()),
-        Box::new(Cpu::default()),
-        Box::new(NetUsage::default()),
-        Box::new(Nic::default()),
-        // TODO: battery
-        // TODO: memory
+        // Box::new(Item::text("Hello")),
+        // Box::new(Time::default()),
+        // Box::new(Cpu::default()),
+        // Box::new(NetUsage::default()),
+        // Box::new(Nic::default()),
+        // Box::new(Battery::default()),
+        // Box::new(Mem::default()),
+        Box::new(Disk::default()),
         // TODO: temperature
-        // TODO: disk usage
         // TODO: dunst
         // TODO: scripts (amber price info, caffeinate)
     ]);
     loop {
-        sys.refresh_all();
-        bar.update(&sys);
+        // TODO: different update times per item
+        bar.update(&mut sys);
 
         println!("{},", json!(bar));
 

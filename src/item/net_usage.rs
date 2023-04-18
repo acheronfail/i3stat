@@ -34,7 +34,9 @@ impl ToItem for NetUsage {
         ))
     }
 
-    fn update(&mut self, sys: &System) {
+    fn update(&mut self, sys: &mut System) {
+        sys.refresh_networks();
+
         let (down, up) = sys.networks().iter().fold((0, 0), |(d, u), (_, net)| {
             (d + net.received(), u + net.transmitted())
         });

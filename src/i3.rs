@@ -30,7 +30,7 @@ impl Default for I3BarHeader {
 pub struct Bar(pub Vec<Box<dyn ToItem>>);
 
 impl Bar {
-    pub fn update(&mut self, sys: &System) {
+    pub fn update(&mut self, sys: &mut System) {
         self.0.iter_mut().for_each(|item| item.update(sys));
     }
 }

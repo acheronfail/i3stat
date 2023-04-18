@@ -39,7 +39,7 @@ impl ToItem for Nic {
         )
     }
 
-    fn update(&mut self, _sys: &System) {
+    fn update(&mut self, _: &mut System) {
         // TODO: no need to update this every single time... (only if the network changed?)
 
         let if_addrs = match getifaddrs() {

@@ -1,4 +1,7 @@
+pub mod battery;
 pub mod cpu;
+pub mod disk;
+pub mod mem;
 pub mod net_usage;
 pub mod nic;
 pub mod time;
@@ -41,6 +44,7 @@ pub enum MinWidth {
     String(String),
 }
 
+// TODO: builder struct to make it easy to create
 #[derive(Debug, Serialize, Clone)]
 pub struct Item {
     pub full_text: String,
@@ -119,5 +123,5 @@ impl ToItem for Item {
 
 pub trait ToItem {
     fn to_item(&self) -> Item;
-    fn update(&mut self, _sys: &System) {}
+    fn update(&mut self, _sys: &mut System) {}
 }

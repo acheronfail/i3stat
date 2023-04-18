@@ -1,5 +1,6 @@
 use sysinfo::{
     CpuExt,
+    CpuRefreshKind,
     System,
     SystemExt,
 };
@@ -45,7 +46,8 @@ impl ToItem for Cpu {
         ))
     }
 
-    fn update(&mut self, sys: &System) {
+    fn update(&mut self, sys: &mut System) {
+        sys.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage());
         // dbg!(sys.load_average());
         // dbg!(sys.cpus());
         self.pct = sys.global_cpu_info().cpu_usage();
