@@ -1,6 +1,9 @@
 use chrono::prelude::*;
 
-use super::{Item, ToItem};
+use super::{
+    Item,
+    ToItem,
+};
 
 pub struct Time {
     format: String,

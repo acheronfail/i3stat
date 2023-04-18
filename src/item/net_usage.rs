@@ -1,6 +1,15 @@
-use super::{Item, ToItem};
 use bytesize::ByteSize;
-use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
+use sysinfo::{
+    NetworkExt,
+    NetworksExt,
+    System,
+    SystemExt,
+};
+
+use super::{
+    Item,
+    ToItem,
+};
 
 pub struct NetUsage {
     bytes_down: u64,

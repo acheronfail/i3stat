@@ -1,7 +1,15 @@
-use crate::item::{Item, ToItem};
+use std::net::{
+    SocketAddrV4,
+    SocketAddrV6,
+};
+
 use nix::ifaddrs::getifaddrs;
-use std::net::{SocketAddrV4, SocketAddrV6};
 use sysinfo::System;
+
+use crate::item::{
+    Item,
+    ToItem,
+};
 
 #[derive(Debug)]
 struct Interface {

@@ -3,9 +3,17 @@ mod item;
 
 use i3::*;
 use item::*;
-use sysinfo::{System, SystemExt};
+use sysinfo::{
+    System,
+    SystemExt,
+};
 
-use crate::item::{cpu::Cpu, net_usage::NetUsage, nic::Nic, time::Time};
+use crate::item::{
+    cpu::Cpu,
+    net_usage::NetUsage,
+    nic::Nic,
+    time::Time,
+};
 
 macro_rules! json {
     ($input:expr) => {
@@ -24,7 +32,6 @@ fn main() {
         Box::new(Cpu::default()),
         Box::new(NetUsage::default()),
         Box::new(Nic::default()),
-
         // TODO: battery
         // TODO: memory
         // TODO: temperature

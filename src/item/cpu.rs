@@ -1,6 +1,13 @@
-use sysinfo::{CpuExt, System, SystemExt};
+use sysinfo::{
+    CpuExt,
+    System,
+    SystemExt,
+};
 
-use super::{Item, ToItem};
+use super::{
+    Item,
+    ToItem,
+};
 
 pub struct Cpu {
     pct: f32,
