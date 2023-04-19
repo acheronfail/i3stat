@@ -16,6 +16,7 @@ use crate::item::{
     mem::Mem,
     net_usage::NetUsage,
     nic::Nic,
+    sensors::Sensors,
     time::Time,
 };
 
@@ -43,8 +44,8 @@ fn main() {
         // Box::new(Battery::default()),
         // Box::new(Mem::default()),
         // Box::new(Disk::default()),
-        Box::new(Dunst::default()),
-        // TODO: temperature
+        // Box::new(Dunst::default()),
+        Box::new(Sensors::default()),
         // TODO: scripts (amber price info, caffeinate)
     ]);
     loop {

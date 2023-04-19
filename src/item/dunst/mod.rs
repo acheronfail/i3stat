@@ -1,6 +1,7 @@
 mod generated;
 
 use std::{
+    error::Error,
     sync::{
         atomic::{
             AtomicBool,
@@ -9,7 +10,7 @@ use std::{
         Arc,
     },
     thread::JoinHandle,
-    time::Duration, error::Error,
+    time::Duration,
 };
 
 use dbus::{
