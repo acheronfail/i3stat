@@ -22,7 +22,7 @@ impl Default for Disk {
 
 impl ToItem for Disk {
     fn to_item(&self) -> Item {
-        Item::text(
+        Item::new(
             self.inner
                 .iter()
                 .map(|(mount_point, available_bytes)| {

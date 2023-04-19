@@ -27,7 +27,7 @@ impl Default for NetUsage {
 
 impl ToItem for NetUsage {
     fn to_item(&self) -> Item {
-        Item::text(format!(
+        Item::new(format!(
             "↓{} ↑{}",
             ByteSize(self.bytes_down).to_string_as(true),
             ByteSize(self.bytes_up).to_string_as(true)

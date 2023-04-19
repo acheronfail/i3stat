@@ -27,7 +27,7 @@ impl Default for Mem {
 
 impl ToItem for Mem {
     fn to_item(&self) -> Item {
-        Item::text(format!("{}", ByteSize(self.available).to_string_as(false)))
+        Item::new(format!("{}", ByteSize(self.available).to_string_as(false)))
     }
 
     fn update(&mut self, sys: &mut System) {

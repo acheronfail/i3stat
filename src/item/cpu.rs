@@ -38,7 +38,7 @@ impl ToItem for Cpu {
             2
         };
 
-        Item::text(format!(
+        Item::new(format!(
             "{:0pad$.precision$}%",
             self.pct,
             precision = self.precision,

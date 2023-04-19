@@ -30,7 +30,7 @@ impl Default for Nic {
 
 impl ToItem for Nic {
     fn to_item(&self) -> Item {
-        Item::text(
+        Item::new(
             self.interfaces
                 .iter()
                 .map(|i| format!("{}: {}", i.name, i.addr))

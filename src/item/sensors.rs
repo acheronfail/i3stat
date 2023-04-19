@@ -22,7 +22,7 @@ impl Default for Sensors {
 
 impl ToItem for Sensors {
     fn to_item(&self) -> Item {
-        Item::text(format!("TMP: {:.0}°C", self.temp))
+        Item::new(format!("TMP: {:.0}°C", self.temp))
     }
 
     fn update(&mut self, sys: &mut System) {

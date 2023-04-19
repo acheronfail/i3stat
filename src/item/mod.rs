@@ -47,7 +47,6 @@ pub enum MinWidth {
     String(String),
 }
 
-// TODO: builder struct to make it easy to create
 #[derive(Debug, Serialize, Clone)]
 pub struct Item {
     pub full_text: String,
@@ -56,10 +55,10 @@ pub struct Item {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub color: Option<HexColor>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub background: Option<HexColor>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub border: Option<HexColor>,
+    #[serde(rename = "background", skip_serializing_if = "Option::is_none")]
+    pub background_color: Option<HexColor>,
+    #[serde(rename = "border", skip_serializing_if = "Option::is_none")]
+    pub border_color: Option<HexColor>,
 
     #[serde(rename = "border_top", skip_serializing_if = "Option::is_none")]
     pub border_top_px: Option<usize>,
@@ -94,14 +93,15 @@ pub struct Item {
     pub markup: Option<Markup>,
 }
 
+#[allow(dead_code)]
 impl Item {
-    pub fn text(text: impl AsRef<str>) -> Item {
+    pub fn new(full_text: impl AsRef<str>) -> Item {
         Item {
-            full_text: text.as_ref().to_string(),
+            full_text: full_text.as_ref().into(),
             short_text: None,
             color: None,
-            background: None,
-            border: None,
+            background_color: None,
+            border_color: None,
             border_top_px: None,
             border_right_px: None,
             border_bottom_px: None,
@@ -115,6 +115,86 @@ impl Item {
             separator_block_width_px: None,
             markup: None,
         }
+    }
+
+    pub fn short_text(mut self, short_text: impl AsRef<str>) -> Self {
+        self.short_text = Some(short_text.as_ref().into());
+        self
+    }
+
+    pub fn color(mut self, color: HexColor) -> Self {
+        self.color = Some(color);
+        self
+    }
+
+    pub fn background_color(mut self, background_color: HexColor) -> Self {
+        self.background_color = Some(background_color);
+        self
+    }
+
+    pub fn border_color(mut self, border_color: HexColor) -> Self {
+        self.border_color = Some(border_color);
+        self
+    }
+
+    pub fn border_top_px(mut self, border_top_px: usize) -> Self {
+        self.border_top_px = Some(border_top_px);
+        self
+    }
+
+    pub fn border_right_px(mut self, border_right_px: usize) -> Self {
+        self.border_right_px = Some(border_right_px);
+        self
+    }
+
+    pub fn border_bottom_px(mut self, border_bottom_px: usize) -> Self {
+        self.border_bottom_px = Some(border_bottom_px);
+        self
+    }
+
+    pub fn border_left_px(mut self, border_left_px: usize) -> Self {
+        self.border_left_px = Some(border_left_px);
+        self
+    }
+
+    pub fn min_width(mut self, min_width: MinWidth) -> Self {
+        self.min_width = Some(min_width);
+        self
+    }
+
+    pub fn align(mut self, align: Align) -> Self {
+        self.align = Some(align);
+        self
+    }
+
+    pub fn name(mut self, name: impl AsRef<str>) -> Self {
+        self.name = Some(name.as_ref().into());
+        self
+    }
+
+    pub fn instance(mut self, instance: impl AsRef<str>) -> Self {
+        self.instance = Some(instance.as_ref().into());
+        self
+    }
+
+    pub fn urgent(mut self, urgent: bool) -> Self {
+        self.urgent = Some(urgent);
+        self
+    }
+
+    pub fn separator(mut self, separator: bool) -> Self {
+        self.separator = Some(separator);
+        self
+    }
+
+    pub fn separator_block_width_px(mut self, separator_block_width_px: usize) -> Self {
+        self.separator_block_width_px = Some(separator_block_width_px);
+        self
+    }
+
+    pub fn markup(mut self, markup: Markup) -> Self {
+        self.markup = Some(markup);
+        self
     }
 }
 

@@ -106,9 +106,9 @@ impl Default for Dunst {
 impl ToItem for Dunst {
     fn to_item(&self) -> Item {
         if self.paused.load(Ordering::SeqCst) {
-            Item::text(" DnD ")
+            Item::new(" DnD ")
         } else {
-            Item::text("")
+            Item::new("")
         }
     }
 }

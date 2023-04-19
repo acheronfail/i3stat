@@ -62,7 +62,7 @@ impl Default for Battery {
 
 impl ToItem for Battery {
     fn to_item(&self) -> Item {
-        Item::text(
+        Item::new(
             self.batteries
                 .iter()
                 .map(|b| format!("{}:{:.0}%", b.name(), b.get_charge().unwrap()))

@@ -29,8 +29,8 @@ impl Default for Script {
 impl ToItem for Script {
     fn to_item(&self) -> Item {
         match self.stdout.as_ref() {
-            Some(s) => Item::text(s),
-            None => Item::text(""),
+            Some(s) => Item::new(s),
+            None => Item::new(""),
         }
     }
 
