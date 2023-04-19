@@ -1,6 +1,7 @@
 pub mod battery;
 pub mod cpu;
 pub mod disk;
+pub mod dunst;
 pub mod mem;
 pub mod net_usage;
 pub mod nic;

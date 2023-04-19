@@ -12,6 +12,7 @@ use crate::item::{
     battery::Battery,
     cpu::Cpu,
     disk::Disk,
+    dunst::Dunst,
     mem::Mem,
     net_usage::NetUsage,
     nic::Nic,
@@ -24,6 +25,10 @@ macro_rules! json {
     };
 }
 
+// TODO: central place for storing formatting options? (precision, GB vs G, padding, etc)
+// TODO: use an event loop to manage timers and refreshes for items, as well as stop blocking things
+// (like dbus) from blocking everything else
+//  - need a way for items to trigger updates, etc
 fn main() {
     println!("{}", json!(I3BarHeader::default()));
     println!("[");
@@ -37,13 +42,16 @@ fn main() {
         // Box::new(Nic::default()),
         // Box::new(Battery::default()),
         // Box::new(Mem::default()),
-        Box::new(Disk::default()),
+        // Box::new(Disk::default()),
+        Box::new(Dunst::default()),
         // TODO: temperature
-        // TODO: dunst
         // TODO: scripts (amber price info, caffeinate)
     ]);
     loop {
         // TODO: different update times per item
+        // TODO: create context, which contains
+        //      sysinfo::System
+        //      dbus connection
         bar.update(&mut sys);
 
         println!("{},", json!(bar));
