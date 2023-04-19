@@ -1,6 +1,8 @@
 mod i3;
 mod item;
 
+use std::error::Error;
+
 use i3::*;
 use item::*;
 use sysinfo::{
@@ -31,7 +33,20 @@ macro_rules! json {
 // TODO: use an event loop to manage timers and refreshes for items, as well as stop blocking things
 // (like dbus) from blocking everything else
 //  - need a way for items to trigger updates, etc
-fn main() {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    // TODO: config file? how to setup blocks?
+    // TODO: tokio
+    //  event loop is: IPC events from i3 (clicks, signals, etc)
+    //  before event loop starts, need to spawn
+    //      blocks will likely have a `loop {}` in them for their infinite updates
+    //      should these be `spawn_blocking`?
+    //      should these be `thread::spawn`? (how to share context?)
+    //  TODO: I want click updates to come immediately, not have to wait for main thread - can i do this with tokio?
+    //      it's multi-thread executor by default, so not a huge prob
+    //      but also, can use `spawn_blocking` and other things to mitigate
+    //      and to fully mitigate, can just spawn all blocks in separate threads
+
     println!("{}", json!(I3BarHeader::default()));
     println!("[");
 
