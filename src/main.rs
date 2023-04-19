@@ -16,6 +16,7 @@ use crate::item::{
     mem::Mem,
     net_usage::NetUsage,
     nic::Nic,
+    script::Script,
     sensors::Sensors,
     time::Time,
 };
@@ -45,14 +46,16 @@ fn main() {
         // Box::new(Mem::default()),
         // Box::new(Disk::default()),
         // Box::new(Dunst::default()),
-        Box::new(Sensors::default()),
-        // TODO: scripts (amber price info, caffeinate)
+        // Box::new(Sensors::default()),
+        Box::new(Script::default()),
     ]);
+
     loop {
         // TODO: different update times per item
         // TODO: create context, which contains
         //      sysinfo::System
         //      dbus connection
+        //      ... any other shared things ...
         bar.update(&mut sys);
 
         println!("{},", json!(bar));

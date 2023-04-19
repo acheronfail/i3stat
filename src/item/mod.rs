@@ -5,6 +5,7 @@ pub mod dunst;
 pub mod mem;
 pub mod net_usage;
 pub mod nic;
+pub mod script;
 pub mod sensors;
 pub mod time;
 
