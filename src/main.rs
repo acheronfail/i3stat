@@ -5,6 +5,11 @@ mod item;
 use std::error::Error;
 
 use i3::*;
+use tokio::io::stdin;
+use tokio::io::{
+    AsyncBufReadExt,
+    BufReader,
+};
 use tokio::sync::mpsc;
 
 use crate::{
@@ -77,8 +82,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         // Box::new(Sensors::default()),
         Box::new(Script::default()),
     ];
-
-    let mut bar: Vec<Item> = vec![Item::empty(); items.len()];
+    let bar_item_count = items.len();
 
     // shared context
     let ctx = Context::new();
@@ -92,15 +96,31 @@ async fn main() -> Result<(), Box<dyn Error>> {
         });
     }
 
-    // TODO: should this be in a thread of its own? what about incoming IPC events?
-    while let Some((item, i)) = rx.recv().await {
-        bar[i] = item;
-        // TODO: should I print the entire bar on any update of a child?
-        //      does the bar protocol allow updates to specific bars?
-        println!("{},", json!(bar));
+    let bar_printer = tokio::spawn(async move {
+        let mut bar: Vec<Item> = vec![Item::empty(); bar_item_count];
+
+        // TODO: should this be in a thread of its own? what about incoming IPC events?
+        while let Some((item, i)) = rx.recv().await {
+            bar[i] = item;
+            // TODO: should I print the entire bar on any update of a child?
+            //      does the bar protocol allow updates to specific bars?
+            println!("{},", json!(bar));
+        }
+    });
+
+    let s = BufReader::new(stdin());
+    let mut lines = s.lines();
+    while let Ok(Some(line)) = lines.next_line().await {
+        if line == "[" {
+            continue;
+        }
+        let click = serde_json::from_str::<I3ClickEvent>(&line).unwrap();
+        // TODO: send the click event to the right block
+        dbg!(click);
     }
 
     // TODO: rather than this, open event loop for signals and click events
+    bar_printer.await.unwrap();
     futures::future::pending::<()>().await;
 
     Ok(())
