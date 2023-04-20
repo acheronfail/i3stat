@@ -6,9 +6,14 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+async-stream = "0.3.5"
+async-trait = "0.1.68"
 bytesize = "1.2.0"
 chrono = "0.4.24"
 dbus = { version = "0.9.7", features = ["futures"] }
+futures = "0.3.28"
+futures-core = "0.3.28"
+futures-util = "0.3.28"
 hex_color = { version = "2.0.0", features = ["serde"] }
 nix = { version = "0.26.2", features = ["net"] }
 serde = "1.0.160"

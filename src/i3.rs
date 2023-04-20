@@ -1,8 +1,10 @@
-use serde::Serialize;
+use async_trait::async_trait;
 use serde_derive::Serialize;
-use sysinfo::System;
 
-use crate::item::ToItem;
+use crate::{
+    context::Ctx,
+    Sender,
+};
 
 #[derive(Debug, Serialize)]
 pub struct I3BarHeader {
@@ -26,20 +28,7 @@ impl Default for I3BarHeader {
     }
 }
 
-// #[derive(Debug)]
-pub struct Bar(pub Vec<Box<dyn ToItem>>);
-
-impl Bar {
-    pub fn update(&mut self, sys: &mut System) {
-        self.0.iter_mut().for_each(|item| item.update(sys));
-    }
-}
-
-impl Serialize for Bar {
-    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        s.collect_seq(self.0.iter().map(|x| x.to_item()))
-    }
+#[async_trait]
+pub trait BarItem: Send {
+    async fn start(&self, ctx: Ctx, tx: Sender);
 }

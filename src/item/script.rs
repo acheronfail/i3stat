@@ -1,56 +1,39 @@
-use std::{
-    process::Command,
-    thread,
-};
-
-use sysinfo::System;
+use async_trait::async_trait;
+use tokio::process::Command;
 
 use super::{
+    BarItem,
     Item,
-    ToItem,
+    Sender,
 };
+use crate::context::Ctx;
 
 pub struct Script {
     command: String,
-
-    stdout: Option<String>,
 }
 
 impl Default for Script {
     fn default() -> Self {
         Script {
             command: "echo -n Hello, World!".into(),
-
-            stdout: None,
         }
     }
 }
 
-impl ToItem for Script {
-    fn to_item(&self) -> Item {
-        match self.stdout.as_ref() {
-            Some(s) => Item::new(s),
-            None => Item::new(""),
-        }
-    }
+#[async_trait]
+impl BarItem for Script {
+    async fn start(&self, _: Ctx, tx: Sender) {
+        // TODO: set interval and run multiple times based on interval
+        // https://docs.rs/tokio/latest/tokio/time/fn.interval.html
 
-    fn update(&mut self, _: &mut System) {
-        // TODO: set interval and run this based on that
+        let output = Command::new("sh")
+            .arg("-c")
+            .arg(&self.command)
+            .output()
+            .await
+            .unwrap();
 
-        self.stdout.get_or_insert_with(|| {
-            thread::scope(|s| {
-                s.spawn(|| {
-                    let output = Command::new("sh")
-                        .arg("-c")
-                        .arg(&self.command)
-                        .output()
-                        .unwrap();
-
-                    String::from_utf8_lossy(&output.stdout).to_string()
-                })
-                .join()
-                .unwrap()
-            })
-        });
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        tx.send(Item::new(stdout)).await.unwrap();
     }
 }

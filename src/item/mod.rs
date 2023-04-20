@@ -1,17 +1,28 @@
-pub mod battery;
-pub mod cpu;
-pub mod disk;
-pub mod dunst;
-pub mod mem;
-pub mod net_usage;
-pub mod nic;
+// pub mod battery;
+// pub mod cpu;
+// pub mod disk;
+// pub mod dunst;
+// pub mod mem;
+// pub mod net_usage;
+// pub mod nic;
 pub mod script;
-pub mod sensors;
+// pub mod sensors;
 pub mod time;
 
+use std::sync::{
+    Arc,
+    Mutex,
+};
+
+use async_trait::async_trait;
 use hex_color::HexColor;
 use serde_derive::Serialize;
-use sysinfo::System;
+
+use crate::{
+    i3::BarItem,
+    Context,
+    Sender,
+};
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "lowercase")]
@@ -117,6 +128,10 @@ impl Item {
         }
     }
 
+    pub fn empty() -> Item {
+        Item::new("")
+    }
+
     pub fn short_text(mut self, short_text: impl AsRef<str>) -> Self {
         self.short_text = Some(short_text.as_ref().into());
         self
@@ -198,13 +213,9 @@ impl Item {
     }
 }
 
-impl ToItem for Item {
-    fn to_item(&self) -> Item {
-        self.clone()
+#[async_trait]
+impl BarItem for Item {
+    async fn start(&self, _: Arc<Mutex<Context>>, tx: Sender) {
+        tx.send(self.clone()).await.unwrap();
     }
-}
-
-pub trait ToItem {
-    fn to_item(&self) -> Item;
-    fn update(&mut self, _sys: &mut System) {}
 }
