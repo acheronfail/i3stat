@@ -1,5 +1,5 @@
 // pub mod battery;
-// pub mod cpu;
+pub mod cpu;
 // pub mod disk;
 // pub mod dunst;
 // pub mod mem;
@@ -9,20 +9,11 @@ pub mod script;
 // pub mod sensors;
 pub mod time;
 
-use std::sync::{
-    Arc,
-    Mutex,
-};
-
 use async_trait::async_trait;
 use hex_color::HexColor;
 use serde_derive::Serialize;
 
-use crate::{
-    i3::BarItem,
-    Context,
-    Sender,
-};
+use crate::context::{BarItem, Context};
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "lowercase")]
@@ -65,6 +56,11 @@ pub struct Item {
     pub short_text: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub instance: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub color: Option<HexColor>,
     #[serde(rename = "background", skip_serializing_if = "Option::is_none")]
     pub background_color: Option<HexColor>,
@@ -86,11 +82,6 @@ pub struct Item {
     pub align: Option<Align>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub instance: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub urgent: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub separator: Option<bool>,
@@ -110,6 +101,8 @@ impl Item {
         Item {
             full_text: full_text.as_ref().into(),
             short_text: None,
+            name: None,
+            instance: None,
             color: None,
             background_color: None,
             border_color: None,
@@ -119,8 +112,6 @@ impl Item {
             border_left_px: None,
             min_width: None,
             align: None,
-            name: None,
-            instance: None,
             urgent: None,
             separator: None,
             separator_block_width_px: None,
@@ -215,7 +206,7 @@ impl Item {
 
 #[async_trait]
 impl BarItem for Item {
-    async fn start(&self, _: Arc<Mutex<Context>>, tx: Sender) {
-        tx.send(self.clone()).await.unwrap();
+    async fn start(&mut self, ctx: Context) {
+        ctx.update_item(self.clone()).await.unwrap();
     }
 }

@@ -1,14 +1,5 @@
-use async_trait::async_trait;
-use serde_derive::{
-    Deserialize,
-    Serialize,
-};
-use serde_repr::Deserialize_repr;
-
-use crate::{
-    context::Ctx,
-    Sender,
-};
+use serde_derive::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 #[derive(Debug, Serialize)]
 pub struct I3BarHeader {
@@ -32,7 +23,7 @@ impl Default for I3BarHeader {
     }
 }
 
-#[derive(Debug, Deserialize_repr, PartialEq)]
+#[derive(Debug, Serialize_repr, Deserialize_repr, PartialEq)]
 #[repr(u8)]
 pub enum I3Button {
     Left = 1,
@@ -43,7 +34,7 @@ pub enum I3Button {
     ScrollUp = 5,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum I3Modifier {
     Mod1,
     Mod2,
@@ -57,21 +48,16 @@ pub enum I3Modifier {
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct I3ClickEvent {
-    name: Option<String>,
-    instance: Option<String>,
-    button: I3Button,
-    modifiers: Vec<I3Modifier>,
-    x: usize,
-    y: usize,
-    relative_x: usize,
-    relative_y: usize,
-    output_x: usize,
-    output_y: usize,
-    width: usize,
-    height: usize,
-}
-
-#[async_trait]
-pub trait BarItem: Send {
-    async fn start(&self, ctx: Ctx, tx: Sender);
+    pub name: Option<String>,
+    pub instance: Option<String>,
+    pub button: I3Button,
+    pub modifiers: Vec<I3Modifier>,
+    pub x: usize,
+    pub y: usize,
+    pub relative_x: usize,
+    pub relative_y: usize,
+    pub output_x: usize,
+    pub output_y: usize,
+    pub width: usize,
+    pub height: usize,
 }

@@ -1,3 +1,5 @@
+#![feature(result_option_inspect)]
+
 mod context;
 mod i3;
 mod item;
@@ -5,21 +7,15 @@ mod item;
 use std::error::Error;
 
 use i3::*;
-use tokio::io::stdin;
-use tokio::io::{
-    AsyncBufReadExt,
-    BufReader,
-};
+use tokio::io::{stdin, AsyncBufReadExt, BufReader};
 use tokio::sync::mpsc;
+use tokio::sync::mpsc::error::SendError;
 
-use crate::{
-    context::Context,
-    item::{
-        script::Script,
-        time::Time,
-        Item,
-    },
-};
+use crate::context::{BarItem, Context, SharedState};
+use crate::item::cpu::Cpu;
+use crate::item::script::Script;
+use crate::item::time::Time;
+use crate::item::Item;
 
 macro_rules! json {
     ($input:expr) => {
@@ -27,52 +23,21 @@ macro_rules! json {
     };
 }
 
+// TODO: experiment with signals and mutex (deadlocks)
 // TODO: central place for storing formatting options? (precision, GB vs G, padding, etc)
 // TODO: use an event loop to manage timers and refreshes for items, as well as stop blocking things
 // (like dbus) from blocking everything else
 //  - need a way for items to trigger updates, etc
 // TODO: config file? how to setup blocks?
-// TODO: tokio
-//  event loop is: IPC events from i3 (clicks, signals, etc)
-//  before event loop starts, need to spawn
-//      blocks will likely have a `loop {}` in them for their infinite updates
-//      should these be `spawn_blocking`?
-//      should these be `thread::spawn`? (how to share context?)
-//  TODO: I want click updates to come immediately, not have to wait for main thread - can i do this with tokio?
-//      it's multi-thread executor by default, so not a huge prob
-//      but also, can use `spawn_blocking` and other things to mitigate
-//      and to fully mitigate, can just spawn all blocks in separate threads
-// TODO: decision 1 - just use tokio for everything, and if things are slow, then spawn different threads
-
-pub struct Sender {
-    inner: tokio::sync::mpsc::Sender<(Item, usize)>,
-    index: usize,
-}
-
-impl Sender {
-    pub fn new(tx: tokio::sync::mpsc::Sender<(Item, usize)>, index: usize) -> Sender {
-        Sender { inner: tx, index }
-    }
-
-    pub async fn send(
-        &self,
-        item: Item,
-    ) -> Result<(), tokio::sync::mpsc::error::SendError<(Item, usize)>> {
-        self.inner.send((item, self.index)).await
-    }
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    // TODO: experiment with signal and mutex (deadlocks)
-
     println!("{}", json!(I3BarHeader::default()));
     println!("[");
 
     let items: Vec<Box<dyn BarItem>> = vec![
         Box::new(Item::new("text")),
         Box::new(Time::default()),
-        // Box::new(Cpu::default()),
+        Box::new(Cpu::default()),
         // Box::new(NetUsage::default()),
         // Box::new(Nic::default()),
         // Box::new(Battery::default()),
@@ -81,60 +46,79 @@ async fn main() -> Result<(), Box<dyn Error>> {
         // Box::new(Dunst::default()),
         // Box::new(Sensors::default()),
         Box::new(Script::default()),
+        // TODO: pasource pasink
     ];
     let bar_item_count = items.len();
 
     // shared context
-    let ctx = Context::new();
+    let state = SharedState::new();
+
+    // state for the bar (moved to bar_printer)
+    let mut bar: Vec<Item> = vec![Item::empty(); bar_item_count];
+    let mut bar_rx: Vec<mpsc::Sender<I3ClickEvent>> = Vec::with_capacity(bar_item_count);
+
+    // for each BarItem, spawn a new task to manage it
     let (tx, mut rx) = mpsc::channel(1);
-    for (i, bar_item) in items.into_iter().enumerate() {
-        let ctx = ctx.clone();
-        let sender = Sender::new(tx.clone(), i);
+    for (i, mut bar_item) in items.into_iter().enumerate() {
+        let (item_tx, item_rx) = mpsc::channel(32);
+        bar_rx.push(item_tx);
+        let ctx = Context::new(state.clone(), tx.clone(), item_rx, i);
         tokio::spawn(async move {
-            let fut = bar_item.start(ctx, sender);
+            let fut = bar_item.start(ctx);
             fut.await;
         });
     }
 
-    let bar_printer = tokio::spawn(async move {
-        let mut bar: Vec<Item> = vec![Item::empty(); bar_item_count];
-
-        // TODO: should this be in a thread of its own? what about incoming IPC events?
+    // task to manage updating the bar and printing it as JSON
+    // TODO: buffer these and only print a single line within a threshold (no point in super quick updates)
+    tokio::spawn(async move {
         while let Some((item, i)) = rx.recv().await {
-            bar[i] = item;
-            // TODO: should I print the entire bar on any update of a child?
-            //      does the bar protocol allow updates to specific bars?
+            // always override the bar item's `instance`, since we track that ourselves
+            bar[i] = item.instance(i.to_string());
             println!("{},", json!(bar));
         }
     });
 
+    // IPC click event loop from i3
     let s = BufReader::new(stdin());
     let mut lines = s.lines();
     while let Ok(Some(line)) = lines.next_line().await {
+        // skip opening array as part of the protocol
         if line == "[" {
             continue;
         }
+
+        macro_rules! cont {
+            ($($arg:tt)*) => {{
+                eprintln!($($arg)*);
+                continue;
+            }};
+        }
+
+        // parse click event (single line JSON)
         let click = serde_json::from_str::<I3ClickEvent>(&line).unwrap();
-        // TODO: send the click event to the right block
-        dbg!(click);
+
+        // parse bar item index from the "instance" property
+        let i = match click.instance.as_ref() {
+            Some(inst) => match inst.parse::<usize>() {
+                Ok(i) => i,
+                Err(e) => cont!("Failed to parse click instance: {}, error: {}", inst, e),
+            },
+            None => cont!(
+                "Received click event without instance, cannot route to item: {:?}",
+                click
+            ),
+        };
+
+        // send click event to its corresponding bar item
+        if let Err(SendError(click)) = bar_rx[i].send(click).await {
+            cont!(
+                "Received click event for block that is no longer receving: {:?}",
+                click
+            );
+        }
     }
 
-    // TODO: rather than this, open event loop for signals and click events
-    bar_printer.await.unwrap();
-    futures::future::pending::<()>().await;
-
+    eprintln!("STDIN was closed, exiting");
     Ok(())
-
-    // loop {
-    //     // TODO: different update times per item
-    //     // TODO: create context, which contains
-    //     //      sysinfo::System
-    //     //      dbus connection
-    //     //      ... any other shared things ...
-    //     // bar.update(&mut sys);
-
-    //     println!("{},", json!(bar));
-
-    //     std::thread::sleep(std::time::Duration::from_secs(1));
-    // }
 }
