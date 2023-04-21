@@ -1,9 +1,9 @@
-// pub mod battery;
+pub mod battery;
 pub mod cpu;
 // pub mod disk;
 // pub mod dunst;
 // pub mod mem;
-// pub mod net_usage;
+pub mod net_usage;
 // pub mod nic;
 pub mod script;
 // pub mod sensors;

@@ -1,16 +1,14 @@
-use std::{
-    error::Error,
-    fs::{
-        read_dir,
-        read_to_string,
-    },
-    path::PathBuf,
-};
+use std::error::Error;
+use std::path::PathBuf;
+use std::time::Duration;
 
-use super::{
-    Item,
-    ToItem,
-};
+use async_trait::async_trait;
+use futures::future;
+use tokio::fs::read_to_string;
+use tokio::time::sleep;
+
+use super::{BarItem, Item};
+use crate::context::Context;
 
 struct Bat(PathBuf);
 
@@ -19,10 +17,13 @@ impl Bat {
         self.0.file_name().unwrap().to_string_lossy().into_owned()
     }
 
-    fn get_charge(&self) -> Result<f32, Box<dyn Error>> {
+    async fn get_charge(&self) -> Result<f32, Box<dyn Error>> {
         macro_rules! get_usize {
             ($x: expr) => {
-                read_to_string(self.0.join($x))?.trim().parse::<usize>()? as f32
+                read_to_string(self.0.join($x))
+                    .await?
+                    .trim()
+                    .parse::<usize>()? as f32
             };
         }
 
@@ -31,13 +32,14 @@ impl Bat {
 }
 
 pub struct Battery {
+    interval: Duration,
     batteries: Vec<Bat>,
 }
 
 impl Default for Battery {
     fn default() -> Self {
         let battery_dir = PathBuf::from("/sys/class/power_supply");
-        let batteries = read_dir(&battery_dir)
+        let batteries = std::fs::read_dir(&battery_dir)
             .unwrap()
             .into_iter()
             .filter_map(|res| {
@@ -56,20 +58,32 @@ impl Default for Battery {
             })
             .collect::<Vec<_>>();
 
-        Battery { batteries }
+        Battery {
+            interval: Duration::from_secs(5),
+            batteries,
+        }
     }
 }
 
-impl ToItem for Battery {
-    fn to_item(&self) -> Item {
-        Item::new(
-            self.batteries
-                .iter()
-                .map(|b| format!("{}:{:.0}%", b.name(), b.get_charge().unwrap()))
-                .collect::<Vec<_>>()
-                .join(", "),
-        )
+impl Battery {
+    async fn map(bat: &Bat) -> String {
+        format!("{}:{:.0}%", bat.name(), bat.get_charge().await.unwrap())
     }
+}
 
-    fn update(&mut self, _sys: &mut sysinfo::System) {}
+#[async_trait]
+impl BarItem for Battery {
+    async fn start(&mut self, ctx: Context) {
+        loop {
+            ctx.update_item(Item::new(
+                future::join_all(self.batteries.iter().map(Battery::map))
+                    .await
+                    .join(", "),
+            ))
+            .await
+            .unwrap();
+
+            sleep(self.interval).await;
+        }
+    }
 }

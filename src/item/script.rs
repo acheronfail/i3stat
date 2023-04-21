@@ -39,6 +39,7 @@ impl BarItem for Script {
         // TODO: set interval and run multiple times based on interval
         // https://docs.rs/tokio/latest/tokio/time/fn.interval.html
         // TODO: potentially have scripts that are never run again? no click events, etc
+        // TODO: what happens if script execution is longer than the configured interval?
 
         let mut env = HashMap::new();
 

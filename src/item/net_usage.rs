@@ -1,47 +1,50 @@
-use bytesize::ByteSize;
-use sysinfo::{
-    NetworkExt,
-    NetworksExt,
-    System,
-    SystemExt,
-};
+use std::time::Duration;
 
-use super::{
-    Item,
-    ToItem,
-};
+use async_trait::async_trait;
+use bytesize::ByteSize;
+use sysinfo::{NetworkExt, NetworksExt, SystemExt};
+use tokio::time::sleep;
+
+use super::{BarItem, Item};
+use crate::context::Context;
 
 pub struct NetUsage {
-    bytes_down: u64,
-    bytes_up: u64,
+    interval: Duration,
 }
 
 impl Default for NetUsage {
     fn default() -> Self {
         NetUsage {
-            bytes_down: 0,
-            bytes_up: 0,
+            interval: Duration::from_secs(1),
         }
     }
 }
 
-impl ToItem for NetUsage {
-    fn to_item(&self) -> Item {
-        Item::new(format!(
-            "↓{} ↑{}",
-            ByteSize(self.bytes_down).to_string_as(true),
-            ByteSize(self.bytes_up).to_string_as(true)
-        ))
-    }
+#[async_trait]
+impl BarItem for NetUsage {
+    async fn start(&mut self, ctx: Context) {
+        loop {
+            let (up, down) = {
+                let mut state = ctx.state.lock().unwrap();
+                state.sys.refresh_networks();
+                state
+                    .sys
+                    .networks()
+                    .iter()
+                    .fold((0, 0), |(d, u), (_, net)| {
+                        (d + net.received(), u + net.transmitted())
+                    })
+            };
 
-    fn update(&mut self, sys: &mut System) {
-        sys.refresh_networks();
+            ctx.update_item(Item::new(format!(
+                "↓{} ↑{}",
+                ByteSize(down).to_string_as(true),
+                ByteSize(up).to_string_as(true)
+            )))
+            .await
+            .unwrap();
 
-        let (down, up) = sys.networks().iter().fold((0, 0), |(d, u), (_, net)| {
-            (d + net.received(), u + net.transmitted())
-        });
-
-        self.bytes_down = down;
-        self.bytes_up = up;
+            sleep(self.interval).await;
+        }
     }
 }

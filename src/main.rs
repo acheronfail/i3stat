@@ -12,7 +12,9 @@ use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::SendError;
 
 use crate::context::{BarItem, Context, SharedState};
+use crate::item::battery::Battery;
 use crate::item::cpu::Cpu;
+use crate::item::net_usage::NetUsage;
 use crate::item::script::Script;
 use crate::item::time::Time;
 use crate::item::Item;
@@ -38,9 +40,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         Box::new(Item::new("text")),
         Box::new(Time::default()),
         Box::new(Cpu::default()),
-        // Box::new(NetUsage::default()),
+        Box::new(NetUsage::default()),
         // Box::new(Nic::default()),
-        // Box::new(Battery::default()),
+        Box::new(Battery::default()),
         // Box::new(Mem::default()),
         // Box::new(Disk::default()),
         // Box::new(Dunst::default()),
