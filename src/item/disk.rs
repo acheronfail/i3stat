@@ -1,55 +1,63 @@
-use bytesize::ByteSize;
-use sysinfo::{
-    DiskExt,
-    System,
-    SystemExt,
-};
+use std::error::Error;
+use std::time::Duration;
 
-use super::{
-    Item,
-    ToItem,
-};
+use async_trait::async_trait;
+use bytesize::ByteSize;
+use sysinfo::{DiskExt, SystemExt};
+use tokio::time::sleep;
+
+use super::{BarItem, Item};
+use crate::context::Context;
 
 pub struct Disk {
-    inner: Vec<(String, u64)>,
+    interval: Duration,
 }
 
 impl Default for Disk {
     fn default() -> Self {
-        Disk { inner: vec![] }
+        Disk {
+            interval: Duration::from_secs(120),
+        }
     }
 }
 
-impl ToItem for Disk {
-    fn to_item(&self) -> Item {
-        Item::new(
-            self.inner
-                .iter()
-                .map(|(mount_point, available_bytes)| {
-                    format!(
-                        "{}: {}",
-                        mount_point,
-                        ByteSize(*available_bytes).to_string_as(true)
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join(", "),
-        )
-    }
+#[async_trait]
+impl BarItem for Disk {
+    async fn start(&mut self, ctx: Context) -> Result<(), Box<dyn Error>> {
+        loop {
+            let stats: Vec<(String, u64)> = {
+                let mut state = ctx.state.lock().unwrap();
+                // TODO: only refresh the disk we want, not all of them
+                state.sys.refresh_disks();
+                state
+                    .sys
+                    .disks()
+                    .iter()
+                    .map(|d| {
+                        (
+                            d.mount_point().to_string_lossy().into_owned(),
+                            d.available_space(),
+                        )
+                    })
+                    .collect()
+            };
 
-    fn update(&mut self, sys: &mut System) {
-        // sys.refresh_disks();
-        sys.refresh_disks_list();
+            ctx.update_item(Item::new(
+                stats
+                    .iter()
+                    .map(|(mount_point, available_bytes)| {
+                        format!(
+                            "{}: {}",
+                            mount_point,
+                            ByteSize(*available_bytes).to_string_as(true)
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            ))
+            .await?;
 
-        self.inner = sys
-            .disks()
-            .iter()
-            .map(|d| {
-                (
-                    d.mount_point().to_string_lossy().into_owned(),
-                    d.available_space(),
-                )
-            })
-            .collect();
+            sleep(self.interval).await;
+        }
     }
 }

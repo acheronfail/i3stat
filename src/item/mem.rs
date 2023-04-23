@@ -1,40 +1,43 @@
-use bytesize::ByteSize;
-use sysinfo::{
-    System,
-    SystemExt,
-};
+use std::error::Error;
+use std::time::Duration;
 
-use super::{
-    Item,
-    ToItem,
-};
+use async_trait::async_trait;
+use bytesize::ByteSize;
+use sysinfo::SystemExt;
+use tokio::time::sleep;
+
+use super::{BarItem, Item};
+use crate::context::Context;
 
 pub struct Mem {
-    available: u64,
-    used: u64,
-    total: u64,
+    interval: Duration,
 }
 
 impl Default for Mem {
     fn default() -> Self {
         Mem {
-            available: 0,
-            used: 0,
-            total: 0,
+            interval: Duration::from_secs(5),
         }
     }
 }
 
-impl ToItem for Mem {
-    fn to_item(&self) -> Item {
-        Item::new(format!("{}", ByteSize(self.available).to_string_as(false)))
-    }
+#[async_trait]
+impl BarItem for Mem {
+    async fn start(&mut self, ctx: Context) -> Result<(), Box<dyn Error>> {
+        loop {
+            let available = {
+                let mut state = ctx.state.lock().unwrap();
+                state.sys.refresh_memory();
+                state.sys.available_memory()
+            };
 
-    fn update(&mut self, sys: &mut System) {
-        sys.refresh_memory();
+            ctx.update_item(Item::new(format!(
+                "MEM: {}",
+                ByteSize(available).to_string_as(false)
+            )))
+            .await?;
 
-        self.available = sys.available_memory();
-        self.used = sys.used_memory();
-        self.total = sys.total_memory();
+            sleep(self.interval).await;
+        }
     }
 }

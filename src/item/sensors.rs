@@ -1,37 +1,52 @@
-use sysinfo::{
-    ComponentExt,
-    System,
-    SystemExt,
-};
+use std::error::Error;
+use std::time::Duration;
 
-use super::{
-    Item,
-    ToItem,
-};
+use async_trait::async_trait;
+use sysinfo::{ComponentExt, SystemExt};
+use tokio::time::sleep;
+
+use super::{BarItem, Item};
+use crate::context::Context;
 
 // TODO: store list of references to Components, so don't have to iter?
 pub struct Sensors {
-    temp: f32,
+    interval: Duration,
 }
 
 impl Default for Sensors {
     fn default() -> Self {
-        Sensors { temp: 0.0 }
+        Sensors {
+            interval: Duration::from_secs(2),
+        }
     }
 }
 
-impl ToItem for Sensors {
-    fn to_item(&self) -> Item {
-        Item::new(format!("TMP: {:.0}°C", self.temp))
-    }
+#[async_trait]
+impl BarItem for Sensors {
+    async fn start(&mut self, ctx: Context) -> Result<(), Box<dyn Error>> {
+        loop {
+            let temp = {
+                let mut state = ctx.state.lock().unwrap();
+                // TODO: support choosing particular one
+                state
+                    .sys
+                    .components_mut()
+                    .iter_mut()
+                    .find_map(|c| {
+                        if c.label() == "coretemp Package id 0" {
+                            c.refresh();
+                            Some(c.temperature())
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap()
+            };
 
-    fn update(&mut self, sys: &mut System) {
-        // TODO: support choosing particular one
-        for c in sys.components_mut() {
-            if c.label() == "coretemp Package id 0" {
-                c.refresh();
-                self.temp = c.temperature();
-            }
+            ctx.update_item(Item::new(format!("TMP: {:.0}°C", temp)))
+                .await?;
+
+            sleep(self.interval).await;
         }
     }
 }

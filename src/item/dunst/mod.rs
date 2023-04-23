@@ -1,114 +1,105 @@
 mod generated;
 
-use std::{
-    error::Error,
-    sync::{
-        atomic::{
-            AtomicBool,
-            Ordering,
-        },
-        Arc,
-    },
-    thread::JoinHandle,
-    time::Duration,
-};
+use std::error::Error;
+use std::sync::Arc;
+use std::time::Duration;
 
-use dbus::{
-    arg::Variant,
-    blocking::Connection,
-    channel::MatchingReceiver,
-    message::MatchRule,
-    Message,
-};
+use async_trait::async_trait;
+use dbus::arg::Variant;
+use dbus::channel::MatchingReceiver;
+use dbus::message::MatchRule;
+use dbus::nonblock::SyncConnection;
+use dbus::{nonblock, Message};
 use generated::OrgDunstprojectCmd0;
+use tokio::sync::mpsc;
 
-use super::{
-    Item,
-    ToItem,
-};
+use super::{BarItem, Item};
+use crate::context::Context;
 
-pub struct Dunst {
-    paused: Arc<AtomicBool>,
-}
+#[derive(Debug, Default)]
+pub struct Dunst;
 
 impl Dunst {
-    fn get_initial_paused() -> Result<bool, Box<dyn Error>> {
-        let c = Connection::new_session().unwrap();
-        let p = c.with_proxy(
-            "org.freedesktop.Notifications",
-            "/org/freedesktop/Notifications",
-            Duration::from_secs(5),
-        );
-
-        let paused = p.paused()?;
-        Ok(paused)
+    fn item(paused: bool) -> Item {
+        Item::new(if paused { " DnD " } else { "" })
     }
+}
 
-    fn start_monitor(item: &Dunst) -> Result<JoinHandle<()>, Box<dyn Error>> {
-        let b = item.paused.clone();
+#[async_trait]
+impl BarItem for Dunst {
+    async fn start(&mut self, ctx: Context) -> Result<(), Box<dyn Error>> {
+        let ctx = Arc::new(ctx);
 
-        // TODO: `unwrap()`s
-        let handle = std::thread::spawn(move || {
-            let c = Connection::new_session().unwrap();
-            let p = c.with_proxy(
-                "org.freedesktop.DBus",
-                "/org/freedesktop/DBus",
-                Duration::from_secs(5),
-            );
-
-            let m = MatchRule::new()
-                .with_type(dbus::MessageType::MethodCall)
-                .with_path("/org/freedesktop/Notifications")
-                .with_interface("org.freedesktop.DBus.Properties")
-                .with_member("Set");
-
-            // https://github.com/diwic/dbus-rs/blob/master/dbus/examples/monitor.rs
-            let _: () = p
-                .method_call(
-                    "org.freedesktop.DBus.Monitoring",
-                    "BecomeMonitor",
-                    (vec![m.match_str()], 0u32),
-                )
-                .unwrap();
-
-            c.start_receive(
-                m,
-                Box::new(move |msg: Message, _| {
-                    let (_, what, is_paused): (&str, &str, Variant<bool>) = msg.read3().unwrap();
-                    if what == "paused" {
-                        b.store(is_paused.0, Ordering::SeqCst);
-                    }
-
-                    // return true to continue monitoring
-                    true
-                }),
-            );
-
-            loop {
-                c.process(Duration::from_millis(1000)).unwrap();
-            }
+        // connect to dbus
+        let (resource, con) = dbus_tokio::connection::new_session_sync()?;
+        tokio::spawn(async move {
+            // TODO: handle, rather than panicking
+            panic!("Lost connecton to dbus: {}", resource.await);
         });
 
-        Ok(handle)
-    }
-}
+        // get initial paused state
+        {
+            let ctx = ctx.clone();
+            let con = con.clone();
+            tokio::spawn(async move {
+                let dunst_proxy = nonblock::Proxy::new(
+                    "org.freedesktop.Notifications",
+                    "/org/freedesktop/Notifications",
+                    Duration::from_secs(5),
+                    con,
+                );
+                let paused = dunst_proxy.paused().await.unwrap();
+                ctx.update_item(Dunst::item(paused)).await.unwrap();
+            });
+        }
 
-impl Default for Dunst {
-    fn default() -> Self {
-        let paused = Dunst::get_initial_paused().unwrap();
-        let paused = Arc::new(AtomicBool::new(paused));
-        let item = Dunst { paused };
-        Dunst::start_monitor(&item).unwrap();
-        item
-    }
-}
+        // setup a monitor to watch for changes
+        let rule = MatchRule::new()
+            .with_type(dbus::MessageType::MethodCall)
+            .with_path("/org/freedesktop/Notifications")
+            .with_interface("org.freedesktop.DBus.Properties")
+            .with_member("Set");
 
-impl ToItem for Dunst {
-    fn to_item(&self) -> Item {
-        if self.paused.load(Ordering::SeqCst) {
-            Item::new(" DnD ")
-        } else {
-            Item::new("")
+        let dbus_proxy = nonblock::Proxy::new(
+            "org.freedesktop.DBus",
+            "/org/freedesktop/DBus",
+            Duration::from_secs(5),
+            con.clone(),
+        );
+
+        // tell dbus we're going to become a monitor
+        // https://dbus.freedesktop.org/doc/dbus-specification.html#bus-messages-become-monitor
+        let _: () = dbus_proxy
+            .method_call(
+                "org.freedesktop.DBus.Monitoring",
+                "BecomeMonitor",
+                (vec![rule.match_str()], 0u32),
+            )
+            .await?;
+
+        // TODO: is there an "async" way to stream response from a monitor? (rather than this hack)
+        // See: https://github.com/diwic/dbus-rs/issues/431
+        let (tx, mut rx) = mpsc::channel(8);
+        con.start_receive(
+            rule.clone(),
+            Box::new(move |msg: Message, _con: &SyncConnection| {
+                let (_, what, is_paused): (&str, &str, Variant<bool>) = msg.read3().unwrap();
+                if what == "paused" {
+                    let tx = tx.clone();
+                    tokio::spawn(async move {
+                        tx.send(is_paused.0).await.unwrap();
+                    });
+                }
+
+                true
+            }),
+        );
+
+        loop {
+            match rx.recv().await {
+                Some(paused) => ctx.update_item(Dunst::item(paused)).await?,
+                None => {}
+            }
         }
     }
 }

@@ -1,13 +1,15 @@
 pub mod battery;
 pub mod cpu;
-// pub mod disk;
-// pub mod dunst;
-// pub mod mem;
+pub mod disk;
+pub mod dunst;
+pub mod mem;
 pub mod net_usage;
-// pub mod nic;
+pub mod nic;
 pub mod script;
-// pub mod sensors;
+pub mod sensors;
 pub mod time;
+
+use std::error::Error;
 
 use async_trait::async_trait;
 use hex_color::HexColor;
@@ -206,7 +208,8 @@ impl Item {
 
 #[async_trait]
 impl BarItem for Item {
-    async fn start(&mut self, ctx: Context) {
-        ctx.update_item(self.clone()).await.unwrap();
+    async fn start(&mut self, ctx: Context) -> Result<(), Box<dyn Error>> {
+        ctx.update_item(self.clone()).await?;
+        Ok(())
     }
 }

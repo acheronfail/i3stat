@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::error::Error;
 
 use async_trait::async_trait;
 use tokio::process::Command;
@@ -20,22 +21,21 @@ impl Default for Script {
 
 impl Script {
     // returns stdout
-    async fn run(&self, env: &HashMap<&str, String>) -> String {
+    async fn run(&self, env: &HashMap<&str, String>) -> Result<String, Box<dyn Error>> {
         let output = Command::new("sh")
             .arg("-c")
             .arg(&self.command)
             .envs(env)
             .output()
-            .await
-            .unwrap();
+            .await?;
 
-        String::from_utf8_lossy(&output.stdout).to_string()
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
     }
 }
 
 #[async_trait]
 impl BarItem for Script {
-    async fn start(&mut self, mut ctx: Context) {
+    async fn start(&mut self, mut ctx: Context) -> Result<(), Box<dyn Error>> {
         // TODO: set interval and run multiple times based on interval
         // https://docs.rs/tokio/latest/tokio/time/fn.interval.html
         // TODO: potentially have scripts that are never run again? no click events, etc
@@ -45,8 +45,8 @@ impl BarItem for Script {
 
         loop {
             // Initial run has no click environment variables
-            let stdout = self.run(&env).await;
-            ctx.update_item(Item::new(stdout)).await.unwrap();
+            let stdout = self.run(&env).await?;
+            ctx.update_item(Item::new(stdout)).await?;
 
             // On any click event, update the environment map and re-run the script
             if let Some(click) = ctx.wait_for_click().await {

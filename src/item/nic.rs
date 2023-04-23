@@ -1,15 +1,13 @@
-use std::net::{
-    SocketAddrV4,
-    SocketAddrV6,
-};
+use std::error::Error;
+use std::net::{SocketAddrV4, SocketAddrV6};
+use std::time::Duration;
 
+use async_trait::async_trait;
 use nix::ifaddrs::getifaddrs;
-use sysinfo::System;
+use tokio::time::sleep;
 
-use crate::item::{
-    Item,
-    ToItem,
-};
+use crate::context::Context;
+use crate::item::{BarItem, Item};
 
 #[derive(Debug)]
 struct Interface {
@@ -19,29 +17,19 @@ struct Interface {
 }
 
 pub struct Nic {
-    interfaces: Vec<Interface>,
+    interval: Duration,
 }
 
 impl Default for Nic {
     fn default() -> Self {
-        Nic { interfaces: vec![] }
+        Nic {
+            interval: Duration::from_secs(60),
+        }
     }
 }
 
-impl ToItem for Nic {
-    fn to_item(&self) -> Item {
-        Item::new(
-            self.interfaces
-                .iter()
-                .map(|i| format!("{}: {}", i.name, i.addr))
-                .collect::<Vec<_>>()
-                .join(", "),
-        )
-    }
-
-    fn update(&mut self, _: &mut System) {
-        // TODO: no need to update this every single time... (only if the network changed?)
-
+impl Nic {
+    fn get_interfaces() -> Vec<Interface> {
         let if_addrs = match getifaddrs() {
             Ok(if_addrs) => if_addrs,
             Err(_) => todo!(),
@@ -70,6 +58,27 @@ impl ToItem for Nic {
             });
         }
 
-        self.interfaces = interfaces;
+        interfaces
+    }
+}
+
+#[async_trait]
+impl BarItem for Nic {
+    async fn start(&mut self, ctx: Context) -> Result<(), Box<dyn Error>> {
+        loop {
+            let interfaces = Nic::get_interfaces();
+            ctx.update_item(Item::new(
+                interfaces
+                    .iter()
+                    .map(|i| format!("{}: {}", i.name, i.addr))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            ))
+            .await?;
+
+            // TODO: is there an agnostic/kernel way to detect network changes and _only then_ check for ips?
+            // if not, then: dbus? networkmanager?
+            sleep(self.interval).await;
+        }
     }
 }

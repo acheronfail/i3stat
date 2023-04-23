@@ -14,8 +14,13 @@ use tokio::sync::mpsc::error::SendError;
 use crate::context::{BarItem, Context, SharedState};
 use crate::item::battery::Battery;
 use crate::item::cpu::Cpu;
+use crate::item::disk::Disk;
+use crate::item::dunst::Dunst;
+use crate::item::mem::Mem;
 use crate::item::net_usage::NetUsage;
+use crate::item::nic::Nic;
 use crate::item::script::Script;
+use crate::item::sensors::Sensors;
 use crate::item::time::Time;
 use crate::item::Item;
 
@@ -41,12 +46,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
         Box::new(Time::default()),
         Box::new(Cpu::default()),
         Box::new(NetUsage::default()),
-        // Box::new(Nic::default()),
+        Box::new(Nic::default()),
         Box::new(Battery::default()),
-        // Box::new(Mem::default()),
-        // Box::new(Disk::default()),
-        // Box::new(Dunst::default()),
-        // Box::new(Sensors::default()),
+        Box::new(Mem::default()),
+        Box::new(Disk::default()),
+        Box::new(Dunst::default()),
+        Box::new(Sensors::default()),
         Box::new(Script::default()),
         // TODO: pasource pasink
     ];
@@ -57,17 +62,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // state for the bar (moved to bar_printer)
     let mut bar: Vec<Item> = vec![Item::empty(); bar_item_count];
-    let mut bar_rx: Vec<mpsc::Sender<I3ClickEvent>> = Vec::with_capacity(bar_item_count);
+    let mut bar_tx: Vec<mpsc::Sender<I3ClickEvent>> = Vec::with_capacity(bar_item_count);
 
     // for each BarItem, spawn a new task to manage it
     let (tx, mut rx) = mpsc::channel(1);
     for (i, mut bar_item) in items.into_iter().enumerate() {
         let (item_tx, item_rx) = mpsc::channel(32);
-        bar_rx.push(item_tx);
+        bar_tx.push(item_tx);
         let ctx = Context::new(state.clone(), tx.clone(), item_rx, i);
         tokio::spawn(async move {
             let fut = bar_item.start(ctx);
-            fut.await;
+            // TODO: handle if a bar item fails
+            fut.await.unwrap();
         });
     }
 
@@ -112,8 +118,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
             ),
         };
 
+        // if the channel fills up (the bar never reads click events), since this is a bounded channel
+        // sending the event would block forever, so just drop the event
+        let tx = &bar_tx[i];
+        if tx.capacity() == 0 {
+            cont!("Could not send click event to block, dropping event (channel is full)");
+        }
+
         // send click event to its corresponding bar item
-        if let Err(SendError(click)) = bar_rx[i].send(click).await {
+        if let Err(SendError(click)) = tx.send(click).await {
             cont!(
                 "Received click event for block that is no longer receving: {:?}",
                 click

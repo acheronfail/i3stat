@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -26,13 +27,13 @@ impl Default for Time {
 
 #[async_trait]
 impl BarItem for Time {
-    async fn start(&mut self, mut ctx: Context) {
+    async fn start(&mut self, mut ctx: Context) -> Result<(), Box<dyn Error>> {
         loop {
             let now = Local::now();
             let item = Item::new(now.format(&self.full_format).to_string())
                 .short_text(now.format(&self.short_format).to_string());
 
-            ctx.update_item(item).await.unwrap();
+            ctx.update_item(item).await?;
 
             // Wait for "refresh" time, OR if a click comes through, then update
             ctx.delay_with_click_handler(self.interval, |click| match click.button {

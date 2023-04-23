@@ -73,15 +73,14 @@ impl Battery {
 
 #[async_trait]
 impl BarItem for Battery {
-    async fn start(&mut self, ctx: Context) {
+    async fn start(&mut self, ctx: Context) -> Result<(), Box<dyn Error>> {
         loop {
             ctx.update_item(Item::new(
                 future::join_all(self.batteries.iter().map(Battery::map))
                     .await
                     .join(", "),
             ))
-            .await
-            .unwrap();
+            .await?;
 
             sleep(self.interval).await;
         }

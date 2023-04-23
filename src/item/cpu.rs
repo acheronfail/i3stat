@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -45,7 +46,7 @@ impl Cpu {
 
 #[async_trait]
 impl BarItem for Cpu {
-    async fn start(&mut self, mut ctx: Context) {
+    async fn start(&mut self, mut ctx: Context) -> Result<(), Box<dyn Error>> {
         loop {
             let pct = {
                 let mut state = ctx.state.lock().unwrap();

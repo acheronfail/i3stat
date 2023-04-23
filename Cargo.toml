@@ -11,6 +11,7 @@ async-trait = "0.1.68"
 bytesize = "1.2.0"
 chrono = "0.4.24"
 dbus = { version = "0.9.7", features = ["futures"] }
+dbus-tokio = "0.7.6"
 futures = "0.3.28"
 futures-core = "0.3.28"
 futures-util = "0.3.28"

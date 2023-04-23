@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -80,5 +81,6 @@ impl Context {
 
 #[async_trait]
 pub trait BarItem: Send {
-    async fn start(&mut self, ctx: Context);
+    // TODO: have this return a result
+    async fn start(&mut self, ctx: Context) -> Result<(), Box<dyn Error>>;
 }

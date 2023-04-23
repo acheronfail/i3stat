@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -22,7 +23,7 @@ impl Default for NetUsage {
 
 #[async_trait]
 impl BarItem for NetUsage {
-    async fn start(&mut self, ctx: Context) {
+    async fn start(&mut self, ctx: Context) -> Result<(), Box<dyn Error>> {
         loop {
             let (up, down) = {
                 let mut state = ctx.state.lock().unwrap();
@@ -41,8 +42,7 @@ impl BarItem for NetUsage {
                 ByteSize(down).to_string_as(true),
                 ByteSize(up).to_string_as(true)
             )))
-            .await
-            .unwrap();
+            .await?;
 
             sleep(self.interval).await;
         }
