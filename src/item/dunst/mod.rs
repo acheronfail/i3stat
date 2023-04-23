@@ -38,20 +38,14 @@ impl BarItem for Dunst {
         });
 
         // get initial paused state
-        {
-            let ctx = ctx.clone();
-            let con = con.clone();
-            tokio::spawn(async move {
-                let dunst_proxy = nonblock::Proxy::new(
-                    "org.freedesktop.Notifications",
-                    "/org/freedesktop/Notifications",
-                    Duration::from_secs(5),
-                    con,
-                );
-                let paused = dunst_proxy.paused().await.unwrap();
-                ctx.update_item(Dunst::item(paused)).await.unwrap();
-            });
-        }
+        let dunst_proxy = nonblock::Proxy::new(
+            "org.freedesktop.Notifications",
+            "/org/freedesktop/Notifications",
+            Duration::from_secs(5),
+            con.clone(),
+        );
+        let paused = dunst_proxy.paused().await?;
+        ctx.update_item(Dunst::item(paused)).await?;
 
         // setup a monitor to watch for changes
         let rule = MatchRule::new()

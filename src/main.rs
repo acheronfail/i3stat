@@ -6,12 +6,12 @@ mod item;
 
 use std::error::Error;
 
-use i3::*;
 use tokio::io::{stdin, AsyncBufReadExt, BufReader};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::SendError;
 
 use crate::context::{BarItem, Context, SharedState};
+use crate::i3::{I3BarHeader, I3ClickEvent};
 use crate::item::battery::Battery;
 use crate::item::cpu::Cpu;
 use crate::item::disk::Disk;
@@ -32,9 +32,6 @@ macro_rules! json {
 
 // TODO: experiment with signals and mutex (deadlocks)
 // TODO: central place for storing formatting options? (precision, GB vs G, padding, etc)
-// TODO: use an event loop to manage timers and refreshes for items, as well as stop blocking things
-// (like dbus) from blocking everything else
-//  - need a way for items to trigger updates, etc
 // TODO: config file? how to setup blocks?
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {

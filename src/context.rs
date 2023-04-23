@@ -4,7 +4,8 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use sysinfo::{System, SystemExt};
-use tokio::sync::mpsc::error::TryRecvError;
+use tokio::sync::mpsc::error::{SendError, TryRecvError};
+use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::time::sleep;
 
 use crate::i3::I3ClickEvent;
@@ -12,7 +13,7 @@ use crate::item::Item;
 
 pub struct SharedState {
     pub sys: System,
-    // TODO: dbus
+    // TODO: dbus? due to its limitations, I could setup a list of `MatchRule`s and use a channel to send them out?
 }
 
 impl SharedState {
@@ -28,16 +29,16 @@ pub type State = Arc<Mutex<SharedState>>;
 
 pub struct Context {
     pub state: State,
-    tx_item: tokio::sync::mpsc::Sender<(Item, usize)>,
-    rx_event: tokio::sync::mpsc::Receiver<I3ClickEvent>,
+    tx_item: Sender<(Item, usize)>,
+    rx_event: Receiver<I3ClickEvent>,
     index: usize,
 }
 
 impl Context {
     pub fn new(
         state: State,
-        tx_item: tokio::sync::mpsc::Sender<(Item, usize)>,
-        rx_event: tokio::sync::mpsc::Receiver<I3ClickEvent>,
+        tx_item: Sender<(Item, usize)>,
+        rx_event: Receiver<I3ClickEvent>,
         index: usize,
     ) -> Context {
         Context {
@@ -48,10 +49,7 @@ impl Context {
         }
     }
 
-    pub async fn update_item(
-        &self,
-        item: Item,
-    ) -> Result<(), tokio::sync::mpsc::error::SendError<(Item, usize)>> {
+    pub async fn update_item(&self, item: Item) -> Result<(), SendError<(Item, usize)>> {
         self.tx_item.send((item, self.index)).await
     }
 
@@ -81,6 +79,5 @@ impl Context {
 
 #[async_trait]
 pub trait BarItem: Send {
-    // TODO: have this return a result
     async fn start(&mut self, ctx: Context) -> Result<(), Box<dyn Error>>;
 }
