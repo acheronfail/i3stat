@@ -4,7 +4,7 @@ use std::error::Error;
 use async_trait::async_trait;
 use tokio::process::Command;
 
-use super::{BarItem, Item};
+use crate::{BarItem, Item};
 use crate::context::Context;
 
 pub struct Script {

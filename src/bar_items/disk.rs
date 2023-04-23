@@ -6,7 +6,7 @@ use bytesize::ByteSize;
 use sysinfo::{DiskExt, SystemExt};
 use tokio::time::sleep;
 
-use super::{BarItem, Item};
+use crate::{BarItem, Item};
 use crate::context::Context;
 
 pub struct Disk {

@@ -7,7 +7,7 @@ use nix::ifaddrs::getifaddrs;
 use tokio::time::sleep;
 
 use crate::context::Context;
-use crate::item::{BarItem, Item};
+use crate::{BarItem, Item};
 
 #[derive(Debug)]
 struct Interface {

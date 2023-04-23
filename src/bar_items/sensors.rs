@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use sysinfo::{ComponentExt, SystemExt};
 use tokio::time::sleep;
 
-use super::{BarItem, Item};
+use crate::{BarItem, Item};
 use crate::context::Context;
 
 // TODO: store list of references to Components, so don't have to iter?

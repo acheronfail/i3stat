@@ -13,8 +13,8 @@ use dbus::{nonblock, Message};
 use generated::OrgDunstprojectCmd0;
 use tokio::sync::mpsc;
 
-use super::{BarItem, Item};
 use crate::context::Context;
+use crate::{BarItem, Item};
 
 #[derive(Debug, Default)]
 pub struct Dunst;

@@ -2,7 +2,12 @@
 
 mod context;
 mod i3;
-mod item;
+pub mod item;
+mod bar_items {
+    automod::dir!(pub "src/bar_items");
+    // TODO: https://github.com/dtolnay/automod/issues/15
+    pub mod dunst;
+}
 
 use std::error::Error;
 
@@ -10,18 +15,18 @@ use tokio::io::{stdin, AsyncBufReadExt, BufReader};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::SendError;
 
+use crate::bar_items::battery::Battery;
+use crate::bar_items::cpu::Cpu;
+use crate::bar_items::disk::Disk;
+use crate::bar_items::dunst::Dunst;
+use crate::bar_items::mem::Mem;
+use crate::bar_items::net_usage::NetUsage;
+use crate::bar_items::nic::Nic;
+use crate::bar_items::script::Script;
+use crate::bar_items::sensors::Sensors;
+use crate::bar_items::time::Time;
 use crate::context::{BarItem, Context, SharedState};
 use crate::i3::{I3BarHeader, I3ClickEvent};
-use crate::item::battery::Battery;
-use crate::item::cpu::Cpu;
-use crate::item::disk::Disk;
-use crate::item::dunst::Dunst;
-use crate::item::mem::Mem;
-use crate::item::net_usage::NetUsage;
-use crate::item::nic::Nic;
-use crate::item::script::Script;
-use crate::item::sensors::Sensors;
-use crate::item::time::Time;
 use crate::item::Item;
 
 macro_rules! json {

@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 async-stream = "0.3.5"
 async-trait = "0.1.68"
+automod = "1.0.8"
 bytesize = "1.2.0"
 chrono = "0.4.24"
 dbus = { version = "0.9.7", features = ["futures"] }

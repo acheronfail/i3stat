@@ -7,7 +7,7 @@ use futures::future;
 use tokio::fs::read_to_string;
 use tokio::time::sleep;
 
-use super::{BarItem, Item};
+use crate::{BarItem, Item};
 use crate::context::Context;
 
 struct Bat(PathBuf);

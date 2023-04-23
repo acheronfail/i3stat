@@ -4,7 +4,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use chrono::prelude::*;
 
-use super::Item;
+use crate::Item;
 use crate::context::Context;
 use crate::i3::I3Button;
 use crate::BarItem;

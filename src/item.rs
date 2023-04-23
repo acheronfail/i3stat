@@ -1,14 +1,3 @@
-pub mod battery;
-pub mod cpu;
-pub mod disk;
-pub mod dunst;
-pub mod mem;
-pub mod net_usage;
-pub mod nic;
-pub mod script;
-pub mod sensors;
-pub mod time;
-
 use std::error::Error;
 
 use async_trait::async_trait;
@@ -19,7 +8,6 @@ use crate::context::{BarItem, Context};
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "lowercase")]
-#[allow(dead_code)]
 pub enum Align {
     Center,
     Right,
@@ -28,7 +16,6 @@ pub enum Align {
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "lowercase")]
-#[allow(dead_code)]
 pub enum Markup {
     None,
     Pango,
@@ -45,7 +32,6 @@ impl Markup {
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(untagged, rename_all = "lowercase")]
-#[allow(dead_code)]
 pub enum MinWidth {
     Pixels(usize),
     String(String),
@@ -97,7 +83,6 @@ pub struct Item {
     pub markup: Option<Markup>,
 }
 
-#[allow(dead_code)]
 impl Item {
     pub fn new(full_text: impl AsRef<str>) -> Item {
         Item {

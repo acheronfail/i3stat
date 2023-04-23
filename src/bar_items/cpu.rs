@@ -4,7 +4,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use sysinfo::{CpuExt, CpuRefreshKind, SystemExt};
 
-use super::Item;
+use crate::Item;
 use crate::context::{BarItem, Context};
 
 pub struct Cpu {

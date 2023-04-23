@@ -6,7 +6,7 @@ use bytesize::ByteSize;
 use sysinfo::{NetworkExt, NetworksExt, SystemExt};
 use tokio::time::sleep;
 
-use super::{BarItem, Item};
+use crate::{BarItem, Item};
 use crate::context::Context;
 
 pub struct NetUsage {
