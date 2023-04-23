@@ -1,8 +1,7 @@
 #![feature(result_option_inspect)]
 
 mod context;
-mod i3;
-pub mod item;
+pub mod i3;
 mod bar_items {
     automod::dir!(pub "src/bar_items");
     // TODO: https://github.com/dtolnay/automod/issues/15
@@ -25,9 +24,9 @@ use crate::bar_items::nic::Nic;
 use crate::bar_items::script::Script;
 use crate::bar_items::sensors::Sensors;
 use crate::bar_items::time::Time;
-use crate::context::{BarItem, Context, SharedState};
-use crate::i3::{I3BarHeader, I3ClickEvent};
-use crate::item::Item;
+use crate::context::{Context, SharedState};
+use crate::i3::click::I3ClickEvent;
+use crate::i3::header::I3BarHeader;
 
 macro_rules! json {
     ($input:expr) => {
@@ -43,8 +42,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("{}", json!(I3BarHeader::default()));
     println!("[");
 
-    let items: Vec<Box<dyn BarItem>> = vec![
-        Box::new(Item::new("text")),
+    let items: Vec<Box<dyn context::BarItem>> = vec![
+        Box::new(i3::I3Item::new("text")),
         Box::new(Time::default()),
         Box::new(Cpu::default()),
         Box::new(NetUsage::default()),
@@ -63,7 +62,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let state = SharedState::new();
 
     // state for the bar (moved to bar_printer)
-    let mut bar: Vec<Item> = vec![Item::empty(); bar_item_count];
+    let mut bar: Vec<i3::I3Item> = vec![i3::I3Item::empty(); bar_item_count];
     let mut bar_tx: Vec<mpsc::Sender<I3ClickEvent>> = Vec::with_capacity(bar_item_count);
 
     // for each BarItem, spawn a new task to manage it

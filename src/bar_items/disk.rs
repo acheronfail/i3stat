@@ -6,7 +6,8 @@ use bytesize::ByteSize;
 use sysinfo::{DiskExt, SystemExt};
 use tokio::time::sleep;
 
-use crate::{BarItem, Item};
+use crate::context::BarItem;
+use crate::i3::I3Item;
 use crate::context::Context;
 
 pub struct Disk {
@@ -42,7 +43,7 @@ impl BarItem for Disk {
                     .collect()
             };
 
-            ctx.update_item(Item::new(
+            ctx.update_item(I3Item::new(
                 stats
                     .iter()
                     .map(|(mount_point, available_bytes)| {

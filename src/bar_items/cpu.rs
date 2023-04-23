@@ -4,7 +4,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use sysinfo::{CpuExt, CpuRefreshKind, SystemExt};
 
-use crate::Item;
+use crate::i3::I3Item;
 use crate::context::{BarItem, Context};
 
 pub struct Cpu {
@@ -58,7 +58,7 @@ impl BarItem for Cpu {
                 state.sys.global_cpu_info().cpu_usage()
             };
 
-            ctx.update_item(Item::new(self.get_full_text(pct)))
+            ctx.update_item(I3Item::new(self.get_full_text(pct)))
                 .await
                 .unwrap();
 

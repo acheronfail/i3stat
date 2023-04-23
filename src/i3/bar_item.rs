@@ -8,7 +8,7 @@ use crate::context::{BarItem, Context};
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "lowercase")]
-pub enum Align {
+pub enum I3Align {
     Center,
     Right,
     Left,
@@ -16,29 +16,29 @@ pub enum Align {
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "lowercase")]
-pub enum Markup {
+pub enum I3Markup {
     None,
     Pango,
 }
 
-impl Markup {
+impl I3Markup {
     pub fn is_none(opt: &Option<Self>) -> bool {
         match opt {
             None => true,
-            Some(inner) => matches!(inner, Markup::None),
+            Some(inner) => matches!(inner, I3Markup::None),
         }
     }
 }
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(untagged, rename_all = "lowercase")]
-pub enum MinWidth {
+pub enum I3MinWidth {
     Pixels(usize),
     String(String),
 }
 
 #[derive(Debug, Serialize, Clone)]
-pub struct Item {
+pub struct I3Item {
     pub full_text: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub short_text: Option<String>,
@@ -65,9 +65,9 @@ pub struct Item {
     pub border_left_px: Option<usize>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub min_width: Option<MinWidth>,
+    pub min_width: Option<I3MinWidth>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub align: Option<Align>,
+    pub align: Option<I3Align>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub urgent: Option<bool>,
@@ -79,13 +79,13 @@ pub struct Item {
     )]
     pub separator_block_width_px: Option<usize>,
 
-    #[serde(skip_serializing_if = "Markup::is_none")]
-    pub markup: Option<Markup>,
+    #[serde(skip_serializing_if = "I3Markup::is_none")]
+    pub markup: Option<I3Markup>,
 }
 
-impl Item {
-    pub fn new(full_text: impl AsRef<str>) -> Item {
-        Item {
+impl I3Item {
+    pub fn new(full_text: impl AsRef<str>) -> I3Item {
+        I3Item {
             full_text: full_text.as_ref().into(),
             short_text: None,
             name: None,
@@ -106,8 +106,8 @@ impl Item {
         }
     }
 
-    pub fn empty() -> Item {
-        Item::new("")
+    pub fn empty() -> I3Item {
+        I3Item::new("")
     }
 
     pub fn short_text(mut self, short_text: impl AsRef<str>) -> Self {
@@ -150,12 +150,12 @@ impl Item {
         self
     }
 
-    pub fn min_width(mut self, min_width: MinWidth) -> Self {
+    pub fn min_width(mut self, min_width: I3MinWidth) -> Self {
         self.min_width = Some(min_width);
         self
     }
 
-    pub fn align(mut self, align: Align) -> Self {
+    pub fn align(mut self, align: I3Align) -> Self {
         self.align = Some(align);
         self
     }
@@ -185,14 +185,14 @@ impl Item {
         self
     }
 
-    pub fn markup(mut self, markup: Markup) -> Self {
+    pub fn markup(mut self, markup: I3Markup) -> Self {
         self.markup = Some(markup);
         self
     }
 }
 
 #[async_trait]
-impl BarItem for Item {
+impl BarItem for I3Item {
     async fn start(&mut self, ctx: Context) -> Result<(), Box<dyn Error>> {
         ctx.update_item(self.clone()).await?;
         Ok(())

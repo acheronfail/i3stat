@@ -7,7 +7,8 @@ use nix::ifaddrs::getifaddrs;
 use tokio::time::sleep;
 
 use crate::context::Context;
-use crate::{BarItem, Item};
+use crate::context::BarItem;
+use crate::i3::I3Item;
 
 #[derive(Debug)]
 struct Interface {
@@ -67,7 +68,7 @@ impl BarItem for Nic {
     async fn start(&mut self, ctx: Context) -> Result<(), Box<dyn Error>> {
         loop {
             let interfaces = Nic::get_interfaces();
-            ctx.update_item(Item::new(
+            ctx.update_item(I3Item::new(
                 interfaces
                     .iter()
                     .map(|i| format!("{}: {}", i.name, i.addr))

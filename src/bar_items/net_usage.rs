@@ -6,8 +6,9 @@ use bytesize::ByteSize;
 use sysinfo::{NetworkExt, NetworksExt, SystemExt};
 use tokio::time::sleep;
 
-use crate::{BarItem, Item};
 use crate::context::Context;
+use crate::i3::I3Item;
+use crate::context::BarItem;
 
 pub struct NetUsage {
     interval: Duration,
@@ -37,7 +38,7 @@ impl BarItem for NetUsage {
                     })
             };
 
-            ctx.update_item(Item::new(format!(
+            ctx.update_item(I3Item::new(format!(
                 "↓{} ↑{}",
                 ByteSize(down).to_string_as(true),
                 ByteSize(up).to_string_as(true)

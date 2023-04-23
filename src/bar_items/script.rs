@@ -4,7 +4,8 @@ use std::error::Error;
 use async_trait::async_trait;
 use tokio::process::Command;
 
-use crate::{BarItem, Item};
+use crate::context::BarItem;
+use crate::i3::I3Item;
 use crate::context::Context;
 
 pub struct Script {
@@ -46,7 +47,7 @@ impl BarItem for Script {
         loop {
             // Initial run has no click environment variables
             let stdout = self.run(&env).await?;
-            ctx.update_item(Item::new(stdout)).await?;
+            ctx.update_item(I3Item::new(stdout)).await?;
 
             // On any click event, update the environment map and re-run the script
             if let Some(click) = ctx.wait_for_click().await {

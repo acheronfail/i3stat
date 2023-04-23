@@ -8,8 +8,8 @@ use tokio::sync::mpsc::error::{SendError, TryRecvError};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::time::sleep;
 
-use crate::i3::I3ClickEvent;
-use crate::item::Item;
+use crate::i3::bar_item::I3Item;
+use crate::i3::click::I3ClickEvent;
 
 pub struct SharedState {
     pub sys: System,
@@ -29,7 +29,7 @@ pub type State = Arc<Mutex<SharedState>>;
 
 pub struct Context {
     pub state: State,
-    tx_item: Sender<(Item, usize)>,
+    tx_item: Sender<(I3Item, usize)>,
     rx_event: Receiver<I3ClickEvent>,
     index: usize,
 }
@@ -37,7 +37,7 @@ pub struct Context {
 impl Context {
     pub fn new(
         state: State,
-        tx_item: Sender<(Item, usize)>,
+        tx_item: Sender<(I3Item, usize)>,
         rx_event: Receiver<I3ClickEvent>,
         index: usize,
     ) -> Context {
@@ -49,7 +49,7 @@ impl Context {
         }
     }
 
-    pub async fn update_item(&self, item: Item) -> Result<(), SendError<(Item, usize)>> {
+    pub async fn update_item(&self, item: I3Item) -> Result<(), SendError<(I3Item, usize)>> {
         self.tx_item.send((item, self.index)).await
     }
 

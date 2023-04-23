@@ -6,7 +6,8 @@ use bytesize::ByteSize;
 use sysinfo::SystemExt;
 use tokio::time::sleep;
 
-use crate::{BarItem, Item};
+use crate::context::BarItem;
+use crate::i3::I3Item;
 use crate::context::Context;
 
 pub struct Mem {
@@ -31,7 +32,7 @@ impl BarItem for Mem {
                 state.sys.available_memory()
             };
 
-            ctx.update_item(Item::new(format!(
+            ctx.update_item(I3Item::new(format!(
                 "MEM: {}",
                 ByteSize(available).to_string_as(false)
             )))

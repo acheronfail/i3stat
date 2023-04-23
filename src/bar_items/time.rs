@@ -4,10 +4,9 @@ use std::time::Duration;
 use async_trait::async_trait;
 use chrono::prelude::*;
 
-use crate::Item;
 use crate::context::Context;
-use crate::i3::I3Button;
-use crate::BarItem;
+use crate::i3::{I3Button, I3Item};
+use crate::context::BarItem;
 
 pub struct Time {
     interval: Duration,
@@ -30,7 +29,7 @@ impl BarItem for Time {
     async fn start(&mut self, mut ctx: Context) -> Result<(), Box<dyn Error>> {
         loop {
             let now = Local::now();
-            let item = Item::new(now.format(&self.full_format).to_string())
+            let item = I3Item::new(now.format(&self.full_format).to_string())
                 .short_text(now.format(&self.short_format).to_string());
 
             ctx.update_item(item).await?;

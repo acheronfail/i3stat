@@ -7,8 +7,9 @@ use futures::future;
 use tokio::fs::read_to_string;
 use tokio::time::sleep;
 
-use crate::{BarItem, Item};
 use crate::context::Context;
+use crate::i3::I3Item;
+use crate::context::BarItem;
 
 struct Bat(PathBuf);
 
@@ -75,7 +76,7 @@ impl Battery {
 impl BarItem for Battery {
     async fn start(&mut self, ctx: Context) -> Result<(), Box<dyn Error>> {
         loop {
-            ctx.update_item(Item::new(
+            ctx.update_item(I3Item::new(
                 future::join_all(self.batteries.iter().map(Battery::map))
                     .await
                     .join(", "),

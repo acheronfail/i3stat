@@ -13,15 +13,15 @@ use dbus::{nonblock, Message};
 use generated::OrgDunstprojectCmd0;
 use tokio::sync::mpsc;
 
-use crate::context::Context;
-use crate::{BarItem, Item};
+use crate::context::{BarItem, Context};
+use crate::i3::I3Item;
 
 #[derive(Debug, Default)]
 pub struct Dunst;
 
 impl Dunst {
-    fn item(paused: bool) -> Item {
-        Item::new(if paused { " DnD " } else { "" })
+    fn item(paused: bool) -> I3Item {
+        I3Item::new(if paused { " DnD " } else { "" })
     }
 }
 

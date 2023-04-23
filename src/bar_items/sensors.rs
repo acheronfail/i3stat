@@ -5,8 +5,9 @@ use async_trait::async_trait;
 use sysinfo::{ComponentExt, SystemExt};
 use tokio::time::sleep;
 
-use crate::{BarItem, Item};
 use crate::context::Context;
+use crate::i3::I3Item;
+use crate::context::BarItem;
 
 // TODO: store list of references to Components, so don't have to iter?
 pub struct Sensors {
@@ -43,7 +44,7 @@ impl BarItem for Sensors {
                     .unwrap()
             };
 
-            ctx.update_item(Item::new(format!("TMP: {:.0}°C", temp)))
+            ctx.update_item(I3Item::new(format!("TMP: {:.0}°C", temp)))
                 .await?;
 
             sleep(self.interval).await;
