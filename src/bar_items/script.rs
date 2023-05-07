@@ -4,9 +4,8 @@ use std::error::Error;
 use async_trait::async_trait;
 use tokio::process::Command;
 
-use crate::context::BarItem;
+use crate::context::{BarItem, Context};
 use crate::i3::I3Item;
-use crate::context::Context;
 
 pub struct Script {
     command: String,
@@ -34,9 +33,9 @@ impl Script {
     }
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl BarItem for Script {
-    async fn start(&mut self, mut ctx: Context) -> Result<(), Box<dyn Error>> {
+    async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
         // TODO: set interval and run multiple times based on interval
         // https://docs.rs/tokio/latest/tokio/time/fn.interval.html
         // TODO: potentially have scripts that are never run again? no click events, etc

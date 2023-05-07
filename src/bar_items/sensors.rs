@@ -5,9 +5,8 @@ use async_trait::async_trait;
 use sysinfo::{ComponentExt, SystemExt};
 use tokio::time::sleep;
 
-use crate::context::Context;
+use crate::context::{BarItem, Context};
 use crate::i3::I3Item;
-use crate::context::BarItem;
 
 // TODO: store list of references to Components, so don't have to iter?
 pub struct Sensors {
@@ -22,9 +21,9 @@ impl Default for Sensors {
     }
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl BarItem for Sensors {
-    async fn start(&mut self, ctx: Context) -> Result<(), Box<dyn Error>> {
+    async fn start(self: Box<Self>, ctx: Context) -> Result<(), Box<dyn Error>> {
         loop {
             let temp = {
                 let mut state = ctx.state.lock().unwrap();

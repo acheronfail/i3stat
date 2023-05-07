@@ -191,10 +191,10 @@ impl I3Item {
     }
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl BarItem for I3Item {
-    async fn start(&mut self, ctx: Context) -> Result<(), Box<dyn Error>> {
-        ctx.update_item(self.clone()).await?;
+    async fn start(self: Box<Self>, ctx: Context) -> Result<(), Box<dyn Error>> {
+        ctx.update_item(self.as_ref().clone()).await?;
         Ok(())
     }
 }

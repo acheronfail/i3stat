@@ -25,9 +25,9 @@ impl Dunst {
     }
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl BarItem for Dunst {
-    async fn start(&mut self, ctx: Context) -> Result<(), Box<dyn Error>> {
+    async fn start(self: Box<Self>, ctx: Context) -> Result<(), Box<dyn Error>> {
         let ctx = Arc::new(ctx);
 
         // connect to dbus

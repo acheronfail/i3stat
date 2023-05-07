@@ -4,8 +4,8 @@ use std::time::Duration;
 use async_trait::async_trait;
 use sysinfo::{CpuExt, CpuRefreshKind, SystemExt};
 
-use crate::i3::I3Item;
 use crate::context::{BarItem, Context};
+use crate::i3::I3Item;
 
 pub struct Cpu {
     precision: usize,
@@ -44,9 +44,9 @@ impl Cpu {
     }
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl BarItem for Cpu {
-    async fn start(&mut self, mut ctx: Context) -> Result<(), Box<dyn Error>> {
+    async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
         loop {
             let pct = {
                 let mut state = ctx.state.lock().unwrap();

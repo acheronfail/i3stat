@@ -6,9 +6,8 @@ use bytesize::ByteSize;
 use sysinfo::{NetworkExt, NetworksExt, SystemExt};
 use tokio::time::sleep;
 
-use crate::context::Context;
+use crate::context::{BarItem, Context};
 use crate::i3::I3Item;
-use crate::context::BarItem;
 
 pub struct NetUsage {
     interval: Duration,
@@ -22,9 +21,9 @@ impl Default for NetUsage {
     }
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl BarItem for NetUsage {
-    async fn start(&mut self, ctx: Context) -> Result<(), Box<dyn Error>> {
+    async fn start(self: Box<Self>, ctx: Context) -> Result<(), Box<dyn Error>> {
         loop {
             let (up, down) = {
                 let mut state = ctx.state.lock().unwrap();

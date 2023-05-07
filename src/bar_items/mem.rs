@@ -6,9 +6,8 @@ use bytesize::ByteSize;
 use sysinfo::SystemExt;
 use tokio::time::sleep;
 
-use crate::context::BarItem;
+use crate::context::{BarItem, Context};
 use crate::i3::I3Item;
-use crate::context::Context;
 
 pub struct Mem {
     interval: Duration,
@@ -22,9 +21,9 @@ impl Default for Mem {
     }
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl BarItem for Mem {
-    async fn start(&mut self, ctx: Context) -> Result<(), Box<dyn Error>> {
+    async fn start(self: Box<Self>, ctx: Context) -> Result<(), Box<dyn Error>> {
         loop {
             let available = {
                 let mut state = ctx.state.lock().unwrap();

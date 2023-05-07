@@ -6,8 +6,7 @@ use async_trait::async_trait;
 use nix::ifaddrs::getifaddrs;
 use tokio::time::sleep;
 
-use crate::context::Context;
-use crate::context::BarItem;
+use crate::context::{BarItem, Context};
 use crate::i3::I3Item;
 
 #[derive(Debug)]
@@ -63,9 +62,9 @@ impl Nic {
     }
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl BarItem for Nic {
-    async fn start(&mut self, ctx: Context) -> Result<(), Box<dyn Error>> {
+    async fn start(self: Box<Self>, ctx: Context) -> Result<(), Box<dyn Error>> {
         loop {
             let interfaces = Nic::get_interfaces();
             ctx.update_item(I3Item::new(

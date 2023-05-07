@@ -6,9 +6,8 @@ use bytesize::ByteSize;
 use sysinfo::{DiskExt, SystemExt};
 use tokio::time::sleep;
 
-use crate::context::BarItem;
+use crate::context::{BarItem, Context};
 use crate::i3::I3Item;
-use crate::context::Context;
 
 pub struct Disk {
     interval: Duration,
@@ -22,9 +21,9 @@ impl Default for Disk {
     }
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl BarItem for Disk {
-    async fn start(&mut self, ctx: Context) -> Result<(), Box<dyn Error>> {
+    async fn start(self: Box<Self>, ctx: Context) -> Result<(), Box<dyn Error>> {
         loop {
             let stats: Vec<(String, u64)> = {
                 let mut state = ctx.state.lock().unwrap();

@@ -50,6 +50,7 @@ impl Context {
     }
 
     pub async fn update_item(&self, item: I3Item) -> Result<(), SendError<(I3Item, usize)>> {
+        // TODO: check for diff from last? no need to update if the same item is sent multiple times
         self.tx_item.send((item, self.index)).await
     }
 
@@ -75,9 +76,15 @@ impl Context {
             _ = sleep(duration) => {}
         }
     }
+
+    pub fn raw_click_rx(&mut self) -> &mut Receiver<I3ClickEvent> {
+        &mut self.rx_event
+    }
 }
 
-#[async_trait]
+// TODO: it might be nice to optionally require `Send` so we can have a multi-threaded runtime
+// right now it's not, since the PulseAudio item can't be `Send`
+#[async_trait(?Send)]
 pub trait BarItem: Send {
-    async fn start(&mut self, ctx: Context) -> Result<(), Box<dyn Error>>;
+    async fn start(self: Box<Self>, ctx: Context) -> Result<(), Box<dyn Error>>;
 }
