@@ -2,6 +2,8 @@ use tokio::process::Command;
 
 pub async fn exec(cmd: impl AsRef<str>) {
     let cmd = cmd.as_ref();
+    dbg!(cmd); // TODO: proper logging
+
     let parts = cmd.split_whitespace().collect::<Vec<_>>();
     let mut child = &mut Command::new(parts[0]);
     for part in parts.iter().skip(1) {

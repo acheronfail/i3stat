@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use chrono::prelude::*;
 
 use crate::context::{BarItem, Context};
+use crate::exec::exec;
 use crate::i3::{I3Button, I3Item};
 
 pub struct Time {
@@ -34,10 +35,11 @@ impl BarItem for Time {
 
             ctx.update_item(item).await?;
 
-            // Wait for "refresh" time, OR if a click comes through, then update
-            ctx.delay_with_click_handler(self.interval, |click| match click.button {
-                I3Button::Left => todo!("open gsimplecal/etc"),
-                _ => {}
+            ctx.delay_with_click_handler(self.interval, |click| async move {
+                match click.button {
+                    I3Button::Left => exec("gsimplecal").await,
+                    _ => {}
+                }
             })
             .await;
         }

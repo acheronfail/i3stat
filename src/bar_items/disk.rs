@@ -80,10 +80,14 @@ impl BarItem for Disk {
             ctx.update_item(item).await?;
 
             // cycle through disks
-            ctx.delay_with_click_handler(self.interval, |click| match click.button {
-                I3Button::Left | I3Button::ScrollUp => idx += 1,
-                I3Button::Right | I3Button::ScrollDown => idx -= 1,
-                _ => {}
+            ctx.delay_with_click_handler(self.interval, |click| {
+                match click.button {
+                    I3Button::Left | I3Button::ScrollUp => idx += 1,
+                    I3Button::Right | I3Button::ScrollDown => idx -= 1,
+                    _ => {}
+                }
+
+                async {}
             })
             .await;
         }

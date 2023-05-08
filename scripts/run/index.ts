@@ -5,18 +5,35 @@ import { parse, HTMLElement } from 'node-html-parser';
 import chalk from 'chalk';
 import stripAnsi from 'strip-ansi';
 
-process.chdir('../..');
+enum Display {
+  Full = 'full',
+  Short = 'short',
+  Json = 'json',
+}
+
+const CTRL_C = '\x03';
+const CTRL_D = '\x04';
+const BACKSP = '\x7f';
+const RETURN = '\r';
+const UP_ARR = '\x1B[A';
+const DN_ARR = '\x1B[B';
+
+let prev_commands: string[] = [];
+let prev_command_idx = 0;
+let isOutputPaused = false;
+let display: Display = Display.Full;
+let filter: string[] = [];
+let _input = '';
 
 // spawn, pipe stdout/err and write initial stdin
+process.chdir('../..');
 const child = execa('./target/debug/staturs');
-child.stderr.pipe(process.stderr);
 child.stdin.write('[\n');
 
 // custom stdout listening for pango markup
-let isOutputPaused = false;
 child.stdout.setEncoding('utf8');
-child.stdout.on('data', (input: string) => {
-  const lines = input.split('\n');
+child.stdout.on('data', (output: string) => {
+  const lines = output.split('\n');
   for (let i = 0; i < lines.length; ++i) {
     let line = lines[i];
     if (line.endsWith('],')) {
@@ -37,29 +54,18 @@ child.stdout.on('data', (input: string) => {
   drawInterface();
 });
 
+// catch stderr and display it nicely
+child.stderr.setEncoding('utf8');
+child.stderr.on('data', (output: string) => {
+  process.stdout.cursorTo(0, process.stdout.rows - 1);
+  process.stdout.clearLine(0);
+  process.stdout.write(chalk.red(output));
+});
+
 // listen for commands on stdin, and send JSON to child
 process.stdin.setEncoding('utf8');
 process.stdin.setRawMode(true);
 process.stdin.resume();
-
-enum Display {
-  Full = 'full',
-  Short = 'short',
-  Json = 'json',
-}
-
-const CTRL_C = '\x03';
-const CTRL_D = '\x04';
-const BACKSP = '\x7f';
-const RETURN = '\r';
-const UP_ARR = '\x1B[A';
-const DN_ARR = '\x1B[B';
-let prev_commands: string[] = [];
-let prev_command_idx = 0;
-let display: Display = Display.Full;
-let filter: string[] = [];
-let _input = '';
-
 process.stdin.on('data', (char: string) => {
   // NOTE: console.log(Buffer.from(char));
   if (char === CTRL_C || char === CTRL_D) {

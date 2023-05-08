@@ -6,6 +6,7 @@ use hex_color::HexColor;
 use sysinfo::{CpuExt, CpuRefreshKind, SystemExt};
 
 use crate::context::{BarItem, Context};
+use crate::exec::exec;
 use crate::i3::I3Item;
 use crate::theme::Theme;
 
@@ -75,8 +76,8 @@ impl BarItem for Cpu {
             }
 
             ctx.update_item(item).await?;
-            ctx.delay_with_click_handler(self.interval, |_| {
-                todo!("open CPU monitor if it's not already open");
+            ctx.delay_with_click_handler(self.interval, |_| async {
+                exec("systemmonitor").await;
             })
             .await;
         }

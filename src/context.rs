@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use async_trait::async_trait;
+use futures_core::Future;
 use sysinfo::{System, SystemExt};
 use tokio::sync::mpsc::error::{SendError, TryRecvError};
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -70,18 +71,19 @@ impl Context {
         self.rx_event.recv().await
     }
 
-    pub async fn delay_with_click_handler<F>(&mut self, duration: Duration, mut closure: F)
+    pub async fn delay_with_click_handler<F, R>(&mut self, duration: Duration, mut closure: F)
     where
-        F: FnMut(I3ClickEvent),
+        F: FnMut(I3ClickEvent) -> R,
+        R: Future<Output = ()>,
     {
         tokio::select! {
             Some(click) = self.rx_event.recv() => {
-                closure(click);
+                closure(click).await;
                 loop {
                     match self.rx_event.try_recv() {
-                        Ok(click) => closure(click),
-                            Err(TryRecvError::Empty) => break,
-                            Err(TryRecvError::Disconnected) => todo!()
+                        Ok(click) => closure(click).await,
+                        Err(TryRecvError::Empty) => break,
+                        Err(TryRecvError::Disconnected) => todo!()
                     }
                 }
             }
