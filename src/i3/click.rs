@@ -1,18 +1,17 @@
 use serde_derive::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-#[derive(Debug, Serialize_repr, Deserialize_repr, PartialEq)]
+#[derive(Debug, Serialize_repr, Deserialize_repr, PartialEq, Eq)]
 #[repr(u8)]
 pub enum I3Button {
     Left = 1,
     Middle = 2,
     Right = 3,
-    // TODO: verify these are in the right order
-    ScrollDown = 4,
-    ScrollUp = 5,
+    ScrollUp = 4,
+    ScrollDown = 5,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum I3Modifier {
     Mod1,
     Mod2,

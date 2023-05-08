@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::error::Error;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -10,6 +11,7 @@ use tokio::time::sleep;
 
 use crate::i3::bar_item::I3Item;
 use crate::i3::click::I3ClickEvent;
+use crate::theme::Theme;
 
 pub struct SharedState {
     pub sys: System,
@@ -29,6 +31,9 @@ pub type State = Arc<Mutex<SharedState>>;
 
 pub struct Context {
     pub state: State,
+    pub theme: Theme,
+    // Used as an internal cache to prevent sending the same item multiple times
+    last_item: RefCell<I3Item>,
     tx_item: Sender<(I3Item, usize)>,
     rx_event: Receiver<I3ClickEvent>,
     index: usize,
@@ -43,6 +48,8 @@ impl Context {
     ) -> Context {
         Context {
             state,
+            theme: Theme::NORD,
+            last_item: RefCell::default(),
             tx_item,
             rx_event,
             index,
@@ -50,7 +57,12 @@ impl Context {
     }
 
     pub async fn update_item(&self, item: I3Item) -> Result<(), SendError<(I3Item, usize)>> {
-        // TODO: check for diff from last? no need to update if the same item is sent multiple times
+        let mut last = self.last_item.borrow_mut();
+        if *last == item {
+            return Ok(());
+        }
+
+        *last = item.clone();
         self.tx_item.send((item, self.index)).await
     }
 

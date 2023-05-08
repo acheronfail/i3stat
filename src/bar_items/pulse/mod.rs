@@ -2,19 +2,13 @@ mod pulse_tokio;
 
 use std::cell::RefCell;
 use std::error::Error;
+use std::fmt::Debug;
 use std::process;
 use std::rc::Rc;
 
 use async_trait::async_trait;
 use libpulse_binding::callbacks::ListResult;
-use libpulse_binding::context::introspect::{
-    ClientInfo,
-    Introspector,
-    SinkInfo,
-    SinkInputInfo,
-    SourceInfo,
-    SourceOutputInfo,
-};
+use libpulse_binding::context::introspect::{Introspector, SinkInfo, SourceInfo};
 use libpulse_binding::context::subscribe::{Facility, InterestMaskSet, Operation};
 use libpulse_binding::context::{Context as PAContext, FlagSet, State};
 use libpulse_binding::def::DevicePortType;
@@ -25,45 +19,34 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use self::pulse_tokio::TokioMain;
 use crate::context::{BarItem, Context};
-use crate::i3::I3Item;
-
-#[derive(Default)]
-struct Cell<T>(pub std::cell::Cell<T>);
-
-impl<T> Cell<T> {
-    pub fn new(t: T) -> Cell<T> {
-        Cell(std::cell::Cell::new(t))
-    }
-}
-
-impl<T: Default> Cell<T> {
-    pub fn inspect<F, R>(&self, f: F) -> R
-    where
-        F: FnOnce(&mut T) -> R,
-    {
-        let mut t = self.0.take();
-        let rv = f(&mut t);
-        self.0.set(t);
-        rv
-    }
-}
-
-impl<T> std::ops::Deref for Cell<T> {
-    type Target = std::cell::Cell<T>;
-    fn deref(&self) -> &std::cell::Cell<T> {
-        &self.0
-    }
-}
+use crate::exec::exec;
+use crate::i3::{I3Button, I3Item, I3Modifier};
+use crate::theme::Theme;
 
 /// Information about a `Sink` or a `Source`
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 struct Port {
     index: u32,
     name: String,
-    port: String,
     volume: ChannelVolumes,
     mute: bool,
     port_type: Option<DevicePortType>,
+}
+
+impl Port {
+    fn volume_pct(&self) -> u32 {
+        let normal = Volume::NORMAL.0;
+        (self.volume.max().0 * 100 + normal / 2) / normal
+    }
+
+    fn port_symbol(&self) -> &str {
+        match self.port_type {
+            Some(DevicePortType::Bluetooth) => "󰂰",
+            Some(DevicePortType::Headphones) => "󰋋",
+            Some(DevicePortType::Headset) => "󰋎",
+            _ => "",
+        }
+    }
 }
 
 macro_rules! impl_port_from {
@@ -73,12 +56,6 @@ macro_rules! impl_port_from {
                 Port {
                     index: value.index,
                     name: value.name.as_deref().unwrap_or("").to_owned(),
-                    port: value
-                        .active_port
-                        .as_ref()
-                        .and_then(|p| p.description.as_deref())
-                        .unwrap_or("")
-                        .to_owned(),
                     volume: value.volume,
                     mute: value.mute,
                     port_type: value.active_port.as_ref().map(|port| port.r#type),
@@ -91,48 +68,13 @@ macro_rules! impl_port_from {
 impl_port_from!(SinkInfo<'a>);
 impl_port_from!(SourceInfo<'a>);
 
-/// Information about a `SinkInput` or a `SourceOutput`
-#[derive(Debug, Default)]
-struct Wire {
-    index: u32,
-    client: Option<u32>,
-    port: u32,
-    volume: ChannelVolumes,
-    mute: bool,
-}
-
-macro_rules! impl_wire_from {
-    ($ty:ty, $ident:ident) => {
-        impl<'a> From<&'a $ty> for Wire {
-            fn from(value: &'a $ty) -> Self {
-                Wire {
-                    index: value.index,
-                    client: value.client,
-                    port: value.$ident,
-                    volume: value.volume,
-                    mute: value.mute,
-                }
-            }
-        }
-    };
-}
-
-impl_wire_from!(SinkInputInfo<'a>, sink);
-impl_wire_from!(SourceOutputInfo<'a>, source);
-
-/// Information about a pulse `Client`
-#[derive(Debug, Default)]
-struct Client {
-    index: u32,
-    name: String,
-}
-
-impl<'a> From<&'a ClientInfo<'a>> for Client {
-    fn from(value: &'a ClientInfo<'a>) -> Self {
-        Client {
-            index: value.index,
-            name: value.name.as_deref().unwrap_or("").to_owned(),
-        }
+fn update_volume(cv: &mut ChannelVolumes, delta: i64) -> &mut ChannelVolumes {
+    let step = Volume::NORMAL.0 / 100;
+    let v = Volume(((delta.abs() as u32) * step) as u32);
+    if delta < 0 {
+        cv.decrease(v).unwrap()
+    } else {
+        cv.increase(v).unwrap()
     }
 }
 
@@ -146,70 +88,102 @@ pub struct Pulse {}
 
 pub struct PulseState {
     tx: UnboundedSender<CtxCommand>,
-    // NOTE: wrapped in cells so it can be easily shared between tokio tasks on the same thread
+    theme: Theme,
+    // NOTE: wrapped in `RefCell`s so they can be easily shared between tokio tasks on the same thread
     pa_ctx: RefCell<PAContext>,
-    default_sink: Cell<String>,
-    default_source: Cell<String>,
-    sinks: Cell<Vec<Port>>,
-    sources: Cell<Vec<Port>>,
-    sink_inputs: Cell<Vec<Wire>>,
-    source_outputs: Cell<Vec<Wire>>,
-    clients: Cell<Vec<Client>>,
+    default_sink: RefCell<String>,
+    default_source: RefCell<String>,
+    sinks: RefCell<Vec<Port>>,
+    sources: RefCell<Vec<Port>>,
 }
 
-macro_rules! impl_add_remove {
+macro_rules! impl_pa_methods {
     ($name:ident) => {
         paste::paste! {
             fn [<add_ $name>](&self, result: ListResult<&[<$name:camel Info>]>) {
                 match result {
-                    ListResult::Item(info) => self.[<$name s>].inspect(|items| {
+                    ListResult::Item(info) => {
+                        let mut items = self.[<$name s>].borrow_mut();
                         match items.iter_mut().find(|s| s.index == info.index) {
                             Some(s) => *s = info.into(),
                             None => items.push(info.into()),
                         }
-                    }),
+                    },
                     ListResult::Error => todo!("add_{} failed", stringify!($name)),
                     ListResult::End => {}
                 }
             }
 
             fn [<remove_ $name>](&self, idx: u32) {
-                self.[<$name s>].inspect(|items| {
-                    items.retain(|s| s.index == idx);
-                });
+                self.[<$name s>].borrow_mut().retain(|s| s.index == idx);
+            }
+
+            fn [<set_mute_ $name>](self: &Rc<Self>, idx: u32, mute: bool) {
+                let mut inspect = self.pa_ctx.borrow_mut().introspect();
+                inspect.[<set_ $name _mute_by_index>](idx, mute, Some(Box::new(move |success| {
+                    if !success {
+                        // TODO: handle
+                    }
+                })));
+            }
+
+            fn [<set_volume_ $name>](self: &Rc<Self>, idx: u32, cv: &ChannelVolumes) {
+                let mut inspect = self.pa_ctx.borrow_mut().introspect();
+                inspect.[<set_ $name _volume_by_index>](idx, cv, Some(Box::new(move |success| {
+                    if !success {
+                        // TODO: handle
+                    }
+                })));
             }
         }
     };
 }
 
 impl PulseState {
-    impl_add_remove!(sink);
-    impl_add_remove!(sink_input);
-    impl_add_remove!(source);
-    impl_add_remove!(source_output);
-    impl_add_remove!(client);
+    impl_pa_methods!(sink);
+    impl_pa_methods!(source);
 
-    // TODO: update item representation
+    fn default_sink(&self) -> Option<Port> {
+        self.sinks
+            .borrow()
+            .iter()
+            .find(|s| s.name == *self.default_sink.borrow())
+            .cloned()
+    }
+
+    fn default_source(&self) -> Option<Port> {
+        self.sources
+            .borrow()
+            .iter()
+            .find(|s| s.name == *self.default_source.borrow())
+            .cloned()
+    }
+
     fn update_item(self: &Rc<Self>) {
-        let default_sink = self.default_sink.inspect(|s| s.to_string());
-        let sink_vol_pct = self
-            .sinks
-            .inspect(|sinks| {
-                let sink = sinks.iter().find(|s| s.name == default_sink);
-                sink.map(|s| s.volume)
-            })
-            // TODO: volume wrappers for percentages
-            .map(|cv| {
-                let value = cv.avg().0 as f64;
-                let pct = value / Volume::NORMAL.0 as f64 * 100.0;
-                format!("{:.0}", pct)
-            })
-            .unwrap_or("?".into());
+        let default_sink = self.default_sink().unwrap();
+        let default_source = self.default_source().unwrap();
 
-        let source_volume = 0; // TODO
+        let sink_fg = if default_sink.mute {
+            self.theme.dark4.to_string()
+        } else {
+            "".into()
+        };
+        let text = format!(
+            r#"<span foreground="{}">{} {}%{}</span> <span foreground="{}">[{}%{}]</span>"#,
+            sink_fg,
+            if default_sink.mute { "" } else { "" },
+            default_sink.volume_pct(),
+            default_sink.port_symbol(),
+            if default_source.mute {
+                self.theme.dark4
+            } else {
+                self.theme.light1
+            },
+            default_source.volume_pct(),
+            default_source.port_symbol(),
+        );
 
-        // TODO: pango markup for muted state?
-        let item = I3Item::new(format!("IN: {}, OUT: {}%", source_volume, sink_vol_pct));
+        let item = I3Item::new(text).markup(crate::i3::I3Markup::Pango);
 
         self.tx.send(CtxCommand::UpdateItem(item)).unwrap();
     }
@@ -230,8 +204,10 @@ impl PulseState {
                         $(
                             ($obj, New) | ($obj, Changed) => {
                                 let state = self.clone();
-                                inspect.$get(idx, move |result| state.[<add_ $obj:snake>](result));
-                                self.update_item();
+                                inspect.$get(idx, move |result| {
+                                    state.[<add_ $obj:snake>](result);
+                                    state.update_item();
+                                });
                             }
                             ($obj, Removed) => self.[<remove_ $obj:snake>](idx),
                         )*
@@ -243,10 +219,7 @@ impl PulseState {
 
         impl_handler!(
             (Sink, get_sink_info_by_index),
-            (Source, get_source_info_by_index),
-            (SinkInput, get_sink_input_info),
-            (SourceOutput, get_source_output_info),
-            (Client, get_client_info)
+            (Source, get_source_info_by_index)
         );
     }
 }
@@ -289,15 +262,12 @@ impl BarItem for Pulse {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
         let inner = Rc::new(PulseState {
             tx,
+            theme: ctx.theme.clone(),
             pa_ctx: RefCell::new(pa_ctx),
-
-            default_sink: Cell::new("?".into()),
-            default_source: Cell::new("?".into()),
-            sinks: Cell::new(vec![]),
-            sources: Cell::new(vec![]),
-            sink_inputs: Cell::new(vec![]),
-            source_outputs: Cell::new(vec![]),
-            clients: Cell::new(vec![]),
+            default_sink: RefCell::new("?".into()),
+            default_source: RefCell::new("?".into()),
+            sinks: RefCell::new(vec![]),
+            sources: RefCell::new(vec![]),
         });
 
         // subscribe to changes
@@ -329,27 +299,12 @@ impl BarItem for Pulse {
             });
 
             let state = inner.clone();
-            inspect.get_client_info_list(move |item| {
-                state.add_client(item);
-            });
-
-            let state = inner.clone();
-            inspect.get_sink_input_info_list(move |item| {
-                state.add_sink_input(item);
-            });
-
-            let state = inner.clone();
-            inspect.get_source_output_info_list(move |item| {
-                state.add_source_output(item);
-            });
-
-            let state = inner.clone();
             inspect.get_server_info(move |info| {
                 if let Some(name) = &info.default_sink_name {
-                    state.default_sink.set((**name).to_owned());
+                    state.default_sink.replace((**name).to_owned());
                 }
                 if let Some(name) = &info.default_source_name {
-                    state.default_source.set((**name).to_owned());
+                    state.default_source.replace((**name).to_owned());
                 }
 
                 state.update_item();
@@ -367,7 +322,31 @@ impl BarItem for Pulse {
             tokio::select! {
                 // handle click events
                 Some(click) = ctx.raw_click_rx().recv() => {
-                    dbg!(click);
+                    match click.button {
+                        I3Button::Left => exec("i3-msg exec pavucontrol").await,
+                        // source
+                        I3Button::Middle if click.modifiers.contains(&I3Modifier::Shift) => {
+                            inner.default_source().map(|x| inner.set_mute_source(x.index, !x.mute));
+                        },
+                        I3Button::ScrollUp if click.modifiers.contains(&I3Modifier::Shift) => {
+                            inner.default_source().map(|mut x| inner.set_volume_source(x.index, update_volume(&mut x.volume, 2)));
+                        }
+                        I3Button::ScrollDown if click.modifiers.contains(&I3Modifier::Shift) => {
+                            inner.default_source().map(|mut x| inner.set_volume_source(x.index, update_volume(&mut x.volume, -2)));
+                        }
+                        // sink
+                        I3Button::Middle  => {
+                            inner.default_sink().map(|x| inner.set_mute_sink(x.index, !x.mute));
+                        },
+                        I3Button::ScrollUp  => {
+                            inner.default_sink().map(|mut x| inner.set_volume_sink(x.index, update_volume(&mut x.volume, 2)));
+                        }
+                        I3Button::ScrollDown  => {
+                            inner.default_sink().map(|mut x| inner.set_volume_sink(x.index, update_volume(&mut x.volume, -2)));
+                        }
+
+                        _ => {}
+                    }
                 },
 
                 // handle item updates

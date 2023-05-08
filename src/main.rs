@@ -2,7 +2,9 @@
 #![feature(drain_filter)]
 
 mod context;
+mod exec;
 pub mod i3;
+mod theme;
 mod bar_items {
     automod::dir!(pub "src/bar_items");
     // TODO: https://github.com/dtolnay/automod/issues/15
@@ -27,7 +29,7 @@ use crate::bar_items::pulse::Pulse;
 use crate::bar_items::script::Script;
 use crate::bar_items::sensors::Sensors;
 use crate::bar_items::time::Time;
-use crate::context::{BarItem, Context, SharedState};
+use crate::context::{Context, SharedState};
 use crate::i3::click::I3ClickEvent;
 use crate::i3::header::I3BarHeader;
 
@@ -54,20 +56,18 @@ async fn async_main() -> Result<(), Box<dyn Error>> {
 
     #[allow(unused_variables)]
     let items: Vec<Box<dyn context::BarItem>> = vec![
-        Box::new(i3::I3Item::new("text")),
-        Box::new(Time::default()),
-        Box::new(Cpu::default()),
         Box::new(NetUsage::default()),
         Box::new(Nic::default()),
-        Box::new(Battery::default()),
-        Box::new(Mem::default()),
         Box::new(Disk::default()),
-        Box::new(Dunst::default()),
+        Box::new(Mem::default()),
+        Box::new(Cpu::default()),
         Box::new(Sensors::default()),
+        Box::new(Pulse::default()),
+        Box::new(Battery::default()),
+        Box::new(Time::default()),
         Box::new(Script::default()),
-        // TODO: pasource pasink
+        Box::new(Dunst::default()),
     ];
-    let items = vec![Box::new(Pulse::default())];
     let bar_item_count = items.len();
 
     // shared context
@@ -78,7 +78,7 @@ async fn async_main() -> Result<(), Box<dyn Error>> {
     let mut bar_tx: Vec<mpsc::Sender<I3ClickEvent>> = Vec::with_capacity(bar_item_count);
 
     // for each BarItem, spawn a new task to manage it
-    let (item_tx, mut item_rx) = mpsc::channel(4);
+    let (item_tx, mut item_rx) = mpsc::channel(bar_item_count);
     for (i, bar_item) in items.into_iter().enumerate() {
         let (click_tx, click_rx) = mpsc::channel(32);
         bar_tx.push(click_tx);

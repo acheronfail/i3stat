@@ -6,7 +6,7 @@ use serde_derive::Serialize;
 
 use crate::context::{BarItem, Context};
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum I3Align {
     Center,
@@ -14,7 +14,7 @@ pub enum I3Align {
     Left,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum I3Markup {
     None,
@@ -30,14 +30,14 @@ impl I3Markup {
     }
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
 #[serde(untagged, rename_all = "lowercase")]
 pub enum I3MinWidth {
     Pixels(usize),
     String(String),
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Default, Serialize, Clone, PartialEq, Eq)]
 pub struct I3Item {
     pub full_text: String,
     #[serde(skip_serializing_if = "Option::is_none")]
