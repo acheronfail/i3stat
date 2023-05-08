@@ -56,7 +56,7 @@ impl BarItem for Script {
 
             // On any click event, update the environment map and re-run the script
             if let Some(click) = ctx.wait_for_click().await {
-                click.name.inspect(|name| {
+                click.name.map(|name| {
                     env.insert("I3_NAME", name.to_string());
                 });
                 env.insert(
