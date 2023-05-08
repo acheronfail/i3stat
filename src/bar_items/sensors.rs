@@ -43,7 +43,7 @@ impl BarItem for Sensors {
                     .unwrap()
             };
 
-            ctx.update_item(I3Item::new(format!("TMP: {:.0}°C", temp)))
+            ctx.update_item(I3Item::new(format!("TMP: {:.0}°C", temp)).name("sensors"))
                 .await?;
 
             sleep(self.interval).await;

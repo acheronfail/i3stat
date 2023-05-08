@@ -183,7 +183,9 @@ impl PulseState {
             default_source.port_symbol(),
         );
 
-        let item = I3Item::new(text).markup(crate::i3::I3Markup::Pango);
+        let item = I3Item::new(text)
+            .name("pulse")
+            .markup(crate::i3::I3Markup::Pango);
 
         self.tx.send(CtxCommand::UpdateItem(item)).unwrap();
     }

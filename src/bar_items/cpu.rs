@@ -58,7 +58,7 @@ impl BarItem for Cpu {
                 state.sys.global_cpu_info().cpu_usage()
             };
 
-            ctx.update_item(I3Item::new(self.get_full_text(pct)))
+            ctx.update_item(I3Item::new(self.get_full_text(pct)).name("cpu"))
                 .await
                 .unwrap();
 

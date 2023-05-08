@@ -67,13 +67,16 @@ impl BarItem for Nic {
     async fn start(self: Box<Self>, ctx: Context) -> Result<(), Box<dyn Error>> {
         loop {
             let interfaces = Nic::get_interfaces();
-            ctx.update_item(I3Item::new(
-                interfaces
-                    .iter()
-                    .map(|i| format!("{}: {}", i.name, i.addr))
-                    .collect::<Vec<_>>()
-                    .join(", "),
-            ))
+            ctx.update_item(
+                I3Item::new(
+                    interfaces
+                        .iter()
+                        .map(|i| format!("{}: {}", i.name, i.addr))
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                )
+                .name("nic"),
+            )
             .await?;
 
             // TODO: is there an agnostic/kernel way to detect network changes and _only then_ check for ips?

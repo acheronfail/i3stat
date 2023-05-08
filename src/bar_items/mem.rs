@@ -31,10 +31,10 @@ impl BarItem for Mem {
                 state.sys.available_memory()
             };
 
-            ctx.update_item(I3Item::new(format!(
-                "MEM: {}",
-                ByteSize(available).to_string_as(false)
-            )))
+            ctx.update_item(
+                I3Item::new(format!("MEM: {}", ByteSize(available).to_string_as(false)))
+                    .name("mem"),
+            )
             .await?;
 
             sleep(self.interval).await;

@@ -75,11 +75,14 @@ impl Battery {
 impl BarItem for Battery {
     async fn start(self: Box<Self>, ctx: Context) -> Result<(), Box<dyn Error>> {
         loop {
-            ctx.update_item(I3Item::new(
-                future::join_all(self.batteries.iter().map(Battery::map))
-                    .await
-                    .join(", "),
-            ))
+            ctx.update_item(
+                I3Item::new(
+                    future::join_all(self.batteries.iter().map(Battery::map))
+                        .await
+                        .join(", "),
+                )
+                .name("bat"),
+            )
             .await?;
 
             sleep(self.interval).await;

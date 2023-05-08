@@ -41,12 +41,17 @@ impl BarItem for Script {
         // TODO: potentially have scripts that are never run again? no click events, etc
         // TODO: what happens if script execution is longer than the configured interval?
 
+        let name = format!(
+            "script({}...)",
+            self.command.chars().take(10).collect::<String>()
+        );
+
         let mut env = HashMap::new();
 
         loop {
             // Initial run has no click environment variables
             let stdout = self.run(&env).await?;
-            ctx.update_item(I3Item::new(stdout)).await?;
+            ctx.update_item(I3Item::new(stdout).name(&name)).await?;
 
             // On any click event, update the environment map and re-run the script
             if let Some(click) = ctx.wait_for_click().await {

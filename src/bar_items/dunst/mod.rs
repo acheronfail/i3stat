@@ -21,7 +21,7 @@ pub struct Dunst;
 
 impl Dunst {
     fn item(paused: bool) -> I3Item {
-        I3Item::new(if paused { " DnD " } else { "" })
+        I3Item::new(if paused { " DnD " } else { "" }).name("dunst")
     }
 }
 

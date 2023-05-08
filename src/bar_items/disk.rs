@@ -42,19 +42,22 @@ impl BarItem for Disk {
                     .collect()
             };
 
-            ctx.update_item(I3Item::new(
-                stats
-                    .iter()
-                    .map(|(mount_point, available_bytes)| {
-                        format!(
-                            "{}: {}",
-                            mount_point,
-                            ByteSize(*available_bytes).to_string_as(true)
-                        )
-                    })
-                    .collect::<Vec<_>>()
-                    .join(", "),
-            ))
+            ctx.update_item(
+                I3Item::new(
+                    stats
+                        .iter()
+                        .map(|(mount_point, available_bytes)| {
+                            format!(
+                                "{}: {}",
+                                mount_point,
+                                ByteSize(*available_bytes).to_string_as(true)
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                )
+                .name("disk"),
+            )
             .await?;
 
             sleep(self.interval).await;

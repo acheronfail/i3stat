@@ -37,11 +37,14 @@ impl BarItem for NetUsage {
                     })
             };
 
-            ctx.update_item(I3Item::new(format!(
-                "↓{} ↑{}",
-                ByteSize(down).to_string_as(true),
-                ByteSize(up).to_string_as(true)
-            )))
+            ctx.update_item(
+                I3Item::new(format!(
+                    "↓{} ↑{}",
+                    ByteSize(down).to_string_as(true),
+                    ByteSize(up).to_string_as(true)
+                ))
+                .name("net_usage"),
+            )
             .await?;
 
             sleep(self.interval).await;
