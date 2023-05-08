@@ -18,7 +18,7 @@ impl Default for Time {
         Time {
             interval: Duration::from_secs(1),
             full_format: "%Y-%m-%d %H:%M:%S".into(),
-            short_format: "%m/%d %H:%M".into(),
+            short_format: "%H:%M".into(),
         }
     }
 }

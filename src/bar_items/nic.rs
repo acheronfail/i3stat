@@ -13,7 +13,7 @@ use crate::i3::I3Item;
 struct Interface {
     name: String,
     addr: String,
-    // TODO: network name for wifi?
+    // TODO: network name + strength for wifi
 }
 
 pub struct Nic {
@@ -67,17 +67,21 @@ impl BarItem for Nic {
     async fn start(self: Box<Self>, ctx: Context) -> Result<(), Box<dyn Error>> {
         loop {
             let interfaces = Nic::get_interfaces();
-            ctx.update_item(
-                I3Item::new(
-                    interfaces
-                        .iter()
-                        .map(|i| format!("{}: {}", i.name, i.addr))
-                        .collect::<Vec<_>>()
-                        .join(", "),
-                )
-                .name("nic"),
-            )
-            .await?;
+            let full_text = interfaces
+                .iter()
+                .map(|i| format!("{}: {}", i.name, i.addr))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let short_text = interfaces
+                .iter()
+                .map(|i| i.name.clone())
+                .collect::<Vec<_>>()
+                .join(", ");
+
+            // TODO: network name for short text
+            // TODO: color for network strength
+            ctx.update_item(I3Item::new(full_text).short_text(short_text).name("nic"))
+                .await?;
 
             // TODO: is there an agnostic/kernel way to detect network changes and _only then_ check for ips?
             // if not, then: dbus? networkmanager?

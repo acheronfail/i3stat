@@ -25,7 +25,7 @@ child.stdout.on('data', (input: string) => {
 
     if (isOutputPaused) continue;
 
-    const pad = ' '.repeat(process.stdout.columns - stripAnsi(line).length);
+    const pad = ' '.repeat(Math.max(0, process.stdout.columns - stripAnsi(line).length));
     process.stdout.cursorTo(0, process.stdout.rows - 1);
     process.stdout.clearLine(0);
     process.stdout.write(pad + line);
@@ -42,19 +42,27 @@ process.stdin.setEncoding('utf8');
 process.stdin.setRawMode(true);
 process.stdin.resume();
 
+enum Display {
+  Full = 'full',
+  Short = 'short',
+  Json = 'json',
+}
+
 const CTRL_C = '\x03';
+const CTRL_D = '\x04';
 const BACKSP = '\x7f';
 const RETURN = '\r';
 const UP_ARR = '\x1B[A';
 const DN_ARR = '\x1B[B';
 let prev_commands: string[] = [];
 let prev_command_idx = 0;
-let displayShort = false;
+let display: Display = Display.Full;
+let filter: string[] = [];
 let _input = '';
 
 process.stdin.on('data', (char: string) => {
   // NOTE: console.log(Buffer.from(char));
-  if (char === CTRL_C) {
+  if (char === CTRL_C || char === CTRL_D) {
     process.exit(0);
   } else if (char === BACKSP) {
     _input = _input.slice(0, -1);
@@ -91,16 +99,19 @@ function drawInterface() {
 
   // draw input line
   process.stdout.cursorTo(0, process.stdout.rows);
-  process.stdout.write(`${displayShort ? 'short' : ' full'}> ${_input}`);
+  const d = isOutputPaused ? 'paused' : display;
+  const f = filter.length ? chalk.gray(`(${filter.join(',')})`) : '';
+  process.stdout.write(`${d}${f}> ${_input}`);
 }
 
 function displayHelp() {
   process.stderr.write(chalk.grey.italic`
 Usage:
   [c]lick <instance> <button>       e.g.: "click 0 3"
+  [f]ilter                          e.g.: "filter 1,3,6" (empty to reset)
   [l]ist                            lists bar items with instance ids
+  [d]isplay                         display type, one of: "full", "short" or "json"
   [p]ause                           toggles pausing output
-  [s]hort                           toggles between full and short text
   [r]epeat                          repeats last command
   [h]elp or ?                       show this text
   [q]uit                            exits
@@ -121,8 +132,41 @@ function handleInput(input: string) {
   }
 
   // short
-  else if (input == 's' || input == 'short') {
-    displayShort = !displayShort;
+  if (input.startsWith('d')) {
+    const match = /d(?:isplay)?(?:\s+(full|short|json))?/.exec(input);
+    if (!match) return displayHelp();
+
+    const [, value] = match;
+    if (value) {
+      display = value as Display;
+    } else {
+      switch (display) {
+        case Display.Full:
+          display = Display.Short;
+          break;
+        case Display.Short:
+          display = Display.Json;
+          break;
+        case Display.Json:
+          display = Display.Full;
+          break;
+      }
+    }
+  }
+
+  // json
+  else if (input == 'j' || input == 'short') {
+    display = display == Display.Short ? Display.Full : Display.Short;
+  }
+
+  // filter
+  else if (input.startsWith('f')) {
+    const match = /f(?:ilter)?(?:\s+((?:\d,?)+))?/.exec(input);
+    if (!match) return displayHelp();
+
+    const [, ids] = match;
+    if (!ids) filter.length = 0;
+    else filter = ids.split(',');
   }
 
   // pause
@@ -180,20 +224,29 @@ let instances: { name: string; id: string }[] = [];
 function formatLine(line: string) {
   const items: Record<string, any>[] = JSON.parse(line.slice(0, -1));
   instances = items.map((i) => ({ name: i.name, id: i.instance }));
-  const getText = (item: Record<string, any>) => {
-    const text = item[displayShort ? 'short_text' : 'full_text'];
-    return text || item.full_text;
-  };
+  const getText = (item: Record<string, any>) => item[`${display}_text`] || item.full_text;
 
   let result: string[] = [];
   for (const item of items) {
+    if (filter.length && !filter.includes(item.instance)) {
+      continue;
+    }
+
+    if (display == Display.Json) {
+      result.push(JSON.stringify(item));
+      continue;
+    }
+
     const text = getText(item);
     if (!text) {
       continue;
     }
 
     if (item.markup !== 'pango') {
-      result.push(text);
+      let c = chalk;
+      if (item.color) c = c.hex(item.color);
+      if (item.background) c = c.bgHex(item.background);
+      result.push(c(text));
       continue;
     }
 

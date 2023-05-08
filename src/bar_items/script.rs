@@ -51,6 +51,7 @@ impl BarItem for Script {
         loop {
             // Initial run has no click environment variables
             let stdout = self.run(&env).await?;
+            // TODO: configure script to output item JSON
             ctx.update_item(I3Item::new(stdout).name(&name)).await?;
 
             // On any click event, update the environment map and re-run the script

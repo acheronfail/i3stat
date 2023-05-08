@@ -168,12 +168,18 @@ impl PulseState {
         } else {
             "".into()
         };
-        let text = format!(
-            r#"<span foreground="{}">{} {}%{}</span> <span foreground="{}">[{}%{}]</span>"#,
+
+        let sink_text = format!(
+            r#"<span foreground="{}">{} {}%{}</span>"#,
             sink_fg,
             if default_sink.mute { "" } else { "" },
             default_sink.volume_pct(),
             default_sink.port_symbol(),
+        );
+
+        let full = format!(
+            r#"{} <span foreground="{}">[{}%{}]</span>"#,
+            sink_text,
             if default_source.mute {
                 self.theme.dark4
             } else {
@@ -183,7 +189,8 @@ impl PulseState {
             default_source.port_symbol(),
         );
 
-        let item = I3Item::new(text)
+        let item = I3Item::new(full)
+            .short_text(sink_text)
             .name("pulse")
             .markup(crate::i3::I3Markup::Pango);
 

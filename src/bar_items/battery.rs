@@ -8,7 +8,8 @@ use tokio::fs::read_to_string;
 use tokio::time::sleep;
 
 use crate::context::{BarItem, Context};
-use crate::i3::I3Item;
+use crate::i3::{I3Item, I3Markup};
+use crate::theme::Theme;
 
 struct Bat(PathBuf);
 
@@ -66,8 +67,25 @@ impl Default for Battery {
 }
 
 impl Battery {
-    async fn map(bat: &Bat) -> String {
-        format!("{}:{:.0}%", bat.name(), bat.get_charge().await.unwrap())
+    fn format(theme: &Theme, name: &String, pct: f32) -> (String, String) {
+        let (icon, fg) = match pct as u32 {
+            0..=15 => ("", Some(theme.error)),
+            16..=25 => ("", Some(theme.danger)),
+            26..=50 => ("", Some(theme.warning)),
+            51..=75 => ("", None),
+            76..=u32::MAX => ("", Some(theme.success)),
+        };
+
+        let name = if name == "BAT0" { icon } else { name.as_str() };
+        let fg = fg.map(|c| c.to_string()).unwrap_or("".into());
+        (
+            format!(r#"<span foreground="{}">{} {:.0}%</span>"#, fg, name, pct),
+            format!(r#"<span foreground="{}">{:.0}%</span>"#, fg, pct),
+        )
+    }
+
+    async fn get(bat: &Bat) -> Result<(String, f32), Box<dyn Error>> {
+        Ok((bat.name(), bat.get_charge().await?))
     }
 }
 
@@ -75,16 +93,28 @@ impl Battery {
 impl BarItem for Battery {
     async fn start(self: Box<Self>, ctx: Context) -> Result<(), Box<dyn Error>> {
         loop {
-            ctx.update_item(
-                I3Item::new(
-                    future::join_all(self.batteries.iter().map(Battery::map))
-                        .await
-                        .join(", "),
-                )
-                .name("bat"),
-            )
-            .await?;
+            let batteries = future::join_all(self.batteries.iter().map(Battery::get))
+                .await
+                .into_iter()
+                .collect::<Result<Vec<_>, _>>()?;
 
+            let len = batteries.len();
+            let (full, short) = batteries.into_iter().fold(
+                (Vec::with_capacity(len), Vec::with_capacity(len)),
+                |mut acc, (name, pct)| {
+                    let (full, short) = Self::format(&ctx.theme, &name, pct);
+                    acc.0.push(full);
+                    acc.1.push(short);
+                    acc
+                },
+            );
+
+            let item = I3Item::new(full.join(", "))
+                .short_text(short.join(", "))
+                .name("bat")
+                .markup(I3Markup::Pango);
+
+            ctx.update_item(item).await?;
             sleep(self.interval).await;
         }
     }

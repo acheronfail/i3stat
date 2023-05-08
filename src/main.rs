@@ -1,5 +1,6 @@
 #![feature(result_option_inspect)]
 #![feature(drain_filter)]
+#![feature(exclusive_range_pattern)]
 
 mod context;
 mod exec;
@@ -54,14 +55,13 @@ async fn async_main() -> Result<(), Box<dyn Error>> {
     println!("{}", json!(I3BarHeader::default()));
     println!("[");
 
-    #[allow(unused_variables)]
     let items: Vec<Box<dyn context::BarItem>> = vec![
         Box::new(NetUsage::default()),
         Box::new(Nic::default()),
         Box::new(Disk::default()),
-        Box::new(Mem::default()),
         Box::new(Cpu::default()),
         Box::new(Sensors::default()),
+        Box::new(Mem::default()),
         Box::new(Pulse::default()),
         Box::new(Battery::default()),
         Box::new(Time::default()),

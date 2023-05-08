@@ -15,13 +15,17 @@ use tokio::sync::mpsc;
 
 use crate::context::{BarItem, Context};
 use crate::i3::I3Item;
+use crate::theme::Theme;
 
 #[derive(Debug, Default)]
 pub struct Dunst;
 
 impl Dunst {
-    fn item(paused: bool) -> I3Item {
-        I3Item::new(if paused { " DnD " } else { "" }).name("dunst")
+    fn item(theme: &Theme, paused: bool) -> I3Item {
+        I3Item::new(if paused { "  " } else { "" })
+            .color(theme.dark1)
+            .background_color(theme.warning)
+            .name("dunst")
     }
 }
 
@@ -45,7 +49,7 @@ impl BarItem for Dunst {
             con.clone(),
         );
         let paused = dunst_proxy.paused().await?;
-        ctx.update_item(Dunst::item(paused)).await?;
+        ctx.update_item(Dunst::item(&ctx.theme, paused)).await?;
 
         // setup a monitor to watch for changes
         let rule = MatchRule::new()
@@ -91,7 +95,7 @@ impl BarItem for Dunst {
 
         loop {
             match rx.recv().await {
-                Some(paused) => ctx.update_item(Dunst::item(paused)).await?,
+                Some(paused) => ctx.update_item(Dunst::item(&ctx.theme, paused)).await?,
                 None => {}
             }
         }

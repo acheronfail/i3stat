@@ -39,48 +39,48 @@ pub enum I3MinWidth {
 
 #[derive(Debug, Default, Serialize, Clone, PartialEq, Eq)]
 pub struct I3Item {
-    pub full_text: String,
+    full_text: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub short_text: Option<String>,
+    short_text: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub instance: Option<String>,
+    instance: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
+    name: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub color: Option<HexColor>,
+    color: Option<HexColor>,
     #[serde(rename = "background", skip_serializing_if = "Option::is_none")]
-    pub background_color: Option<HexColor>,
+    background_color: Option<HexColor>,
     #[serde(rename = "border", skip_serializing_if = "Option::is_none")]
-    pub border_color: Option<HexColor>,
+    border_color: Option<HexColor>,
 
     #[serde(rename = "border_top", skip_serializing_if = "Option::is_none")]
-    pub border_top_px: Option<usize>,
+    border_top_px: Option<usize>,
     #[serde(rename = "border_right", skip_serializing_if = "Option::is_none")]
-    pub border_right_px: Option<usize>,
+    border_right_px: Option<usize>,
     #[serde(rename = "border_bottom", skip_serializing_if = "Option::is_none")]
-    pub border_bottom_px: Option<usize>,
+    border_bottom_px: Option<usize>,
     #[serde(rename = "border_left", skip_serializing_if = "Option::is_none")]
-    pub border_left_px: Option<usize>,
+    border_left_px: Option<usize>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub min_width: Option<I3MinWidth>,
+    min_width: Option<I3MinWidth>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub align: Option<I3Align>,
+    align: Option<I3Align>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub urgent: Option<bool>,
+    urgent: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub separator: Option<bool>,
+    separator: Option<bool>,
     #[serde(
         rename = "separator_block_width",
         skip_serializing_if = "Option::is_none"
     )]
-    pub separator_block_width_px: Option<usize>,
+    separator_block_width_px: Option<usize>,
 
     #[serde(skip_serializing_if = "I3Markup::is_none")]
-    pub markup: Option<I3Markup>,
+    markup: Option<I3Markup>,
 }
 
 impl I3Item {

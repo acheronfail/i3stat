@@ -2,10 +2,12 @@ use std::error::Error;
 use std::time::Duration;
 
 use async_trait::async_trait;
+use hex_color::HexColor;
 use sysinfo::{CpuExt, CpuRefreshKind, SystemExt};
 
 use crate::context::{BarItem, Context};
 use crate::i3::I3Item;
+use crate::theme::Theme;
 
 pub struct Cpu {
     precision: usize,
@@ -24,7 +26,7 @@ impl Default for Cpu {
 }
 
 impl Cpu {
-    pub fn get_full_text(&self, pct: f32) -> String {
+    fn get_full_text(&self, pct: f32) -> String {
         let pad = if !self.zero_pad {
             0
         } else if self.precision > 0 {
@@ -36,11 +38,20 @@ impl Cpu {
         };
 
         format!(
-            "{:0pad$.precision$}%",
+            "  {:0pad$.precision$}%",
             pct,
             precision = self.precision,
             pad = pad
         )
+    }
+
+    fn get_color(&self, theme: &Theme, pct: f32) -> Option<HexColor> {
+        match pct as u64 {
+            80..=100 => Some(theme.error),
+            60..80 => Some(theme.danger),
+            40..60 => Some(theme.warning),
+            _ => None,
+        }
     }
 }
 
@@ -58,10 +69,12 @@ impl BarItem for Cpu {
                 state.sys.global_cpu_info().cpu_usage()
             };
 
-            ctx.update_item(I3Item::new(self.get_full_text(pct)).name("cpu"))
-                .await
-                .unwrap();
+            let mut item = I3Item::new(self.get_full_text(pct)).name("cpu");
+            if let Some(fg) = self.get_color(&ctx.theme, pct) {
+                item = item.color(fg);
+            }
 
+            ctx.update_item(item).await?;
             ctx.delay_with_click_handler(self.interval, |_| {
                 todo!("open CPU monitor if it's not already open");
             })
