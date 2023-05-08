@@ -7,14 +7,22 @@ use tokio::process::Command;
 use crate::context::{BarItem, Context};
 use crate::i3::I3Item;
 
+#[allow(dead_code)]
+pub enum ScriptFormat {
+    Simple,
+    Json,
+}
+
 pub struct Script {
     command: String,
+    format: ScriptFormat,
 }
 
 impl Default for Script {
     fn default() -> Self {
         Script {
             command: "echo -n `if [ ! -z $I3_BUTTON ]; then echo button=$I3_BUTTON; else echo bar item; fi`".into(),
+            format: ScriptFormat::Simple
         }
     }
 }
@@ -51,8 +59,18 @@ impl BarItem for Script {
         loop {
             // Initial run has no click environment variables
             let stdout = self.run(&env).await?;
-            // TODO: configure script to output item JSON
-            ctx.update_item(I3Item::new(stdout).name(&name)).await?;
+            let mut item = match self.format {
+                ScriptFormat::Simple => I3Item::new(stdout),
+                ScriptFormat::Json => match serde_json::from_str(&stdout) {
+                    Ok(item) => item,
+                    Err(e) => {
+                        dbg!(e); // TODO: error logging
+                        I3Item::new("ERR").background_color(ctx.theme.error)
+                    }
+                },
+            };
+            item = item.name(&name);
+            ctx.update_item(item).await?;
 
             // On any click event, update the environment map and re-run the script
             if let Some(click) = ctx.wait_for_click().await {
