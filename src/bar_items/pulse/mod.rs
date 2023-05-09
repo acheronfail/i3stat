@@ -165,17 +165,15 @@ impl PulseState {
         let default_source = self.default_source().unwrap();
 
         let sink_fg = if default_sink.mute {
-            self.theme.dark4.to_string()
+            format!(r#" foreground="{}""#, self.theme.dark4)
         } else {
             "".into()
         };
 
         let sink_text = format!(
-            r#"<span foreground="{}">{} {}%</span>"#,
+            "<span{}>{} {}%</span>",
             sink_fg,
-            default_sink
-                .port_symbol()
-                .unwrap_or_else(|| if default_sink.mute { "" } else { "" }),
+            default_sink.port_symbol().unwrap_or_else(|| if default_sink.mute { "" } else { "" }),
             default_sink.volume_pct(),
         );
 

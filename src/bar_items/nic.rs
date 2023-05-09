@@ -3,6 +3,7 @@ use std::net::{SocketAddrV4, SocketAddrV6};
 use std::time::Duration;
 
 use async_trait::async_trait;
+use hex_color::HexColor;
 use iwlib::{get_wireless_info, WirelessInfo};
 use nix::ifaddrs::getifaddrs;
 use nix::net::if_::InterfaceFlags;
@@ -28,7 +29,7 @@ impl Interface {
         }
     }
 
-    fn format_wireless(&self, i: WirelessInfo, theme: &Theme) -> (String, String) {
+    fn format_wireless(&self, i: WirelessInfo, theme: &Theme) -> (String, Option<HexColor>) {
         let fg = match i.wi_quality {
             80..u8::MAX => theme.success,
             60..80 => theme.warning,
@@ -37,15 +38,13 @@ impl Interface {
         };
 
         (
-            // interface details
             format!("({}) {}% at {}", self.addr, i.wi_quality, i.wi_essid),
-            // colour
-            fg.to_string(),
+            Some(fg),
         )
     }
 
-    fn format_normal(&self) -> (String, String) {
-        (format!("({})", self.addr), "".into())
+    fn format_normal(&self) -> (String, Option<HexColor>) {
+        (format!("({})", self.addr), None)
     }
 
     fn format(&mut self, theme: &Theme) -> (String, String) {
@@ -71,9 +70,10 @@ impl Interface {
             },
         };
 
+        let fg = fg.map(|c| format!(r#" foreground="{}""#, c)).unwrap_or("".into());
         (
-            format!(r#"<span foreground="{}">{}{}</span>"#, fg, self.name, addr),
-            format!(r#"<span foreground="{}">{}</span>"#, fg, self.name),
+            format!(r#"<span{}>{}{}</span>"#, fg, self.name, addr),
+            format!(r#"<span{}>{}</span>"#, fg, self.name),
         )
     }
 }

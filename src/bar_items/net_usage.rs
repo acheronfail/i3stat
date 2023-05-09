@@ -48,7 +48,7 @@ impl BarItem for NetUsage {
     async fn start(self: Box<Self>, ctx: Context) -> Result<(), Box<dyn Error>> {
         let fg = |bytes| {
             Self::get_color(&ctx.theme, bytes)
-                .map(|c| c.to_string())
+                .map(|c| format!(r#" foreground="{}""#, c))
                 .unwrap_or("".into())
         };
 
@@ -77,7 +77,7 @@ impl BarItem for NetUsage {
 
             ctx.update_item(
                 I3Item::new(format!(
-                    r#"<span foreground="{}">↓{}</span> <span foreground="{}">↑{}</span>"#,
+                    "<span{}>↓{}</span> <span{}>↑{}</span>",
                     fg(down),
                     text(down),
                     fg(up),

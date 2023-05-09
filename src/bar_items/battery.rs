@@ -119,10 +119,10 @@ impl Battery {
         };
 
         let name = if name == "BAT0" { icon } else { name.as_str() };
-        let fg = fg.map(|c| c.to_string()).unwrap_or("".into());
+        let fg = fg.map(|c| format!(r#" foreground="{}""#, c)).unwrap_or("".into());
         (
-            format!(r#"<span foreground="{}">{} {:.0}%</span>"#, fg, name, pct),
-            format!(r#"<span foreground="{}">{:.0}%</span>"#, fg, pct),
+            format!("<span{}>{} {:.0}%</span>", fg, name, pct),
+            format!("<span{}>{:.0}%</span>", fg, pct),
         )
     }
 
