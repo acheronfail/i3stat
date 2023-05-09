@@ -139,18 +139,21 @@ async fn handle_click_events(
     let s = BufReader::new(stdin());
     let mut lines = s.lines();
     loop {
-        let line = lines
+        let mut line = lines
             .next_line()
             .await?
             .ok_or_else(|| "Received unexpected end of STDIN")?;
 
         // skip opening array as part of the protocol
-        if line == "[" {
+        if line.trim() == "[" {
             continue;
         }
 
+        // skip over any preceding `,` as part of the protocol
+        line = line.chars().skip_while(|c| c.is_whitespace() || *c == ',').collect();
+
         // parse click event (single line JSON)
-        let click = serde_json::from_str::<I3ClickEvent>(&line).unwrap();
+        let click = serde_json::from_str::<I3ClickEvent>(&line)?;
 
         // parse bar item index from the "instance" property
         let i = match click.instance.as_ref() {
