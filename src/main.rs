@@ -1,15 +1,11 @@
 #![feature(exclusive_range_pattern)]
 
+mod bar_items;
+mod config;
 mod context;
 mod exec;
 pub mod i3;
 mod theme;
-mod bar_items {
-    automod::dir!(pub "src/bar_items");
-    // TODO: https://github.com/dtolnay/automod/issues/15
-    pub mod dunst;
-    pub mod pulse;
-}
 
 use std::convert::Infallible;
 use std::error::Error;
@@ -20,18 +16,6 @@ use tokio::io::{stdin, AsyncBufReadExt, BufReader};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::SendError;
 
-use crate::bar_items::battery::Battery;
-use crate::bar_items::cpu::Cpu;
-use crate::bar_items::disk::Disk;
-use crate::bar_items::dunst::Dunst;
-use crate::bar_items::kbd::Kbd;
-use crate::bar_items::mem::Mem;
-use crate::bar_items::net_usage::NetUsage;
-use crate::bar_items::nic::Nic;
-use crate::bar_items::pulse::Pulse;
-use crate::bar_items::script::Script;
-use crate::bar_items::sensors::Sensors;
-use crate::bar_items::time::Time;
 use crate::context::{Context, SharedState};
 use crate::i3::click::I3ClickEvent;
 use crate::i3::header::I3BarHeader;
@@ -56,7 +40,7 @@ pub enum BarEvent {
 }
 
 // TODO: central place for storing formatting options? (precision, GB vs G, padding, etc)
-// TODO: config file? how to setup blocks?
+// TODO: logging facilities for errors, etc
 
 fn main() -> Result<Infallible, Box<dyn Error>> {
     let runtime = tokio::runtime::Builder::new_current_thread()
@@ -67,34 +51,27 @@ fn main() -> Result<Infallible, Box<dyn Error>> {
 }
 
 async fn async_main() -> Result<Infallible, Box<dyn Error>> {
+    let config = config::read().await?;
+
     println!("{}", json!(I3BarHeader::default()));
     println!("[");
 
-    let items: Vec<Box<dyn context::BarItem>> = vec![
-        Box::new(NetUsage::default()),
-        Box::new(Nic::default()),
-        Box::new(Disk::default()),
-        Box::new(Cpu::default()),
-        Box::new(Sensors::default()),
-        Box::new(Mem::default()),
-        Box::new(Pulse::default()),
-        Box::new(Battery::default()),
-        Box::new(Kbd::default()),
-        Box::new(Time::default()),
-        Box::new(Script::default()),
-        Box::new(Dunst::default()),
-    ];
-    let bar_item_count = items.len();
+    let item_count = config.items.len();
+    let items = config
+        .items
+        .iter()
+        .map(|i| i.to_bar_item())
+        .collect::<Vec<Box<dyn context::BarItem>>>();
 
     // shared context
     let state = SharedState::new();
 
     // state for the bar (moved to bar_printer)
-    let mut bar: Vec<i3::I3Item> = vec![i3::I3Item::empty(); bar_item_count];
-    let mut bar_tx: Vec<mpsc::Sender<BarEvent>> = Vec::with_capacity(bar_item_count);
+    let mut bar: Vec<i3::I3Item> = vec![i3::I3Item::empty(); item_count];
+    let mut bar_tx: Vec<mpsc::Sender<BarEvent>> = Vec::with_capacity(item_count);
 
     // for each BarItem, spawn a new task to manage it
-    let (item_tx, mut item_rx) = mpsc::channel(bar_item_count);
+    let (item_tx, mut item_rx) = mpsc::channel(item_count);
     for (i, bar_item) in items.into_iter().enumerate() {
         let (event_tx, event_rx) = mpsc::channel(32);
         bar_tx.push(event_tx);

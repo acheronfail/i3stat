@@ -12,9 +12,9 @@ path = "scripts/signals.rs"
 [dependencies]
 async-stream = "0.3.5"
 async-trait = "0.1.68"
-automod = "1.0.8"
 bytesize = "1.2.0"
 chrono = "0.4.24"
+config = { version = "0.13.3", features = ["preserve_order"] }
 dbus = { version = "0.9.7", features = ["futures"] }
 dbus-tokio = "0.7.6"
 futures = "0.3.28"

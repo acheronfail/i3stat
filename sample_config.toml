@@ -1,0 +1,37 @@
+# TODO: a nice config format
+
+[[items]]
+type = "net_usage"
+
+[[items]]
+type = "nic"
+
+[[items]]
+type = "disk"
+
+[[items]]
+type = "cpu"
+
+[[items]]
+type = "sensors"
+
+[[items]]
+type = "mem"
+
+[[items]]
+type = "pulse"
+
+[[items]]
+type = "battery"
+
+[[items]]
+type = "kbd"
+
+[[items]]
+type = "time"
+
+[[items]]
+type = "script"
+
+[[items]]
+type = "dunst"

@@ -1,0 +1,25 @@
+pub mod battery;
+pub mod cpu;
+pub mod disk;
+pub mod dunst;
+pub mod kbd;
+pub mod mem;
+pub mod net_usage;
+pub mod nic;
+pub mod pulse;
+pub mod script;
+pub mod sensors;
+pub mod time;
+
+pub use battery::*;
+pub use cpu::*;
+pub use disk::*;
+pub use dunst::*;
+pub use kbd::*;
+pub use mem::*;
+pub use net_usage::*;
+pub use nic::*;
+pub use pulse::*;
+pub use script::*;
+pub use sensors::*;
+pub use time::*;
