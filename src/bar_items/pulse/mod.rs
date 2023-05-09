@@ -40,12 +40,12 @@ impl Port {
         (self.volume.max().0 * 100 + normal / 2) / normal
     }
 
-    fn port_symbol(&self) -> &str {
+    fn port_symbol(&self) -> Option<&str> {
         match self.port_type {
-            Some(DevicePortType::Bluetooth) => "󰂰",
-            Some(DevicePortType::Headphones) => "󰋋",
-            Some(DevicePortType::Headset) => "󰋎",
-            _ => "",
+            Some(DevicePortType::Bluetooth) => Some("󰂰"),
+            Some(DevicePortType::Headphones) => Some("󰋋"),
+            Some(DevicePortType::Headset) => Some("󰋎"),
+            _ => None,
         }
     }
 }
@@ -171,23 +171,22 @@ impl PulseState {
         };
 
         let sink_text = format!(
-            r#"<span foreground="{}">{} {}%{}</span>"#,
+            r#"<span foreground="{}">{} {}%</span>"#,
             sink_fg,
-            if default_sink.mute { "" } else { "" },
+            default_sink.port_symbol().unwrap_or_else(|| if default_sink.mute { "" } else { "" }),
             default_sink.volume_pct(),
-            default_sink.port_symbol(),
         );
 
         let full = format!(
-            r#"{} <span foreground="{}">[{}%{}]</span>"#,
+            r#"{} <span foreground="{}">[{}{}%]</span>"#,
             sink_text,
             if default_source.mute {
                 self.theme.dark4
             } else {
                 self.theme.light1
             },
+            default_source.port_symbol().unwrap_or(""),
             default_source.volume_pct(),
-            default_source.port_symbol(),
         );
 
         let item = I3Item::new(full)
