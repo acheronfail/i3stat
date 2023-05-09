@@ -4,6 +4,7 @@ mod bar_items;
 mod config;
 mod context;
 mod exec;
+mod format;
 pub mod i3;
 mod theme;
 
@@ -150,7 +151,10 @@ async fn handle_click_events(
         }
 
         // skip over any preceding `,` as part of the protocol
-        line = line.chars().skip_while(|c| c.is_whitespace() || *c == ',').collect();
+        line = line
+            .chars()
+            .skip_while(|c| c.is_whitespace() || *c == ',')
+            .collect();
 
         // parse click event (single line JSON)
         let click = serde_json::from_str::<I3ClickEvent>(&line)?;

@@ -9,6 +9,7 @@ use nix::ifaddrs::getifaddrs;
 use nix::net::if_::InterfaceFlags;
 
 use crate::context::{BarItem, Context};
+use crate::format::fraction;
 use crate::i3::{I3Button, I3Item, I3Markup};
 use crate::theme::Theme;
 use crate::BarEvent;
@@ -70,7 +71,9 @@ impl Interface {
             },
         };
 
-        let fg = fg.map(|c| format!(r#" foreground="{}""#, c)).unwrap_or("".into());
+        let fg = fg
+            .map(|c| format!(r#" foreground="{}""#, c))
+            .unwrap_or("".into());
         (
             format!(r#"<span{}>{}{}</span>"#, fg, self.name, addr),
             format!(r#"<span{}>{}</span>"#, fg, self.name),
@@ -139,17 +142,7 @@ impl BarItem for Nic {
             idx = idx % len;
 
             let (full, short) = interfaces[idx].format(&ctx.theme);
-            let full = if len > 1 {
-                format!(
-                    r#"{} <span foreground="{}">({}/{})</span>"#,
-                    full,
-                    ctx.theme.dark4,
-                    idx + 1,
-                    len
-                )
-            } else {
-                full
-            };
+            let full = format!(r#"{}{}"#, full, fraction(&ctx.theme, idx + 1, len));
 
             let item = I3Item::new(full)
                 .short_text(short)

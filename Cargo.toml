@@ -17,6 +17,7 @@ chrono = "0.4.24"
 config = { version = "0.13.3", features = ["preserve_order"] }
 dbus = { version = "0.9.7", features = ["futures"] }
 dbus-tokio = "0.7.6"
+dirs = "5.0.1"
 futures = "0.3.28"
 futures-core = "0.3.28"
 futures-util = "0.3.28"

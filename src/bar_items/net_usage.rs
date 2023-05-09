@@ -77,7 +77,7 @@ impl BarItem for NetUsage {
 
             ctx.update_item(
                 I3Item::new(format!(
-                    "<span{}>↓{}</span> <span{}>↑{}</span>",
+                    "<span{}>{}↓</span> <span{}>{}↑</span>",
                     fg(down),
                     text(down),
                     fg(up),

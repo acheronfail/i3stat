@@ -7,7 +7,8 @@ use hex_color::HexColor;
 use sysinfo::{Disk as SysDisk, DiskExt, SystemExt};
 
 use crate::context::{BarItem, Context};
-use crate::i3::{I3Button, I3Item};
+use crate::format::fraction;
+use crate::i3::{I3Button, I3Item, I3Markup};
 use crate::theme::Theme;
 use crate::BarEvent;
 
@@ -75,10 +76,17 @@ impl BarItem for Disk {
 
             let disk = &stats[idx];
             let (full, short) = disk.format();
-            let mut item = I3Item::new(full).short_text(short).name("disk");
+            let full = format!("{}{}", full, fraction(&ctx.theme, idx + 1, len));
+
+            let mut item = I3Item::new(full)
+                .short_text(short)
+                .name("disk")
+                .markup(I3Markup::Pango);
+
             if let Some(fg) = disk.get_color(&ctx.theme) {
                 item = item.color(fg);
             }
+
             ctx.update_item(item).await?;
 
             // cycle through disks

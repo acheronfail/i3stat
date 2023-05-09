@@ -50,15 +50,14 @@ pub struct AppConfig {
 }
 
 pub async fn read() -> Result<AppConfig, Box<dyn Error>> {
-    let path = if cfg!(debug_assertions) {
-        "sample_config".into()
-    } else {
-        // TODO: XDG directories
-        format!("{}/.config/staturs/config", env!("HOME"))
+    // TODO: cli argument to override
+    let path = match dirs::config_dir() {
+        Some(dir) => dir.join("staturs/config"),
+        None => return Err("Failed to find config dir".into()),
     };
 
     let c = Config::builder()
-        .add_source(config::File::with_name(&path).required(true))
+        .add_source(config::File::from(path).required(true))
         .build()?;
 
     // TODO: print a single JSON object to STDOUT here to display an error rather than crashing?
