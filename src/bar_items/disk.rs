@@ -70,7 +70,8 @@ impl BarItem for Disk {
                 state.sys.refresh_disks();
                 state.sys.disks().iter().map(DiskStats::from_disk).collect()
             };
-            idx = idx % stats.len();
+            let len = stats.len();
+            idx = idx % len;
 
             let disk = &stats[idx];
             let (full, short) = disk.format();
@@ -85,7 +86,13 @@ impl BarItem for Disk {
                 if let BarEvent::Click(click) = event {
                     match click.button {
                         I3Button::Left | I3Button::ScrollUp => idx += 1,
-                        I3Button::Right | I3Button::ScrollDown => idx -= 1,
+                        I3Button::Right | I3Button::ScrollDown => {
+                            if idx == 0 {
+                                idx = len - 1
+                            } else {
+                                idx -= 1
+                            }
+                        }
                         _ => {}
                     }
                 }
