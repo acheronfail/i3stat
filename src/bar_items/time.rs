@@ -7,6 +7,7 @@ use chrono::prelude::*;
 use crate::context::{BarItem, Context};
 use crate::exec::exec;
 use crate::i3::{I3Button, I3Item};
+use crate::BarEvent;
 
 pub struct Time {
     interval: Duration,
@@ -35,9 +36,12 @@ impl BarItem for Time {
 
             ctx.update_item(item).await?;
 
-            ctx.delay_with_click_handler(self.interval, |click| async move {
-                match click.button {
-                    I3Button::Left => exec("gsimplecal").await,
+            ctx.delay_with_event_handler(self.interval, |event| async move {
+                match event {
+                    BarEvent::Click(click) => match click.button {
+                        I3Button::Left => exec("gsimplecal").await,
+                        _ => {}
+                    },
                     _ => {}
                 }
             })

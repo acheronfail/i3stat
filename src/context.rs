@@ -11,8 +11,8 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::time::sleep;
 
 use crate::i3::bar_item::I3Item;
-use crate::i3::click::I3ClickEvent;
 use crate::theme::Theme;
+use crate::BarEvent;
 
 pub struct SharedState {
     pub sys: System,
@@ -36,7 +36,7 @@ pub struct Context {
     // Used as an internal cache to prevent sending the same item multiple times
     last_item: RefCell<I3Item>,
     tx_item: Sender<(I3Item, usize)>,
-    rx_event: Receiver<I3ClickEvent>,
+    rx_event: Receiver<BarEvent>,
     index: usize,
 }
 
@@ -44,7 +44,7 @@ impl Context {
     pub fn new(
         state: State,
         tx_item: Sender<(I3Item, usize)>,
-        rx_event: Receiver<I3ClickEvent>,
+        rx_event: Receiver<BarEvent>,
         index: usize,
     ) -> Context {
         Context {
@@ -67,13 +67,13 @@ impl Context {
         self.tx_item.send((item, self.index)).await
     }
 
-    pub async fn wait_for_click(&mut self) -> Option<I3ClickEvent> {
+    pub async fn wait_for_event(&mut self) -> Option<BarEvent> {
         self.rx_event.recv().await
     }
 
-    pub async fn delay_with_click_handler<F, R>(&mut self, duration: Duration, mut closure: F)
+    pub async fn delay_with_event_handler<F, R>(&mut self, duration: Duration, mut closure: F)
     where
-        F: FnMut(I3ClickEvent) -> R,
+        F: FnMut(BarEvent) -> R,
         R: Future<Output = ()>,
     {
         tokio::select! {
@@ -91,7 +91,7 @@ impl Context {
         }
     }
 
-    pub fn raw_click_rx(&mut self) -> &mut Receiver<I3ClickEvent> {
+    pub fn raw_event_rx(&mut self) -> &mut Receiver<BarEvent> {
         &mut self.rx_event
     }
 }

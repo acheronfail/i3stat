@@ -9,6 +9,7 @@ use sysinfo::{Disk as SysDisk, DiskExt, SystemExt};
 use crate::context::{BarItem, Context};
 use crate::i3::{I3Button, I3Item};
 use crate::theme::Theme;
+use crate::BarEvent;
 
 pub struct Disk {
     interval: Duration,
@@ -80,11 +81,13 @@ impl BarItem for Disk {
             ctx.update_item(item).await?;
 
             // cycle through disks
-            ctx.delay_with_click_handler(self.interval, |click| {
-                match click.button {
-                    I3Button::Left | I3Button::ScrollUp => idx += 1,
-                    I3Button::Right | I3Button::ScrollDown => idx -= 1,
-                    _ => {}
+            ctx.delay_with_event_handler(self.interval, |event| {
+                if let BarEvent::Click(click) = event {
+                    match click.button {
+                        I3Button::Left | I3Button::ScrollUp => idx += 1,
+                        I3Button::Right | I3Button::ScrollDown => idx -= 1,
+                        _ => {}
+                    }
                 }
 
                 async {}

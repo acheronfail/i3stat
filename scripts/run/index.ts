@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { execa } from 'execa';
+import { ExecaChildProcess, execa, $ } from 'execa';
 import { parse, HTMLElement } from 'node-html-parser';
 import chalk from 'chalk';
 import stripAnsi from 'strip-ansi';
@@ -27,7 +27,8 @@ let _input = '';
 
 // spawn, pipe stdout/err and write initial stdin
 process.chdir('../..');
-const child = execa('./target/debug/staturs');
+const { sigrtmin, sigrtmax } = JSON.parse((await $`./target/debug/signals`).stdout);
+const child: ExecaChildProcess = execa('./target/debug/staturs');
 child.stdin.write('[\n');
 
 // custom stdout listening for pango markup
@@ -59,7 +60,7 @@ child.stderr.setEncoding('utf8');
 child.stderr.on('data', (output: string) => {
   process.stdout.cursorTo(0, process.stdout.rows - 1);
   process.stdout.clearLine(0);
-  process.stdout.write(chalk.red(output));
+  process.stdout.write(chalk.hex('#ffa500')(output));
 });
 
 // listen for commands on stdin, and send JSON to child
@@ -114,17 +115,20 @@ function displayHelp() {
   process.stderr.write(chalk.grey.italic`
 Usage:
   [c]lick <instance> <button>       e.g.: "click 0 3"
-  [f]ilter                          e.g.: "filter 1,3,6" (empty to reset)
+  [f]ilter [1,2,3,...]              only show particular items, leave empty to reset
   [l]ist                            lists bar items with instance ids
-  [d]isplay                         display type, one of: "full", "short" or "json"
+  [d]isplay [full|short|json]       change display, or empty to rotate between them
   [p]ause                           toggles pausing output
   [r]epeat                          repeats last command
+  [s]ignal <instance> <signal>      sends a realtime signal
   [h]elp or ?                       show this text
   [q]uit                            exits
 `);
 }
 
 function handleInput(input: string) {
+  const c = chalk.gray.italic;
+
   // help
   if (input.startsWith('?') || input == 'h' || input == 'help') return displayHelp();
 
@@ -185,9 +189,32 @@ function handleInput(input: string) {
     process.exit();
   }
 
+  // signal
+  else if (input.startsWith('s')) {
+    const match = /s(?:ignal)?\s+(\d+)/.exec(input);
+    if (!match) return displayHelp();
+
+    const [, signalStr] = match;
+    process.stdout.write(c(`\nSending signal: SIGRTMIN+${signalStr}\n`));
+
+    const signal = sigrtmin + parseInt(signalStr);
+    if (signal < 0 || signal > sigrtmax) {
+      process.stdout.write(c`\n`);
+      process.stdout.write(c.red(`Invalid signal: ${signalStr}\n`));
+      process.stdout.write(c.red(`Valid realtime signals range: 0..${sigrtmax - sigrtmin}`));
+      process.stdout.write(c`\n`);
+      return;
+    }
+
+    // not exactly a public API, but I'm glad it exists since `child.kill(signal)` throws with `ERR_UNKNOWN_SIGNAL`
+    // for realtime signals, see:
+    // https://github.com/nodejs/node/blob/0b3fcfcf351fba9f29234976eeec4afb09ae2cc0/src/node_process_methods.cc#L145
+    // https://github.com/nodejs/node/blob/0b3fcfcf351fba9f29234976eeec4afb09ae2cc0/src/node_process_methods.cc#L597
+    process._kill(child._handle.pid, signal);
+  }
+
   // list
   else if (input == 'l' || input == 'list') {
-    const c = chalk.gray.italic;
     process.stdout.write(c('\n'));
     for (const { name, id } of instances) {
       process.stdout.write(c(`${id || '?'}: ${name}\n`));

@@ -76,7 +76,7 @@ impl BarItem for Cpu {
             }
 
             ctx.update_item(item).await?;
-            ctx.delay_with_click_handler(self.interval, |_| async {
+            ctx.delay_with_event_handler(self.interval, |_| async {
                 exec("systemmonitor").await;
             })
             .await;

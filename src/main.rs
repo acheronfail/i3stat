@@ -11,8 +11,11 @@ mod bar_items {
     pub mod pulse;
 }
 
+use std::convert::Infallible;
 use std::error::Error;
 
+use libc::{SIGRTMAX, SIGRTMIN};
+use signal_hook_tokio::{Handle, Signals};
 use tokio::io::{stdin, AsyncBufReadExt, BufReader};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::SendError;
@@ -21,6 +24,7 @@ use crate::bar_items::battery::Battery;
 use crate::bar_items::cpu::Cpu;
 use crate::bar_items::disk::Disk;
 use crate::bar_items::dunst::Dunst;
+use crate::bar_items::kbd::Kbd;
 use crate::bar_items::mem::Mem;
 use crate::bar_items::net_usage::NetUsage;
 use crate::bar_items::nic::Nic;
@@ -38,10 +42,23 @@ macro_rules! json {
     };
 }
 
+macro_rules! cont {
+    ($($arg:tt)*) => {{
+        eprintln!($($arg)*);
+        continue;
+    }};
+}
+
+#[derive(Debug)]
+pub enum BarEvent {
+    Click(I3ClickEvent),
+    Signal,
+}
+
 // TODO: central place for storing formatting options? (precision, GB vs G, padding, etc)
 // TODO: config file? how to setup blocks?
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<Infallible, Box<dyn Error>> {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;
@@ -49,7 +66,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     tokio::task::LocalSet::new().block_on(&runtime, async move { async_main().await })
 }
 
-async fn async_main() -> Result<(), Box<dyn Error>> {
+async fn async_main() -> Result<Infallible, Box<dyn Error>> {
     println!("{}", json!(I3BarHeader::default()));
     println!("[");
 
@@ -62,6 +79,7 @@ async fn async_main() -> Result<(), Box<dyn Error>> {
         Box::new(Mem::default()),
         Box::new(Pulse::default()),
         Box::new(Battery::default()),
+        Box::new(Kbd::default()),
         Box::new(Time::default()),
         Box::new(Script::default()),
         Box::new(Dunst::default()),
@@ -73,14 +91,14 @@ async fn async_main() -> Result<(), Box<dyn Error>> {
 
     // state for the bar (moved to bar_printer)
     let mut bar: Vec<i3::I3Item> = vec![i3::I3Item::empty(); bar_item_count];
-    let mut bar_tx: Vec<mpsc::Sender<I3ClickEvent>> = Vec::with_capacity(bar_item_count);
+    let mut bar_tx: Vec<mpsc::Sender<BarEvent>> = Vec::with_capacity(bar_item_count);
 
     // for each BarItem, spawn a new task to manage it
     let (item_tx, mut item_rx) = mpsc::channel(bar_item_count);
     for (i, bar_item) in items.into_iter().enumerate() {
-        let (click_tx, click_rx) = mpsc::channel(32);
-        bar_tx.push(click_tx);
-        let ctx = Context::new(state.clone(), item_tx.clone(), click_rx, i);
+        let (event_tx, event_rx) = mpsc::channel(32);
+        bar_tx.push(event_tx);
+        let ctx = Context::new(state.clone(), item_tx.clone(), event_rx, i);
         tokio::task::spawn_local(async move {
             let fut = bar_item.start(ctx);
             // TODO: handle if a bar item fails
@@ -98,20 +116,60 @@ async fn async_main() -> Result<(), Box<dyn Error>> {
         }
     });
 
+    // handle incoming signals
+    let signal_handle = handle_signals(bar_tx.clone())?;
+
     // IPC click event loop from i3
+    let err = handle_click_events(bar_tx).await;
+
+    // if we reach here, then something went wrong while reading STDIN, so clean up
+    signal_handle.close();
+    return err;
+}
+
+// NOTE: the `signal_hook` crate isn't designed to be used with realtime signals, because
+// they may be lost due to its internal buffering, etc. For our use case, I think this is
+// fine as is, but if not, we may have to use `signal_hook_register` to do it ourselves.
+// See: https://docs.rs/signal-hook/latest/signal_hook/index.html#limitations
+fn handle_signals(bar_tx: Vec<mpsc::Sender<BarEvent>>) -> Result<Handle, Box<dyn Error>> {
+    // TODO: error if a signal is requested that's outside this range
+    let min = SIGRTMIN();
+    let max = SIGRTMAX();
+    let signals = (min..=max).collect::<Vec<_>>();
+    let mut signals = Signals::new(signals)?;
+
+    let handle = signals.handle();
+    tokio::task::spawn_local(async move {
+        use futures::stream::StreamExt;
+
+        while let Some(signal) = signals.next().await {
+            // TODO: setup a way (config?) to map a signal to an item, not hardcoded...
+            if signal == min + 4 {
+                send_bar_event(&bar_tx[8], BarEvent::Signal).await.unwrap();
+            } else {
+                eprintln!("Received signal: {}", signal);
+            }
+        }
+    });
+
+    Ok(handle)
+}
+
+/// This task should
+async fn handle_click_events(
+    bar_tx: Vec<mpsc::Sender<BarEvent>>,
+) -> Result<Infallible, Box<dyn Error>> {
     let s = BufReader::new(stdin());
     let mut lines = s.lines();
-    while let Ok(Some(line)) = lines.next_line().await {
+    loop {
+        let line = lines
+            .next_line()
+            .await?
+            .ok_or_else(|| "Received unexpected end of STDIN")?;
+
         // skip opening array as part of the protocol
         if line == "[" {
             continue;
-        }
-
-        macro_rules! cont {
-            ($($arg:tt)*) => {{
-                eprintln!($($arg)*);
-                continue;
-            }};
         }
 
         // parse click event (single line JSON)
@@ -129,22 +187,21 @@ async fn async_main() -> Result<(), Box<dyn Error>> {
             ),
         };
 
-        // if the channel fills up (the bar never reads click events), since this is a bounded channel
-        // sending the event would block forever, so just drop the event
-        let tx = &bar_tx[i];
-        if tx.capacity() == 0 {
-            cont!("Could not send click event to block, dropping event (channel is full)");
-        }
+        send_bar_event(&bar_tx[i], BarEvent::Click(click)).await?;
+    }
+}
 
-        // send click event to its corresponding bar item
-        if let Err(SendError(click)) = tx.send(click).await {
-            cont!(
-                "Received click event for block that is no longer receving: {:?}",
-                click
-            );
-        }
+async fn send_bar_event(tx: &mpsc::Sender<BarEvent>, ev: BarEvent) -> Result<(), Box<dyn Error>> {
+    // if the channel fills up (the bar never reads click events), since this is a bounded channel
+    // sending the event would block forever, so just drop the event
+    if tx.capacity() == 0 {
+        return Err("Could not send event to item, dropping event (channel is full)".into());
     }
 
-    eprintln!("STDIN was closed, exiting");
+    // send click event to its corresponding bar item
+    if let Err(SendError(_)) = tx.send(ev).await {
+        return Err("Could not send event to item, dropping event (receiver dropped)".into());
+    }
+
     Ok(())
 }

@@ -6,6 +6,7 @@ use tokio::process::Command;
 
 use crate::context::{BarItem, Context};
 use crate::i3::I3Item;
+use crate::BarEvent;
 
 #[allow(dead_code)]
 pub enum ScriptFormat {
@@ -73,7 +74,7 @@ impl BarItem for Script {
             ctx.update_item(item).await?;
 
             // On any click event, update the environment map and re-run the script
-            if let Some(click) = ctx.wait_for_click().await {
+            if let Some(BarEvent::Click(click)) = ctx.wait_for_event().await {
                 click.name.map(|name| {
                     env.insert("I3_NAME", name.to_string());
                 });

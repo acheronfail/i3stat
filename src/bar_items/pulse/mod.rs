@@ -22,6 +22,7 @@ use crate::context::{BarItem, Context};
 use crate::exec::exec;
 use crate::i3::{I3Button, I3Item, I3Modifier};
 use crate::theme::Theme;
+use crate::BarEvent;
 
 /// Information about a `Sink` or a `Source`
 #[derive(Debug, Default, Clone)]
@@ -330,7 +331,7 @@ impl BarItem for Pulse {
         loop {
             tokio::select! {
                 // handle click events
-                Some(click) = ctx.raw_click_rx().recv() => {
+                Some(BarEvent::Click(click)) = ctx.raw_event_rx().recv() => {
                     match click.button {
                         I3Button::Left => exec("i3-msg exec pavucontrol").await,
                         // source
