@@ -70,7 +70,7 @@ process.stdin.resume();
 process.stdin.on('data', (char: string) => {
   // NOTE: console.log(Buffer.from(char));
   if (char === CTRL_C || char === CTRL_D) {
-    process.exit(0);
+    exit(0);
   } else if (char === BACKSP) {
     _input = _input.slice(0, -1);
   } else if (char == RETURN) {
@@ -186,7 +186,7 @@ function handleInput(input: string) {
 
   // quit
   else if (input == 'q' || input == 'quit') {
-    process.exit();
+    exit(0);
   }
 
   // signal
@@ -302,4 +302,10 @@ function formatLine(line: string) {
   }
 
   return result.join(chalk.gray('|'));
+}
+
+function exit(code: number) {
+  process.stdout.cursorTo(0, process.stdout.rows);
+  process.stdout.clearLine();
+  process.exit(code);
 }

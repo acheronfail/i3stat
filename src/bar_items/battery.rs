@@ -1,9 +1,11 @@
 use std::error::Error;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::time::Duration;
 
 use async_trait::async_trait;
 use futures::future;
+use hex_color::HexColor;
 use tokio::fs::read_to_string;
 use tokio::time::sleep;
 
@@ -11,11 +13,50 @@ use crate::context::{BarItem, Context};
 use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
 
+enum BatState {
+    Unknown,
+    Charging,
+    Discharging,
+    NotCharging,
+    Full,
+}
+
+impl BatState {
+    fn get_color(&self, theme: &Theme) -> Option<HexColor> {
+        match self {
+            Self::Full => Some(theme.special),
+            Self::Charging => Some(theme.accent1),
+            _ => None,
+        }
+    }
+}
+
+impl FromStr for BatState {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-power
+        match s {
+            "Unknown" => Ok(Self::Unknown),
+            "Charging" => Ok(Self::Charging),
+            "Discharging" => Ok(Self::Discharging),
+            "Not charging" => Ok(Self::NotCharging),
+            "Full" => Ok(Self::Full),
+            s => Err(format!("Unknown battery state: {}", s)),
+        }
+    }
+}
+
 struct Bat(PathBuf);
 
 impl Bat {
     fn name(&self) -> String {
         self.0.file_name().unwrap().to_string_lossy().into_owned()
+    }
+
+    async fn get_state(&self) -> Result<BatState, Box<dyn Error>> {
+        Ok(BatState::from_str(
+            read_to_string(self.0.join("status")).await?.trim(),
+        )?)
     }
 
     async fn get_charge(&self) -> Result<f32, Box<dyn Error>> {
@@ -67,13 +108,14 @@ impl Default for Battery {
 }
 
 impl Battery {
-    fn format(theme: &Theme, name: &String, pct: f32) -> (String, String) {
+    fn format(theme: &Theme, name: &String, pct: f32, state: BatState) -> (String, String) {
+        let fg = state.get_color(theme);
         let (icon, fg) = match pct as u32 {
-            0..=15 => ("", Some(theme.error)),
-            16..=25 => ("", Some(theme.danger)),
-            26..=50 => ("", Some(theme.warning)),
-            51..=75 => ("", None),
-            76..=u32::MAX => ("", Some(theme.success)),
+            0..=15 => ("", fg.or(Some(theme.error))),
+            16..=25 => ("", fg.or(Some(theme.danger))),
+            26..=50 => ("", fg.or(Some(theme.warning))),
+            51..=75 => ("", fg.or(None)),
+            76..=u32::MAX => ("", fg.or(Some(theme.success))),
         };
 
         let name = if name == "BAT0" { icon } else { name.as_str() };
@@ -84,8 +126,9 @@ impl Battery {
         )
     }
 
-    async fn get(bat: &Bat) -> Result<(String, f32), Box<dyn Error>> {
-        Ok((bat.name(), bat.get_charge().await?))
+    async fn get(bat: &Bat) -> Result<(String, f32, BatState), Box<dyn Error>> {
+        let (charge, state) = future::join(bat.get_charge(), bat.get_state()).await;
+        Ok((bat.name(), charge?, state?))
     }
 }
 
@@ -101,8 +144,8 @@ impl BarItem for Battery {
             let len = batteries.len();
             let (full, short) = batteries.into_iter().fold(
                 (Vec::with_capacity(len), Vec::with_capacity(len)),
-                |mut acc, (name, pct)| {
-                    let (full, short) = Self::format(&ctx.theme, &name, pct);
+                |mut acc, (name, pct, state)| {
+                    let (full, short) = Self::format(&ctx.theme, &name, pct, state);
                     acc.0.push(full);
                     acc.1.push(short);
                     acc
@@ -115,6 +158,8 @@ impl BarItem for Battery {
                 .markup(I3Markup::Pango);
 
             ctx.update_item(item).await?;
+
+            // TODO: rather than an interval, investigate waiting on bat/status FD for state changes?
             sleep(self.interval).await;
         }
     }
