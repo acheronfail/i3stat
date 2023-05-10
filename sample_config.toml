@@ -1,5 +1,3 @@
-# TODO: a nice config format
-
 [[items]]
 type = "net_usage"
 interval = "1s"

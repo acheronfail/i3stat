@@ -31,7 +31,6 @@ Probably don't use this yet... I'm still hacking on it, but you can have a look 
 ## To Do
 
 * [ ] think of a better name than `staturs`
-* [ ] create a better configuration file format
 * [ ] handle the `.unwrap()`s
 * [ ] all the other "todo"s in the repository
 * [ ] publish crate
