@@ -6,17 +6,19 @@ use serde_derive::{Deserialize, Serialize};
 
 use crate::context::{BarItem, Context};
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Serialize, Deserialize, Copy, Clone, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum I3Align {
+    #[default]
     Center,
     Right,
     Left,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Serialize, Deserialize, Copy, Clone, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum I3Markup {
+    #[default]
     None,
     Pango,
 }

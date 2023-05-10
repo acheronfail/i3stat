@@ -173,7 +173,9 @@ impl PulseState {
         let sink_text = format!(
             "<span{}>{} {}%</span>",
             sink_fg,
-            default_sink.port_symbol().unwrap_or_else(|| if default_sink.mute { "" } else { "" }),
+            default_sink
+                .port_symbol()
+                .unwrap_or_else(|| if default_sink.mute { "" } else { "" }),
             default_sink.volume_pct(),
         );
 
@@ -332,7 +334,24 @@ impl BarItem for Pulse {
                 // handle click events
                 Some(BarEvent::Click(click)) = ctx.raw_event_rx().recv() => {
                     match click.button {
+                        // open control panel
                         I3Button::Left => exec("i3-msg exec pavucontrol").await,
+
+                        // show a popup with information about the current state
+                        I3Button::Right => {
+                            let s = |s: &str| s.chars().filter(char::is_ascii).collect::<String>();
+
+                            let sink = inner.default_sink().unwrap();
+                            let source = inner.default_source().unwrap();
+                            exec(
+                                format!(
+                                    r#"zenity --info --text='{}\n\n{}'"#,
+                                    format!("[sink]\nname: {}\nvolume: {}\n", s(&sink.name), sink.volume_pct()),
+                                    format!("[source]\nname: {}\nvolume: {}\n", s(&source.name), source.volume_pct())
+                                )
+                            ).await
+                        },
+
                         // source
                         I3Button::Middle if click.modifiers.contains(&I3Modifier::Shift) => {
                             inner.default_source().map(|x| inner.set_mute_source(x.index, !x.mute));
@@ -353,8 +372,6 @@ impl BarItem for Pulse {
                         I3Button::ScrollDown  => {
                             inner.default_sink().map(|mut x| inner.set_volume_sink(x.index, update_volume(&mut x.volume, -2)));
                         }
-
-                        _ => {}
                     }
                 },
 

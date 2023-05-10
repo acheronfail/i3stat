@@ -32,6 +32,14 @@ type = "time"
 
 [[items]]
 type = "script"
+command = "echo -n `if [ ! -z $I3_BUTTON ]; then echo button=$I3_BUTTON; else echo bar item; fi`"
+output = "simple"
+
+[[items]]
+type = "script"
+command = """ echo -n '{"full_text":"<span foreground=\\"orange\\">G'"'"'day</span>"}' """
+output = "json"
+markup = "pango"
 
 [[items]]
 type = "dunst"

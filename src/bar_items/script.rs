@@ -2,30 +2,27 @@ use std::collections::HashMap;
 use std::error::Error;
 
 use async_trait::async_trait;
+use serde_derive::{Deserialize, Serialize};
 use tokio::process::Command;
 
 use crate::context::{BarItem, Context};
-use crate::i3::I3Item;
+use crate::i3::{I3Item, I3Markup};
 use crate::BarEvent;
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[allow(dead_code)]
 pub enum ScriptFormat {
     Simple,
     Json,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Script {
-    command: String,
-    format: ScriptFormat,
-}
-
-impl Default for Script {
-    fn default() -> Self {
-        Script {
-            command: "echo -n `if [ ! -z $I3_BUTTON ]; then echo button=$I3_BUTTON; else echo bar item; fi`".into(),
-            format: ScriptFormat::Simple
-        }
-    }
+    pub command: String,
+    pub output: ScriptFormat,
+    #[serde(default)]
+    pub markup: I3Markup,
 }
 
 impl Script {
@@ -60,17 +57,17 @@ impl BarItem for Script {
         loop {
             // Initial run has no click environment variables
             let stdout = self.run(&env).await?;
-            let mut item = match self.format {
+            let mut item = match self.output {
                 ScriptFormat::Simple => I3Item::new(stdout),
                 ScriptFormat::Json => match serde_json::from_str(&stdout) {
                     Ok(item) => item,
                     Err(e) => {
-                        dbg!(e); // TODO: error logging
-                        I3Item::new("ERR").background_color(ctx.theme.error)
+                        dbg!(&stdout, &e); // TODO: error logging
+                        I3Item::new(e.to_string()).background_color(ctx.theme.error)
                     }
                 },
             };
-            item = item.name(&name);
+            item = item.name(&name).markup(self.markup);
             ctx.update_item(item).await?;
 
             // On any click event, update the environment map and re-run the script

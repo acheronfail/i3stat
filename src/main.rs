@@ -1,6 +1,7 @@
 #![feature(exclusive_range_pattern)]
 
 mod bar_items;
+mod cli;
 mod config;
 mod context;
 mod exec;
@@ -11,12 +12,14 @@ mod theme;
 use std::convert::Infallible;
 use std::error::Error;
 
+use clap::Parser;
 use libc::{SIGRTMAX, SIGRTMIN};
 use signal_hook_tokio::{Handle, Signals};
 use tokio::io::{stdin, AsyncBufReadExt, BufReader};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::SendError;
 
+use crate::cli::Cli;
 use crate::context::{Context, SharedState};
 use crate::i3::click::I3ClickEvent;
 use crate::i3::header::I3BarHeader;
@@ -44,15 +47,17 @@ pub enum BarEvent {
 // TODO: logging facilities for errors, etc
 
 fn main() -> Result<Infallible, Box<dyn Error>> {
+    let args = Cli::parse();
+
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;
 
-    tokio::task::LocalSet::new().block_on(&runtime, async move { async_main().await })
+    tokio::task::LocalSet::new().block_on(&runtime, async move { async_main(args).await })
 }
 
-async fn async_main() -> Result<Infallible, Box<dyn Error>> {
-    let config = config::read().await?;
+async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
+    let config = config::read(args.config).await?;
 
     println!("{}", json!(I3BarHeader::default()));
     println!("[");
@@ -60,7 +65,7 @@ async fn async_main() -> Result<Infallible, Box<dyn Error>> {
     let item_count = config.items.len();
     let items = config
         .items
-        .iter()
+        .into_iter()
         .map(|i| i.to_bar_item())
         .collect::<Vec<Box<dyn context::BarItem>>>();
 

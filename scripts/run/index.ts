@@ -4,6 +4,8 @@ import { ExecaChildProcess, execa, $ } from 'execa';
 import { parse, HTMLElement } from 'node-html-parser';
 import chalk from 'chalk';
 import stripAnsi from 'strip-ansi';
+import cssColors from 'css-color-names';
+import { subscript, superscript } from './consts';
 
 enum Display {
   Full = 'full',
@@ -28,7 +30,7 @@ let _input = '';
 // spawn, pipe stdout/err and write initial stdin
 process.chdir('../..');
 const { sigrtmin, sigrtmax } = JSON.parse((await $`./target/debug/signals`).stdout);
-const child: ExecaChildProcess = execa('./target/debug/staturs');
+const child: ExecaChildProcess = execa('./target/debug/staturs', ['--config', './sample_config.toml']);
 child.stdin.write('[\n');
 
 // custom stdout listening for pango markup
@@ -276,10 +278,7 @@ function formatLine(line: string) {
     }
 
     if (item.markup !== 'pango') {
-      let c = chalk;
-      if (item.color) c = c.hex(item.color);
-      if (item.background) c = c.bgHex(item.background);
-      result.push(c(text));
+      result.push(c(item.color, item.background)(text));
       continue;
     }
 
@@ -287,21 +286,43 @@ function formatLine(line: string) {
     for (const node of root.childNodes) {
       if (node instanceof HTMLElement) {
         const { foreground, background } = node.attributes;
-        let c = chalk;
-        if (foreground) c = c.hex(foreground);
-        if (background) c = c.bgHex(background);
-        node.innerHTML = c(node.textContent);
+        // quick and dirty replacement of <sup> <sub> with some unicode equivalents
+        for (const child of node.childNodes) {
+          if (child instanceof HTMLElement) {
+            if (child.tagName.toLowerCase() == 'sub') {
+              child.innerHTML = replaceWithMap(child.textContent, subscript);
+            }
+            if (child.tagName.toLowerCase() == 'sup') {
+              child.innerHTML = replaceWithMap(child.textContent, superscript);
+            }
+            child.innerHTML.replace(/\//g, '⁄');
+          }
+        }
+
+        // color spans
+        node.innerHTML = c(foreground, background)(node.textContent);
       }
     }
 
-    // TODO: border?
-    let c = chalk;
-    if (item.color) c = c.hex(item.color);
-    if (item.background) c = c.bgHex(item.background);
-    result.push(c(root.textContent));
+    // TODO: border? what does that even do
+    result.push(c(item.color, item.background)(root.textContent));
   }
 
   return result.join(chalk.gray('|'));
+}
+
+function replaceWithMap(s: string, map: Record<string, string>) {
+  return s
+    .split('')
+    .map((ch) => map[ch] ?? ch)
+    .join('');
+}
+
+function c(fg?: string, bg?: string) {
+  let fmt = chalk;
+  if (fg) fmt = fmt.hex(fg.startsWith('#') ? fg : cssColors[fg]);
+  if (bg) fmt = fmt.bgHex(bg.startsWith('#') ? bg : cssColors[bg]);
+  return fmt;
 }
 
 function exit(code: number) {

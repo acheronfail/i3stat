@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::path::PathBuf;
 
 use config::Config;
 use serde_derive::{Deserialize, Serialize};
@@ -20,13 +21,16 @@ pub enum Item {
     NetUsage,
     Nic,
     Pulse,
-    Script,
+    Script {
+        #[serde(flatten)]
+        inner: Script,
+    },
     Sensors,
     Time,
 }
 
 impl Item {
-    pub fn to_bar_item(&self) -> Box<dyn BarItem> {
+    pub fn to_bar_item(self) -> Box<dyn BarItem> {
         match self {
             Item::Battery => Box::new(Battery::default()),
             Item::Cpu => Box::new(Cpu::default()),
@@ -37,7 +41,7 @@ impl Item {
             Item::NetUsage => Box::new(NetUsage::default()),
             Item::Nic => Box::new(Nic::default()),
             Item::Pulse => Box::new(Pulse::default()),
-            Item::Script => Box::new(Script::default()),
+            Item::Script { inner } => Box::new(inner),
             Item::Sensors => Box::new(Sensors::default()),
             Item::Time => Box::new(Time::default()),
         }
@@ -49,18 +53,16 @@ pub struct AppConfig {
     pub items: Vec<Item>,
 }
 
-pub async fn read() -> Result<AppConfig, Box<dyn Error>> {
-    // TODO: cli argument to override
-    let path = match dirs::config_dir() {
-        Some(dir) => dir.join("staturs/config"),
-        None => return Err("Failed to find config dir".into()),
-    };
+pub async fn read(config_path: Option<PathBuf>) -> Result<AppConfig, Box<dyn Error>> {
+    let path = config_path
+        .or_else(|| dirs::config_dir().map(|d| d.join("staturs/config")))
+        .ok_or_else(|| "Failed to find config")?;
 
     let c = Config::builder()
         .add_source(config::File::from(path).required(true))
         .build()?;
 
-    // TODO: print a single JSON object to STDOUT here to display an error rather than crashing?
+    // TODO: print a single JSON object to STDOUT to display an error rather than crashing?
     Ok(c.try_deserialize()
         .map_err(|e| format!("Failed to parse config: {}", e))?)
 }
