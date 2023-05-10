@@ -16,10 +16,11 @@ use clap::Parser;
 use libc::{SIGRTMAX, SIGRTMIN};
 use signal_hook_tokio::{Handle, Signals};
 use tokio::io::{stdin, AsyncBufReadExt, BufReader};
-use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::SendError;
+use tokio::sync::mpsc::{self, Sender};
 
 use crate::cli::Cli;
+use crate::config::Common;
 use crate::context::{Context, SharedState};
 use crate::i3::click::I3ClickEvent;
 use crate::i3::header::I3BarHeader;
@@ -63,24 +64,21 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
     println!("[");
 
     let item_count = config.items.len();
-    let items = config
-        .items
-        .into_iter()
-        .map(|i| i.to_bar_item())
-        .collect::<Vec<Box<dyn context::BarItem>>>();
+    let (item_common, items): (Vec<_>, Vec<_>) =
+        config.items.into_iter().map(|i| i.to_bar_item()).unzip();
 
     // shared context
     let state = SharedState::new();
 
     // state for the bar (moved to bar_printer)
     let mut bar: Vec<i3::I3Item> = vec![i3::I3Item::empty(); item_count];
-    let mut bar_tx: Vec<mpsc::Sender<BarEvent>> = Vec::with_capacity(item_count);
+    let mut bar_txs: Vec<Sender<BarEvent>> = Vec::with_capacity(item_count);
 
     // for each BarItem, spawn a new task to manage it
     let (item_tx, mut item_rx) = mpsc::channel(item_count);
     for (i, bar_item) in items.into_iter().enumerate() {
         let (event_tx, event_rx) = mpsc::channel(32);
-        bar_tx.push(event_tx);
+        bar_txs.push(event_tx);
         let ctx = Context::new(state.clone(), item_tx.clone(), event_rx, i);
         tokio::task::spawn_local(async move {
             let fut = bar_item.start(ctx);
@@ -100,10 +98,10 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
     });
 
     // handle incoming signals
-    let signal_handle = handle_signals(bar_tx.clone())?;
+    let signal_handle = handle_signals(bar_txs.clone(), item_common.clone())?;
 
     // IPC click event loop from i3
-    let err = handle_click_events(bar_tx).await;
+    let err = handle_click_events(bar_txs).await;
 
     // if we reach here, then something went wrong while reading STDIN, so clean up
     signal_handle.close();
@@ -114,23 +112,65 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
 // they may be lost due to its internal buffering, etc. For our use case, I think this is
 // fine as is, but if not, we may have to use `signal_hook_register` to do it ourselves.
 // See: https://docs.rs/signal-hook/latest/signal_hook/index.html#limitations
-fn handle_signals(bar_tx: Vec<mpsc::Sender<BarEvent>>) -> Result<Handle, Box<dyn Error>> {
-    // TODO: error if a signal is requested that's outside this range
+fn handle_signals(
+    bar_tx: Vec<Sender<BarEvent>>,
+    mut item_common: Vec<Common>,
+) -> Result<Handle, Box<dyn Error>> {
     let min = SIGRTMIN();
     let max = SIGRTMAX();
-    let signals = (min..=max).collect::<Vec<_>>();
-    let mut signals = Signals::new(signals)?;
+    let realtime_signals = min..=max;
 
+    // make sure all signals are valid
+    for common in item_common.iter_mut() {
+        if let Some(sig) = common.signal.as_mut() {
+            // signals are passed in from 0..(SIGRTMAX - SIGRTMIN)
+            let translated_sig = min + *sig as i32;
+            // check this is a valid realtime signal
+            match realtime_signals.contains(&translated_sig) {
+                true => {
+                    // update signal to be the actual signal number
+                    *sig = translated_sig as u32;
+                }
+                false => {
+                    return Err(format!(
+                        "Invalid signal: {}. Valid signals range from 0 up to {} inclusive",
+                        translated_sig,
+                        max - min
+                    )
+                    .into())
+                }
+            }
+        }
+    }
+
+    let mut signals = Signals::new(realtime_signals)?;
     let handle = signals.handle();
     tokio::task::spawn_local(async move {
         use futures::stream::StreamExt;
 
         while let Some(signal) = signals.next().await {
-            // TODO: setup a way (config?) to map a signal to an item, not hardcoded...
-            if signal == min + 4 {
-                send_bar_event(&bar_tx[8], BarEvent::Signal).await.unwrap();
-            } else {
-                eprintln!("Received signal: {}", signal);
+            // find all items which are listening for this signal
+            let indices: Vec<usize> = item_common
+                .iter()
+                .enumerate()
+                .filter_map(|(idx, c)| {
+                    if c.signal == Some(signal as u32) {
+                        Some(idx)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            if indices.is_empty() {
+                cont!("Received signal: {} but no item is expecting it", signal);
+            }
+
+            // send signal event to all items
+            for idx in indices {
+                send_bar_event(&bar_tx[idx], BarEvent::Signal)
+                    .await
+                    .unwrap();
             }
         }
     });
@@ -139,9 +179,7 @@ fn handle_signals(bar_tx: Vec<mpsc::Sender<BarEvent>>) -> Result<Handle, Box<dyn
 }
 
 /// This task should
-async fn handle_click_events(
-    bar_tx: Vec<mpsc::Sender<BarEvent>>,
-) -> Result<Infallible, Box<dyn Error>> {
+async fn handle_click_events(bar_tx: Vec<Sender<BarEvent>>) -> Result<Infallible, Box<dyn Error>> {
     let s = BufReader::new(stdin());
     let mut lines = s.lines();
     loop {

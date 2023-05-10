@@ -6,12 +6,14 @@ use std::time::Duration;
 use async_trait::async_trait;
 use futures::future;
 use hex_color::HexColor;
-use tokio::fs::read_to_string;
-use tokio::time::sleep;
+use serde_derive::{Deserialize, Serialize};
+use tokio::fs::{self, read_to_string};
 
 use crate::context::{BarItem, Context};
-use crate::i3::{I3Item, I3Markup};
+use crate::format::fraction;
+use crate::i3::{I3Button, I3Item, I3Markup};
 use crate::theme::Theme;
+use crate::BarEvent;
 
 enum BatState {
     Unknown,
@@ -46,6 +48,7 @@ impl FromStr for BatState {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 struct Bat(PathBuf);
 
 impl Bat {
@@ -71,40 +74,30 @@ impl Bat {
 
         Ok(get_usize!("charge_now") / get_usize!("charge_full") * 100.0)
     }
-}
 
-pub struct Battery {
-    interval: Duration,
-    batteries: Vec<Bat>,
-}
-
-impl Default for Battery {
-    fn default() -> Self {
+    async fn find_all() -> Result<Vec<Bat>, Box<dyn Error>> {
         let battery_dir = PathBuf::from("/sys/class/power_supply");
-        let batteries = std::fs::read_dir(&battery_dir)
-            .unwrap()
-            .into_iter()
-            .filter_map(|res| {
-                res.ok()
-                    .and_then(|ent| match ent.file_type() {
-                        Ok(ft) if ft.is_symlink() => Some(battery_dir.join(ent.file_name())),
-                        _ => None,
-                    })
-                    .and_then(|dir| {
-                        if dir.join("charge_now").exists() {
-                            Some(Bat(dir))
-                        } else {
-                            None
-                        }
-                    })
-            })
-            .collect::<Vec<_>>();
+        let mut entries = fs::read_dir(&battery_dir).await?;
 
-        Battery {
-            interval: Duration::from_secs(5),
-            batteries,
+        let mut batteries = vec![];
+        while let Some(entry) = entries.next_entry().await? {
+            if entry.file_type().await?.is_symlink() {
+                let path = entry.path();
+                if fs::try_exists(path.join("charge_now")).await? {
+                    batteries.push(Bat(path));
+                }
+            }
         }
+
+        Ok(batteries)
     }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Battery {
+    #[serde(with = "humantime_serde")]
+    interval: Duration,
+    batteries: Option<Vec<Bat>>,
 }
 
 impl Battery {
@@ -119,7 +112,9 @@ impl Battery {
         };
 
         let name = if name == "BAT0" { icon } else { name.as_str() };
-        let fg = fg.map(|c| format!(r#" foreground="{}""#, c)).unwrap_or("".into());
+        let fg = fg
+            .map(|c| format!(r#" foreground="{}""#, c))
+            .unwrap_or("".into());
         (
             format!("<span{}>{} {:.0}%</span>", fg, name, pct),
             format!("<span{}>{:.0}%</span>", fg, pct),
@@ -134,33 +129,48 @@ impl Battery {
 
 #[async_trait(?Send)]
 impl BarItem for Battery {
-    async fn start(self: Box<Self>, ctx: Context) -> Result<(), Box<dyn Error>> {
+    // TODO: investigate waiting on bat/status FD for state changes?
+    async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
+        let batteries = match self.batteries {
+            Some(inner) => inner,
+            None => Bat::find_all().await?,
+        };
+
+        let mut idx = 0;
+        let len = batteries.len();
         loop {
-            let batteries = future::join_all(self.batteries.iter().map(Battery::get))
-                .await
-                .into_iter()
-                .collect::<Result<Vec<_>, _>>()?;
+            idx = idx % len;
 
-            let len = batteries.len();
-            let (full, short) = batteries.into_iter().fold(
-                (Vec::with_capacity(len), Vec::with_capacity(len)),
-                |mut acc, (name, pct, state)| {
-                    let (full, short) = Self::format(&ctx.theme, &name, pct, state);
-                    acc.0.push(full);
-                    acc.1.push(short);
-                    acc
-                },
-            );
+            let (name, pct, state) = Self::get(&batteries[idx]).await?;
+            let (full, short) = Self::format(&ctx.theme, &name, pct, state);
+            let full = format!("{}{}", full, fraction(&ctx.theme, idx + 1, len));
 
-            let item = I3Item::new(full.join(", "))
-                .short_text(short.join(", "))
+            let item = I3Item::new(full)
+                .short_text(short)
                 .name("bat")
                 .markup(I3Markup::Pango);
 
             ctx.update_item(item).await?;
 
-            // TODO: rather than an interval, investigate waiting on bat/status FD for state changes?
-            sleep(self.interval).await;
+            // cycle though batteries
+            ctx.delay_with_event_handler(self.interval, |event| {
+                if let BarEvent::Click(click) = event {
+                    match click.button {
+                        I3Button::Left | I3Button::ScrollUp => idx += 1,
+                        I3Button::Right | I3Button::ScrollDown => {
+                            if idx == 0 {
+                                idx = len - 1
+                            } else {
+                                idx -= 1
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+
+                async {}
+            })
+            .await;
         }
     }
 }

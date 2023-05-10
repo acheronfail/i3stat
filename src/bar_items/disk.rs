@@ -4,6 +4,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use bytesize::ByteSize;
 use hex_color::HexColor;
+use serde_derive::{Deserialize, Serialize};
 use sysinfo::{Disk as SysDisk, DiskExt, SystemExt};
 
 use crate::context::{BarItem, Context};
@@ -12,16 +13,10 @@ use crate::i3::{I3Button, I3Item, I3Markup};
 use crate::theme::Theme;
 use crate::BarEvent;
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Disk {
+    #[serde(with = "humantime_serde")]
     interval: Duration,
-}
-
-impl Default for Disk {
-    fn default() -> Self {
-        Disk {
-            interval: Duration::from_secs(120),
-        }
-    }
 }
 
 struct DiskStats {

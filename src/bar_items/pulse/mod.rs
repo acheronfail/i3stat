@@ -15,6 +15,7 @@ use libpulse_binding::def::DevicePortType;
 use libpulse_binding::proplist::properties::{APPLICATION_NAME, APPLICATION_PROCESS_ID};
 use libpulse_binding::proplist::Proplist;
 use libpulse_binding::volume::{ChannelVolumes, Volume};
+use serde_derive::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
 
 use self::pulse_tokio::TokioMain;
@@ -84,7 +85,7 @@ enum CtxCommand {
     UpdateItem(I3Item),
 }
 
-#[derive(Default)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Pulse {}
 
 pub struct PulseState {

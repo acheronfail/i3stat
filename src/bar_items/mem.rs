@@ -4,6 +4,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use bytesize::ByteSize;
 use hex_color::HexColor;
+use serde_derive::{Deserialize, Serialize};
 use sysinfo::SystemExt;
 use tokio::time::sleep;
 
@@ -11,16 +12,10 @@ use crate::context::{BarItem, Context};
 use crate::i3::I3Item;
 use crate::theme::Theme;
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Mem {
+    #[serde(with = "humantime_serde")]
     interval: Duration,
-}
-
-impl Default for Mem {
-    fn default() -> Self {
-        Mem {
-            interval: Duration::from_secs(5),
-        }
-    }
 }
 
 impl Mem {

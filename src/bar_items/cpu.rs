@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use hex_color::HexColor;
+use serde_derive::{Deserialize, Serialize};
 use sysinfo::{CpuExt, CpuRefreshKind, SystemExt};
 
 use crate::context::{BarItem, Context};
@@ -10,39 +11,46 @@ use crate::exec::exec;
 use crate::i3::I3Item;
 use crate::theme::Theme;
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Cpu {
-    precision: usize,
-    zero_pad: bool,
+    #[serde(with = "humantime_serde")]
     interval: Duration,
-}
-
-impl Default for Cpu {
-    fn default() -> Self {
-        Cpu {
-            precision: 0,
-            zero_pad: true,
-            interval: Duration::from_secs(2),
-        }
-    }
+    #[serde(default)]
+    precision: usize,
+    pad: Option<char>,
+    pad_count: Option<usize>,
 }
 
 impl Cpu {
     fn get_full_text(&self, pct: f32) -> String {
-        let pad = if !self.zero_pad {
-            0
-        } else if self.precision > 0 {
-            // two digits + decimal separator + precision
-            self.precision + 3
-        } else {
-            // two digits only
-            2
-        };
+        let pad_count = self.pad_count.unwrap_or_else(|| {
+            if self.precision > 0 {
+                // three digits (e.g., 100%) + decimal separator + precision
+                3 + 1 + self.precision
+            } else {
+                // three digits (e.g., 100%) only
+                3
+            }
+        });
+
+        let padding = self
+            .pad
+            .map(|c| {
+                let s = c.to_string();
+                let len = (pct.log10() + 1.).floor() as usize;
+                if len >= pad_count {
+                    "".into()
+                } else {
+                    s.repeat(pad_count - len)
+                }
+            })
+            .unwrap_or("".into());
 
         format!(
-            "  {:0pad$.precision$}%",
+            "  {}{:.precision$}%",
+            padding,
             pct,
             precision = self.precision,
-            pad = pad
         )
     }
 

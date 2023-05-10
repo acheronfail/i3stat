@@ -2,15 +2,21 @@
 
 [[items]]
 type = "net_usage"
+interval = "1s"
 
 [[items]]
 type = "nic"
+interval = "60s"
 
 [[items]]
 type = "disk"
+interval = "60s"
 
 [[items]]
 type = "cpu"
+interval = "2s"
+pad = '0'
+pad_count = 2
 
 [[items]]
 type = "sensors"
@@ -19,15 +25,20 @@ label = "coretemp Package id 0"
 
 [[items]]
 type = "mem"
+interval = "10s"
 
 [[items]]
 type = "pulse"
 
 [[items]]
 type = "battery"
+interval = "10s"
+batteries = ["/sys/class/power_supply/BAT0"]
 
 [[items]]
 type = "kbd"
+show = ["caps_lock", "num_lock"]
+signal = 4
 
 [[items]]
 type = "time"

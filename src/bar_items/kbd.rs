@@ -1,6 +1,7 @@
 use std::error::Error;
 
 use async_trait::async_trait;
+use serde_derive::{Deserialize, Serialize};
 use strum::{EnumIter, IntoEnumIterator};
 use tokio::fs;
 
@@ -9,13 +10,17 @@ use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
 use crate::BarEvent;
 
-#[derive(Debug, Default)]
-pub struct Kbd {}
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Kbd {
+    pub show: Option<Vec<Keys>>,
+}
 
-#[derive(Debug, EnumIter, PartialEq, Eq)]
-enum Keys {
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, EnumIter, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Keys {
     CapsLock,
     NumLock,
+    ScrollLock,
 }
 
 impl Keys {
@@ -23,6 +28,7 @@ impl Keys {
         match self {
             Keys::CapsLock => "::capslock",
             Keys::NumLock => "::numlock",
+            Keys::ScrollLock => "::scrolllock",
         }
     }
 
@@ -30,6 +36,7 @@ impl Keys {
         match self {
             Keys::CapsLock => "C",
             Keys::NumLock => "N",
+            Keys::ScrollLock => "S",
         }
     }
 
@@ -73,8 +80,10 @@ impl Keys {
 #[async_trait(?Send)]
 impl BarItem for Kbd {
     async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
+        let keys = self.show.clone().unwrap_or_else(|| Keys::iter().collect());
+
         'outer: loop {
-            let text = futures::future::join_all(Keys::iter().map(|k| k.format(&ctx.theme)))
+            let text = futures::future::join_all(keys.iter().map(|k| k.format(&ctx.theme)))
                 .await
                 .into_iter()
                 .collect::<Result<Vec<_>, _>>()?

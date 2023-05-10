@@ -11,14 +11,15 @@ use dbus::message::MatchRule;
 use dbus::nonblock::SyncConnection;
 use dbus::{nonblock, Message};
 use generated::OrgDunstprojectCmd0;
+use serde_derive::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
 use crate::context::{BarItem, Context};
 use crate::i3::I3Item;
 use crate::theme::Theme;
 
-#[derive(Debug, Default)]
-pub struct Dunst;
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Dunst {}
 
 impl Dunst {
     fn item(theme: &Theme, paused: bool) -> I3Item {

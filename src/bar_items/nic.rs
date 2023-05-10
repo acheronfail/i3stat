@@ -7,6 +7,7 @@ use hex_color::HexColor;
 use iwlib::{get_wireless_info, WirelessInfo};
 use nix::ifaddrs::getifaddrs;
 use nix::net::if_::InterfaceFlags;
+use serde_derive::{Deserialize, Serialize};
 
 use crate::context::{BarItem, Context};
 use crate::format::fraction;
@@ -81,16 +82,10 @@ impl Interface {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Nic {
+    #[serde(with = "humantime_serde")]
     interval: Duration,
-}
-
-impl Default for Nic {
-    fn default() -> Self {
-        Nic {
-            interval: Duration::from_secs(60),
-        }
-    }
 }
 
 impl Nic {

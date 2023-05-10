@@ -4,6 +4,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use bytesize::ByteSize;
 use hex_color::HexColor;
+use serde_derive::{Deserialize, Serialize};
 use sysinfo::{NetworkExt, NetworksExt, SystemExt};
 use tokio::time::sleep;
 
@@ -11,19 +12,14 @@ use crate::context::{BarItem, Context};
 use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct NetUsage {
+    #[serde(with = "humantime_serde")]
     interval: Duration,
 }
 
-impl Default for NetUsage {
-    fn default() -> Self {
-        NetUsage {
-            interval: Duration::from_secs(1),
-        }
-    }
-}
-
 impl NetUsage {
+    // TODO: make these configurable
     const THRESHOLD_1: u64 = bytesize::KIB;
     const THRESHOLD_2: u64 = bytesize::MIB;
     const THRESHOLD_3: u64 = bytesize::MIB * 10;
