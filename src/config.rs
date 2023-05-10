@@ -25,8 +25,14 @@ pub enum Item {
         #[serde(flatten)]
         inner: Script,
     },
-    Sensors,
-    Time,
+    Sensors {
+        #[serde(flatten)]
+        inner: Sensors,
+    },
+    Time {
+        #[serde(flatten)]
+        inner: Time,
+    },
 }
 
 impl Item {
@@ -42,8 +48,8 @@ impl Item {
             Item::Nic => Box::new(Nic::default()),
             Item::Pulse => Box::new(Pulse::default()),
             Item::Script { inner } => Box::new(inner),
-            Item::Sensors => Box::new(Sensors::default()),
-            Item::Time => Box::new(Time::default()),
+            Item::Sensors { inner } => Box::new(inner),
+            Item::Time { inner } => Box::new(inner),
         }
     }
 }

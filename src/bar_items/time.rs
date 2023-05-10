@@ -3,26 +3,19 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use chrono::prelude::*;
+use serde_derive::{Deserialize, Serialize};
 
 use crate::context::{BarItem, Context};
 use crate::exec::exec;
 use crate::i3::{I3Button, I3Item};
 use crate::BarEvent;
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Time {
+    #[serde(with = "humantime_serde")]
     interval: Duration,
-    full_format: String,
-    short_format: String,
-}
-
-impl Default for Time {
-    fn default() -> Self {
-        Time {
-            interval: Duration::from_secs(1),
-            full_format: "%Y-%m-%d %H:%M:%S".into(),
-            short_format: "%H:%M".into(),
-        }
-    }
+    format_long: String,
+    format_short: String,
 }
 
 #[async_trait(?Send)]
@@ -30,9 +23,9 @@ impl BarItem for Time {
     async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
         loop {
             let now = Local::now();
-            let item = I3Item::new(now.format(&self.full_format).to_string())
+            let item = I3Item::new(now.format(&self.format_long).to_string())
                 .name("time")
-                .short_text(now.format(&self.short_format).to_string());
+                .short_text(now.format(&self.format_short).to_string());
 
             ctx.update_item(item).await?;
 

@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use hex_color::HexColor;
+use serde_derive::{Deserialize, Serialize};
 use sysinfo::{ComponentExt, SystemExt};
 use tokio::time::sleep;
 
@@ -10,17 +11,11 @@ use crate::context::{BarItem, Context};
 use crate::i3::I3Item;
 use crate::theme::Theme;
 
-// TODO: store list of references to Components, so don't have to iter?
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Sensors {
+    #[serde(with = "humantime_serde")]
     interval: Duration,
-}
-
-impl Default for Sensors {
-    fn default() -> Self {
-        Sensors {
-            interval: Duration::from_secs(2),
-        }
-    }
+    label: String,
 }
 
 impl Sensors {
@@ -41,13 +36,13 @@ impl BarItem for Sensors {
         loop {
             let temp = {
                 let mut state = ctx.state.lock().unwrap();
-                // TODO: support choosing particular one
+                // TODO: store list of references to Components, so don't have to iter each time
                 state
                     .sys
                     .components_mut()
                     .iter_mut()
                     .find_map(|c| {
-                        if c.label() == "coretemp Package id 0" {
+                        if c.label() == self.label {
                             c.refresh();
                             Some(c.temperature())
                         } else {

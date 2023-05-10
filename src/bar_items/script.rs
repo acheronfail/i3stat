@@ -9,10 +9,11 @@ use crate::context::{BarItem, Context};
 use crate::i3::{I3Item, I3Markup};
 use crate::BarEvent;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[allow(dead_code)]
 pub enum ScriptFormat {
+    #[default]
     Simple,
     Json,
 }
@@ -20,6 +21,7 @@ pub enum ScriptFormat {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Script {
     pub command: String,
+    #[serde(default)]
     pub output: ScriptFormat,
     #[serde(default)]
     pub markup: I3Markup,

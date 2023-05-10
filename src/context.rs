@@ -28,6 +28,7 @@ impl SharedState {
     }
 }
 
+// TODO: since we're single threaded, this doesn't need to be a mutex, can just be a refcell
 pub type State = Arc<Mutex<SharedState>>;
 
 pub struct Context {
