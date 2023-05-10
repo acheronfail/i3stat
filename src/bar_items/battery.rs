@@ -11,9 +11,8 @@ use tokio::fs::{self, read_to_string};
 
 use crate::context::{BarItem, Context};
 use crate::format::fraction;
-use crate::i3::{I3Button, I3Item, I3Markup};
+use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
-use crate::BarEvent;
 
 enum BatState {
     Unknown,
@@ -24,11 +23,11 @@ enum BatState {
 }
 
 impl BatState {
-    fn get_color(&self, theme: &Theme) -> Option<HexColor> {
+    fn get_color(&self, theme: &Theme) -> (Option<&str>, Option<HexColor>) {
         match self {
-            Self::Full => Some(theme.special),
-            Self::Charging => Some(theme.accent1),
-            _ => None,
+            Self::Full => (None, Some(theme.special)),
+            Self::Charging => (Some("󰚥"), Some(theme.accent1)),
+            _ => (None, None),
         }
     }
 }
@@ -75,6 +74,32 @@ impl Bat {
         Ok(get_usize!("charge_now") / get_usize!("charge_full") * 100.0)
     }
 
+    async fn format(&self, theme: &Theme) -> Result<(String, String), Box<dyn Error>> {
+        let (charge, state) = future::join(self.get_charge(), self.get_state()).await;
+        let name = self.name();
+        let charge = charge?;
+        let state = state?;
+
+        let (icon, fg) = state.get_color(theme);
+        let (icon, fg) = match charge as u32 {
+            0..=15 => (icon.unwrap_or(" "), fg.or(Some(theme.error))),
+            16..=25 => (icon.unwrap_or(" "), fg.or(Some(theme.danger))),
+            26..=50 => (icon.unwrap_or(" "), fg.or(Some(theme.warning))),
+            51..=75 => (icon.unwrap_or(" "), fg.or(None)),
+            76..=u32::MAX => (icon.unwrap_or(" "), fg.or(Some(theme.success))),
+        };
+
+        let name = if name == "BAT0" { icon } else { name.as_str() };
+        let fg = fg
+            .map(|c| format!(r#" foreground="{}""#, c))
+            .unwrap_or("".into());
+
+        Ok((
+            format!("<span{}>{} {:.0}%</span>", fg, name, charge),
+            format!("<span{}>{:.0}%</span>", fg, charge),
+        ))
+    }
+
     async fn find_all() -> Result<Vec<Bat>, Box<dyn Error>> {
         let battery_dir = PathBuf::from("/sys/class/power_supply");
         let mut entries = fs::read_dir(&battery_dir).await?;
@@ -100,36 +125,10 @@ pub struct Battery {
     batteries: Option<Vec<Bat>>,
 }
 
-impl Battery {
-    fn format(theme: &Theme, name: &String, pct: f32, state: BatState) -> (String, String) {
-        let fg = state.get_color(theme);
-        let (icon, fg) = match pct as u32 {
-            0..=15 => (" ", fg.or(Some(theme.error))),
-            16..=25 => (" ", fg.or(Some(theme.danger))),
-            26..=50 => (" ", fg.or(Some(theme.warning))),
-            51..=75 => (" ", fg.or(None)),
-            76..=u32::MAX => (" ", fg.or(Some(theme.success))),
-        };
-
-        let name = if name == "BAT0" { icon } else { name.as_str() };
-        let fg = fg
-            .map(|c| format!(r#" foreground="{}""#, c))
-            .unwrap_or("".into());
-        (
-            format!("<span{}>{} {:.0}%</span>", fg, name, pct),
-            format!("<span{}>{:.0}%</span>", fg, pct),
-        )
-    }
-
-    async fn get(bat: &Bat) -> Result<(String, f32, BatState), Box<dyn Error>> {
-        let (charge, state) = future::join(bat.get_charge(), bat.get_state()).await;
-        Ok((bat.name(), charge?, state?))
-    }
-}
-
 #[async_trait(?Send)]
 impl BarItem for Battery {
     // TODO: investigate waiting on bat/status FD for state changes?
+    // TODO: watts?
     async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
         let batteries = match self.batteries {
             Some(inner) => inner,
@@ -141,8 +140,7 @@ impl BarItem for Battery {
         loop {
             idx = idx % len;
 
-            let (name, pct, state) = Self::get(&batteries[idx]).await?;
-            let (full, short) = Self::format(&ctx.theme, &name, pct, state);
+            let (full, short) = &batteries[idx].format(&ctx.theme).await?;
             let full = format!("{}{}", full, fraction(&ctx.theme, idx + 1, len));
 
             let item = I3Item::new(full)
@@ -154,20 +152,7 @@ impl BarItem for Battery {
 
             // cycle though batteries
             ctx.delay_with_event_handler(self.interval, |event| {
-                if let BarEvent::Click(click) = event {
-                    match click.button {
-                        I3Button::Left | I3Button::ScrollUp => idx += 1,
-                        I3Button::Right | I3Button::ScrollDown => {
-                            if idx == 0 {
-                                idx = len - 1
-                            } else {
-                                idx -= 1
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-
+                Context::paginate(&event, len, &mut idx);
                 async {}
             })
             .await;

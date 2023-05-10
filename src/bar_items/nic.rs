@@ -11,9 +11,8 @@ use serde_derive::{Deserialize, Serialize};
 
 use crate::context::{BarItem, Context};
 use crate::format::fraction;
-use crate::i3::{I3Button, I3Item, I3Markup};
+use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
-use crate::BarEvent;
 
 #[derive(Debug)]
 struct Interface {
@@ -147,20 +146,7 @@ impl BarItem for Nic {
 
             // cycle through networks on click
             ctx.delay_with_event_handler(self.interval, |event| {
-                if let BarEvent::Click(click) = event {
-                    match click.button {
-                        I3Button::Left | I3Button::ScrollUp => idx += 1,
-                        I3Button::Right | I3Button::ScrollDown => {
-                            if idx == 0 {
-                                idx = len - 1
-                            } else {
-                                idx -= 1
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-
+                Context::paginate(&event, len, &mut idx);
                 async {}
             })
             .await;

@@ -11,6 +11,7 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::time::sleep;
 
 use crate::i3::bar_item::I3Item;
+use crate::i3::I3Button;
 use crate::theme::Theme;
 use crate::BarEvent;
 
@@ -91,6 +92,22 @@ impl Context {
 
     pub fn raw_event_rx(&mut self) -> &mut Receiver<BarEvent> {
         &mut self.rx_event
+    }
+
+    // A utility to help with paginating items
+    pub fn paginate(event: &BarEvent, len: usize, idx: &mut usize) {
+        use I3Button::*;
+        match event {
+            BarEvent::Click(c) if matches!(c.button, Left | ScrollUp) => *idx += 1,
+            BarEvent::Click(c) if matches!(c.button, Right | ScrollDown) => {
+                if *idx == 0 {
+                    *idx = len - 1
+                } else {
+                    *idx -= 1
+                }
+            }
+            _ => {}
+        }
     }
 }
 
