@@ -12,7 +12,6 @@ pub struct Common {
     pub signal: Option<u32>,
 }
 
-// TODO: signal mappings for blocks (common config for each?)
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum Item {
