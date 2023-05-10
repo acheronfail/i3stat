@@ -33,11 +33,14 @@ impl Sensors {
 #[async_trait(?Send)]
 impl BarItem for Sensors {
     async fn start(self: Box<Self>, ctx: Context) -> Result<(), Box<dyn Error>> {
+        {
+            ctx.state.borrow_mut().sys.refresh_components_list();
+        }
+
         loop {
             let temp = {
-                let mut state = ctx.state.lock().unwrap();
-                // TODO: store list of references to Components, so don't have to iter each time
-                state
+                ctx.state
+                    .borrow_mut()
                     .sys
                     .components_mut()
                     .iter_mut()

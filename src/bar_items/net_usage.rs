@@ -60,7 +60,7 @@ impl BarItem for NetUsage {
         // TODO: click to cycle between bits and bytes
         loop {
             let (down, up) = {
-                let mut state = ctx.state.lock().unwrap();
+                let mut state = ctx.state.borrow_mut();
                 state.sys.refresh_networks();
                 state
                     .sys

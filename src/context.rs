@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::error::Error;
-use std::sync::{Arc, Mutex};
+use std::rc::Rc;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -20,19 +20,16 @@ pub struct SharedState {
 }
 
 impl SharedState {
-    pub fn new() -> State {
-        Arc::new(Mutex::new(SharedState {
-            // TODO: only load what we need (depending on configuration, etc)
-            sys: System::new_all(),
+    pub fn new() -> Rc<RefCell<SharedState>> {
+        Rc::new(RefCell::new(SharedState {
+            // this loads nothing, it's up to each item to load what it needs
+            sys: System::new(),
         }))
     }
 }
 
-// TODO: since we're single threaded, this doesn't need to be a mutex, can just be a refcell
-pub type State = Arc<Mutex<SharedState>>;
-
 pub struct Context {
-    pub state: State,
+    pub state: Rc<RefCell<SharedState>>,
     pub theme: Theme,
     // Used as an internal cache to prevent sending the same item multiple times
     last_item: RefCell<I3Item>,
@@ -43,7 +40,7 @@ pub struct Context {
 
 impl Context {
     pub fn new(
-        state: State,
+        state: Rc<RefCell<SharedState>>,
         tx_item: Sender<(I3Item, usize)>,
         rx_event: Receiver<BarEvent>,
         index: usize,

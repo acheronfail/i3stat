@@ -62,8 +62,9 @@ impl BarItem for Disk {
         let mut idx = 0;
         loop {
             let stats: Vec<DiskStats> = {
-                let mut state = ctx.state.lock().unwrap();
+                let mut state = ctx.state.borrow_mut();
                 state.sys.refresh_disks();
+                state.sys.refresh_disks_list();
                 state.sys.disks().iter().map(DiskStats::from_disk).collect()
             };
             let len = stats.len();
