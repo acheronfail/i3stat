@@ -102,7 +102,8 @@ process.stdin.on('data', (char: string) => {
 function drawInterface() {
   // draw instance info in line
   const info = instances.map((i) => `${i.id || '?'}: ${i.name}`).join(', ');
-  const pad = ' '.repeat(process.stdout.columns - info.length);
+  const padCount = process.stdout.columns - info.length;
+  const pad = padCount > 0 ? ' '.repeat(padCount) : '';
   process.stdout.cursorTo(0, process.stdout.rows);
   process.stdout.write(pad + chalk.grey.italic(info));
 

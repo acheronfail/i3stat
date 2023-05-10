@@ -104,11 +104,11 @@ impl Battery {
     fn format(theme: &Theme, name: &String, pct: f32, state: BatState) -> (String, String) {
         let fg = state.get_color(theme);
         let (icon, fg) = match pct as u32 {
-            0..=15 => ("", fg.or(Some(theme.error))),
-            16..=25 => ("", fg.or(Some(theme.danger))),
-            26..=50 => ("", fg.or(Some(theme.warning))),
-            51..=75 => ("", fg.or(None)),
-            76..=u32::MAX => ("", fg.or(Some(theme.success))),
+            0..=15 => (" ", fg.or(Some(theme.error))),
+            16..=25 => (" ", fg.or(Some(theme.danger))),
+            26..=50 => (" ", fg.or(Some(theme.warning))),
+            51..=75 => (" ", fg.or(None)),
+            76..=u32::MAX => (" ", fg.or(Some(theme.success))),
         };
 
         let name = if name == "BAT0" { icon } else { name.as_str() };
