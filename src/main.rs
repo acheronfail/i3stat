@@ -75,7 +75,7 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
     let mut bar_txs: Vec<Sender<BarEvent>> = Vec::with_capacity(item_count);
 
     // for each BarItem, spawn a new task to manage it
-    let (item_tx, mut item_rx) = mpsc::channel(item_count);
+    let (item_tx, mut item_rx) = mpsc::channel(item_count + 1);
     for (i, bar_item) in items.into_iter().enumerate() {
         let (event_tx, event_rx) = mpsc::channel(32);
         bar_txs.push(event_tx);
