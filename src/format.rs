@@ -1,3 +1,4 @@
+use num_traits::Float;
 use serde_derive::{Deserialize, Serialize};
 
 use crate::theme::Theme;
@@ -21,8 +22,8 @@ pub struct FloatFormat {
     precision: usize,
 }
 
-fn num_digits(n: f32) -> usize {
-    let n = n.abs();
+fn num_digits<F: Float>(n: F) -> usize {
+    let n = n.abs().to_f64().unwrap();
     if n < 1.0 {
         1
     } else {
@@ -30,7 +31,8 @@ fn num_digits(n: f32) -> usize {
     }
 }
 
-pub fn float(n: f32, fmt: &FloatFormat) -> String {
+pub fn float<F: Float>(n: F, fmt: &FloatFormat) -> String {
+    let n = n.to_f64().unwrap();
     let pad_count = fmt.pad_count.unwrap_or_else(|| {
         if fmt.precision > 0 {
             // three digits (e.g., 100%) + decimal separator + precision

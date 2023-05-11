@@ -5,22 +5,32 @@ use async_trait::async_trait;
 use bytesize::ByteSize;
 use hex_color::HexColor;
 use serde_derive::{Deserialize, Serialize};
+use strum::{EnumIter, IntoEnumIterator};
 use sysinfo::SystemExt;
-use tokio::time::sleep;
 
 use crate::context::{BarItem, Context};
-use crate::i3::I3Item;
+use crate::format::{float, FloatFormat};
+use crate::i3::{I3Button, I3Item};
 use crate::theme::Theme;
+use crate::BarEvent;
+
+#[derive(Debug, PartialEq, EnumIter)]
+pub enum MemDisplay {
+    Bytes,
+    Percentage,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Mem {
     #[serde(with = "humantime_serde")]
     interval: Duration,
+    #[serde(flatten)]
+    float_fmt: FloatFormat,
 }
 
 impl Mem {
-    fn get_color(theme: &Theme, available: u64, total: u64) -> Option<HexColor> {
-        match (available as f64 / total as f64) as u64 {
+    fn get_color(theme: &Theme, used_pct: f64) -> Option<HexColor> {
+        match used_pct as u64 {
             80..=100 => Some(theme.error),
             60..80 => Some(theme.danger),
             40..60 => Some(theme.warning),
@@ -31,9 +41,10 @@ impl Mem {
 
 #[async_trait(?Send)]
 impl BarItem for Mem {
-    async fn start(self: Box<Self>, ctx: Context) -> Result<(), Box<dyn Error>> {
-        // TODO: click to toggle between bytes and %
+    async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
         let mut total = None;
+        let mut display_iter = MemDisplay::iter().cycle();
+        let display = &mut display_iter.next().unwrap();
         loop {
             let (available, total) = {
                 let mut state = ctx.state.borrow_mut();
@@ -44,14 +55,28 @@ impl BarItem for Mem {
                 )
             };
 
-            let s = ByteSize(available).to_string_as(false);
+            let used_pct = ((total - available) as f64 / total as f64) * 100.0;
+            let s = match *display {
+                MemDisplay::Bytes => ByteSize(available).to_string_as(false),
+                MemDisplay::Percentage => format!("{}%", float(used_pct, &self.float_fmt)),
+            };
+
             let mut item = I3Item::new(format!(" {}", s)).name("mem");
-            if let Some(fg) = Self::get_color(&ctx.theme, available, total) {
+            if let Some(fg) = Self::get_color(&ctx.theme, used_pct) {
                 item = item.color(fg);
             }
 
             ctx.update_item(item).await?;
-            sleep(self.interval).await;
+            ctx.delay_with_event_handler(self.interval, |ev| {
+                if let BarEvent::Click(c) = ev {
+                    if let I3Button::Left = c.button {
+                        *display = display_iter.next().unwrap();
+                    }
+                }
+
+                async {}
+            })
+            .await;
         }
     }
 }

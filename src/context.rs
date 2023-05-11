@@ -110,8 +110,6 @@ impl Context {
     }
 }
 
-// TODO: it might be nice to optionally require `Send` so we can have a multi-threaded runtime
-// right now it's not, since the PulseAudio item can't be `Send`
 #[async_trait(?Send)]
 pub trait BarItem: Send {
     async fn start(self: Box<Self>, ctx: Context) -> Result<(), Box<dyn Error>>;

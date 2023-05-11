@@ -1291,6 +1291,7 @@ dependencies = [
  "libpulse-binding",
  "log",
  "nix",
+ "num-traits",
  "paste",
  "pretty_env_logger",
  "serde",
