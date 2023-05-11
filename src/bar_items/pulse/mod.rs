@@ -16,7 +16,7 @@ use libpulse_binding::proplist::properties::{APPLICATION_NAME, APPLICATION_PROCE
 use libpulse_binding::proplist::Proplist;
 use libpulse_binding::volume::{ChannelVolumes, Volume};
 use serde_derive::{Deserialize, Serialize};
-use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::mpsc::{self, UnboundedSender};
 
 use self::pulse_tokio::TokioMain;
 use crate::context::{BarItem, Context};
@@ -271,7 +271,7 @@ impl BarItem for Pulse {
         let inspect = pa_ctx.introspect();
 
         // this is shared between all the async tasks
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let (tx, mut rx) = mpsc::unbounded_channel();
         let inner = Rc::new(PulseState {
             tx,
             theme: ctx.theme.clone(),
@@ -325,10 +325,9 @@ impl BarItem for Pulse {
         }
 
         // run pulse main loop
+        let (exit_tx, mut exit_rx) = mpsc::channel(1);
         tokio::task::spawn_local(async move {
-            let code = main_loop.run().await;
-            // TODO: potentially try to reconnect? test it out with restarting pulse, etc
-            log::error!("pulse::mainloop exited unexpectedly with value: {}", code.0);
+            let _ = exit_tx.send(main_loop.run().await).await;
         });
 
         loop {
@@ -382,6 +381,11 @@ impl BarItem for Pulse {
                     CtxCommand::UpdateItem(item) => {
                         ctx.update_item(item).await.unwrap();
                     }
+                },
+
+                // handle pulse main loop exited
+                Some(ret_val) = exit_rx.recv() => {
+                    break Err(format!("pulse::mainloop exited unexpectedly with value: {}", ret_val.0).into());
                 }
             }
         }
