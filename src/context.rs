@@ -76,11 +76,11 @@ impl Context {
         R: Future<Output = ()>,
     {
         tokio::select! {
-            Some(click) = self.rx_event.recv() => {
-                closure(click).await;
+            Some(event) = self.rx_event.recv() => {
+                closure(event).await;
                 loop {
                     match self.rx_event.try_recv() {
-                        Ok(click) => closure(click).await,
+                        Ok(event) => closure(event).await,
                         Err(TryRecvError::Empty) | Err(TryRecvError::Disconnected)=> break,
                     }
                 }

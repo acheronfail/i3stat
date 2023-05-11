@@ -41,7 +41,10 @@ impl NetUsage {
 
 #[async_trait(?Send)]
 impl BarItem for NetUsage {
-    async fn start(self: Box<Self>, ctx: Context) -> Result<(), Box<dyn Error>> {
+    async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
+        // this item doesn't receive any input, so close the receiver
+        ctx.raw_event_rx().close();
+
         let fg = |bytes| {
             Self::get_color(&ctx.theme, bytes)
                 .map(|c| format!(r#" foreground="{}""#, c))
@@ -94,6 +97,7 @@ impl BarItem for NetUsage {
             )
             .await?;
 
+            // this item sleeps rather than waiting for input, since that would affect the calculation interval
             sleep(self.interval).await;
         }
     }

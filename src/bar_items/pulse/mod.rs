@@ -82,6 +82,7 @@ fn update_volume(cv: &mut ChannelVolumes, delta: i64) -> &mut ChannelVolumes {
             log::error!("pulse::failed to increase ChannelVolumes");
         }
     }
+
     cv
 }
 
@@ -171,6 +172,7 @@ impl PulseState {
             (Some(sink), Some(source)) => (sink, source),
             _ => {
                 log::warn!("pulse::tried to update, but failed to find default sink and source");
+                self.request_initial_state(self.pa_ctx.borrow().introspect());
                 return;
             }
         };
@@ -244,6 +246,30 @@ impl PulseState {
             (Source, get_source_info_by_index)
         );
     }
+
+    fn request_initial_state(self: &Rc<Self>, inspect: Introspector) {
+        let state = self.clone();
+        inspect.get_sink_info_list(move |item| {
+            state.add_sink(item);
+        });
+
+        let state = self.clone();
+        inspect.get_source_info_list(move |item| {
+            state.add_source(item);
+        });
+
+        let state = self.clone();
+        inspect.get_server_info(move |info| {
+            if let Some(name) = &info.default_sink_name {
+                state.default_sink.replace((**name).to_owned());
+            }
+            if let Some(name) = &info.default_source_name {
+                state.default_source.replace((**name).to_owned());
+            }
+
+            state.update_item();
+        });
+    }
 }
 
 #[async_trait(?Send)]
@@ -310,29 +336,7 @@ impl BarItem for Pulse {
         }
 
         // request initial state
-        {
-            let state = inner.clone();
-            inspect.get_sink_info_list(move |item| {
-                state.add_sink(item);
-            });
-
-            let state = inner.clone();
-            inspect.get_source_info_list(move |item| {
-                state.add_source(item);
-            });
-
-            let state = inner.clone();
-            inspect.get_server_info(move |info| {
-                if let Some(name) = &info.default_sink_name {
-                    state.default_sink.replace((**name).to_owned());
-                }
-                if let Some(name) = &info.default_source_name {
-                    state.default_source.replace((**name).to_owned());
-                }
-
-                state.update_item();
-            });
-        }
+        inner.request_initial_state(inspect);
 
         // run pulse main loop
         let (exit_tx, mut exit_rx) = mpsc::channel(1);
@@ -340,6 +344,8 @@ impl BarItem for Pulse {
             let _ = exit_tx.send(main_loop.run().await).await;
         });
 
+        // TODO: is there anyway to map keyboard events so volume buttons can control this?
+        //  ^^ open a socket, and wait for events there?
         loop {
             tokio::select! {
                 // handle click events

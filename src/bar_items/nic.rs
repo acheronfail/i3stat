@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::error::Error;
 use std::net::{SocketAddrV4, SocketAddrV6};
 use std::time::Duration;
@@ -14,11 +15,31 @@ use crate::format::fraction;
 use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 struct Interface {
     name: String,
     addr: String,
     is_wireless: Option<bool>,
+}
+
+impl PartialOrd for Interface {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match self.name.partial_cmp(&other.name) {
+            Some(Ordering::Equal) => {}
+            ord => return ord,
+        }
+        match self.addr.partial_cmp(&other.addr) {
+            Some(Ordering::Equal) => {}
+            ord => return ord,
+        }
+        self.is_wireless.partial_cmp(&other.is_wireless)
+    }
+}
+
+impl Ord for Interface {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap_or(Ordering::Equal)
+    }
 }
 
 impl Interface {
@@ -44,8 +65,8 @@ impl Interface {
         )
     }
 
-    fn format_normal(&self) -> (String, Option<HexColor>) {
-        (format!("({})", self.addr), None)
+    fn format_normal(&self, theme: &Theme) -> (String, Option<HexColor>) {
+        (format!("({})", self.addr), Some(theme.success))
     }
 
     fn format(&mut self, theme: &Theme) -> (String, String) {
@@ -55,7 +76,7 @@ impl Interface {
         // check if this is a wireless network
         let (addr, fg) = match self.is_wireless {
             // not a wireless interface, just return defaults
-            Some(false) => self.format_normal(),
+            Some(false) => self.format_normal(theme),
             // SAFETY: we've previously checked if this is a wireless network
             Some(true) => self.format_wireless(get_wireless_info(name).unwrap(), theme),
             // check if we're a wireless network and remember for next time
@@ -66,7 +87,7 @@ impl Interface {
                 }
                 None => {
                     self.is_wireless = Some(false);
-                    self.format_normal()
+                    self.format_normal(theme)
                 }
             },
         };
@@ -121,6 +142,8 @@ impl Nic {
 
             interfaces.push(Interface::new(if_addr.interface_name, addr));
         }
+
+        interfaces.sort();
 
         Ok(interfaces)
     }
