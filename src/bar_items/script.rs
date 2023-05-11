@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::error::Error;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use serde_derive::{Deserialize, Serialize};
@@ -23,6 +24,8 @@ pub struct Script {
     pub command: String,
     #[serde(default)]
     pub output: ScriptFormat,
+    #[serde(with = "humantime_serde")]
+    interval: Option<Duration>,
     #[serde(default)]
     pub markup: I3Markup,
 }
@@ -44,16 +47,40 @@ impl Script {
 #[async_trait(?Send)]
 impl BarItem for Script {
     async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
-        // TODO: set interval and run multiple times based on interval
-        // https://docs.rs/tokio/latest/tokio/time/fn.interval.html
-        // TODO: potentially have scripts that are never run again? no click events, etc
-        // TODO: what happens if script execution is longer than the configured interval?
-
-        let mut env = HashMap::new();
+        // update script environment on any click event
+        let mut script_env = HashMap::new();
+        let handle_event = |event: BarEvent, env: &mut HashMap<_, _>| match event {
+            BarEvent::Signal => {
+                env.insert("I3_SIGNAL", "true".to_string());
+            }
+            BarEvent::Click(c) => {
+                env.remove("I3_SIGNAL");
+                c.name.map(|name| {
+                    env.insert("I3_NAME", name.to_string());
+                });
+                env.insert(
+                    "I3_MODIFIERS",
+                    c.modifiers
+                        .iter()
+                        .map(|m| serde_json::to_string(m).unwrap())
+                        .collect::<Vec<_>>()
+                        .join(","),
+                );
+                env.insert("I3_BUTTON", serde_json::to_string(&c.button).unwrap());
+                env.insert("I3_X", c.x.to_string());
+                env.insert("I3_Y", c.y.to_string());
+                env.insert("I3_RELATIVE_X", c.relative_x.to_string());
+                env.insert("I3_RELATIVE_Y", c.relative_y.to_string());
+                env.insert("I3_OUTPUT_X", c.output_x.to_string());
+                env.insert("I3_OUTPUT_Y", c.output_y.to_string());
+                env.insert("I3_WIDTH", c.width.to_string());
+                env.insert("I3_HEIGHT", c.height.to_string());
+            }
+        };
 
         loop {
             // Initial run has no click environment variables
-            let stdout = self.run(&env).await?;
+            let stdout = self.run(&script_env).await?;
             let mut item = match self.output {
                 ScriptFormat::Simple => I3Item::new(stdout),
                 ScriptFormat::Json => match serde_json::from_str(&stdout) {
@@ -65,31 +92,24 @@ impl BarItem for Script {
                 },
             };
             item = item.name("script").markup(self.markup);
+
             ctx.update_item(item).await?;
 
-            // On any click event, update the environment map and re-run the script
-            if let Some(BarEvent::Click(click)) = ctx.wait_for_event().await {
-                click.name.map(|name| {
-                    env.insert("I3_NAME", name.to_string());
-                });
-                env.insert(
-                    "I3_MODIFIERS",
-                    click
-                        .modifiers
-                        .iter()
-                        .map(|m| serde_json::to_string(m).unwrap())
-                        .collect::<Vec<_>>()
-                        .join(","),
-                );
-                env.insert("I3_BUTTON", serde_json::to_string(&click.button).unwrap());
-                env.insert("I3_X", click.x.to_string());
-                env.insert("I3_Y", click.y.to_string());
-                env.insert("I3_RELATIVE_X", click.relative_x.to_string());
-                env.insert("I3_RELATIVE_Y", click.relative_y.to_string());
-                env.insert("I3_OUTPUT_X", click.output_x.to_string());
-                env.insert("I3_OUTPUT_Y", click.output_y.to_string());
-                env.insert("I3_WIDTH", click.width.to_string());
-                env.insert("I3_HEIGHT", click.height.to_string());
+            match self.interval {
+                // if an interval is set, then re-run the script on that interval
+                Some(interval) => {
+                    ctx.delay_with_event_handler(interval, |event| {
+                        handle_event(event, &mut script_env);
+                        async {}
+                    })
+                    .await
+                }
+                // if not, re-run the script on any event
+                None => {
+                    if let Some(event) = ctx.wait_for_event().await {
+                        handle_event(event, &mut script_env);
+                    }
+                }
             }
         }
     }
