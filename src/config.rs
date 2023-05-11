@@ -1,7 +1,8 @@
 use std::error::Error;
 use std::path::PathBuf;
 
-use config::Config;
+use figment::providers::{Format, Json, Toml, Yaml};
+use figment::Figment;
 use serde_derive::{Deserialize, Serialize};
 
 use crate::bar_items::*;
@@ -115,16 +116,16 @@ pub struct AppConfig {
 
 pub async fn read(config_path: Option<PathBuf>) -> Result<AppConfig, Box<dyn Error>> {
     let path = config_path
+        .map(|p| p.with_extension(""))
         .or_else(|| dirs::config_dir().map(|d| d.join("staturs/config")))
-        .ok_or_else(|| "Failed to find config")?;
+        .ok_or_else(|| "failed to find config dir")?;
 
-    let c = Config::builder()
-        .add_source(config::File::from(path).required(true))
-        .build()?;
+    // TODO: document this order in help text
+    let c = Figment::new()
+        .merge(Toml::file(path.with_extension("toml")))
+        .merge(Yaml::file(path.with_extension("yaml")))
+        .merge(Json::file(path.with_extension("json")))
+        .extract::<AppConfig>()?;
 
-    // TODO: print a single JSON object to STDOUT to display an error rather than crashing?
-    //
-    Ok(c.try_deserialize()
-        // TODO: more detailed error messages?
-        .map_err(|e| format!("Failed to parse config: {}", e))?)
+    Ok(c)
 }
