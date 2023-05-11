@@ -50,7 +50,6 @@ impl BarItem for NetUsage {
 
         let text = |bytes| {
             if bytes > bytesize::KIB {
-                // TODO: can we get two decimal places?
                 ByteSize(bytes).to_string_as(true)
             } else {
                 "0".into()
@@ -58,11 +57,11 @@ impl BarItem for NetUsage {
         };
 
         // TODO: click to cycle between bits and bytes
+        // https://github.com/hyunsik/bytesize/issues/30
         loop {
             let (down, up) = {
                 let mut state = ctx.state.borrow_mut();
                 let networks = state.sys.networks_mut();
-                networks.refresh();
                 networks.refresh_networks_list();
                 networks.iter().fold((0, 0), |(d, u), (_, net)| {
                     (d + net.received(), u + net.transmitted())

@@ -42,8 +42,6 @@ pub enum BarEvent {
     Signal,
 }
 
-// TODO: central place for storing formatting options? (precision, GB vs G, padding, etc)
-
 fn main() {
     if let Err(err) = start_runtime() {
         log::error!("{}", err);
