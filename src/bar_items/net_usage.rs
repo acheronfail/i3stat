@@ -61,14 +61,12 @@ impl BarItem for NetUsage {
         loop {
             let (down, up) = {
                 let mut state = ctx.state.borrow_mut();
-                state.sys.refresh_networks();
-                state
-                    .sys
-                    .networks()
-                    .iter()
-                    .fold((0, 0), |(d, u), (_, net)| {
-                        (d + net.received(), u + net.transmitted())
-                    })
+                let networks = state.sys.networks_mut();
+                networks.refresh();
+                networks.refresh_networks_list();
+                networks.iter().fold((0, 0), |(d, u), (_, net)| {
+                    (d + net.received(), u + net.transmitted())
+                })
             };
 
             ctx.update_item(

@@ -129,7 +129,10 @@ impl Nic {
 #[async_trait(?Send)]
 impl BarItem for Nic {
     // TODO: is there an agnostic/kernel way to detect network changes and _only then_ check for ips?
-    // if not, then: dbus? networkmanager?
+    // kernel-userspace api would be: netlink, see: https://stackoverflow.com/a/2353441/5552584
+    //  also: https://inai.de/documents/Netlink_Protocol.pdf
+    //  also: https://github.com/mullvad/mnl-rs
+    // fallback dbus: `dbus-monitor --system "type='signal',interface='org.freedesktop.NetworkManager'"`
     async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
         let mut idx = 0;
         loop {

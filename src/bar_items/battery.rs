@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use futures::future;
+use futures_util::try_join;
 use hex_color::HexColor;
 use serde_derive::{Deserialize, Serialize};
 use tokio::fs::{self, read_to_string};
@@ -51,6 +52,14 @@ impl FromStr for BatState {
 struct Bat(PathBuf);
 
 impl Bat {
+    async fn read(&self, file_name: impl AsRef<str>) -> Result<String, Box<dyn Error>> {
+        Ok(read_to_string(self.0.join(file_name.as_ref())).await?)
+    }
+
+    async fn read_usize(&self, file_name: impl AsRef<str>) -> Result<usize, Box<dyn Error>> {
+        Ok(self.read(file_name).await?.trim().parse::<usize>()?)
+    }
+
     fn name(&self) -> Result<String, Box<dyn Error>> {
         match self.0.file_name() {
             Some(name) => Ok(name.to_string_lossy().into_owned()),
@@ -59,22 +68,25 @@ impl Bat {
     }
 
     async fn get_state(&self) -> Result<BatState, Box<dyn Error>> {
-        Ok(BatState::from_str(
-            read_to_string(self.0.join("status")).await?.trim(),
-        )?)
+        Ok(BatState::from_str(self.read("status").await?.trim())?)
     }
 
     async fn get_charge(&self) -> Result<f32, Box<dyn Error>> {
-        macro_rules! get_usize {
-            ($x: expr) => {
-                read_to_string(self.0.join($x))
-                    .await?
-                    .trim()
-                    .parse::<usize>()? as f32
-            };
-        }
+        let (charge_now, charge_full) = try_join!(
+            self.read_usize("charge_now"),
+            self.read_usize("charge_full"),
+        )?;
+        Ok((charge_now as f32) / (charge_full as f32) * 100.0)
+    }
 
-        Ok(get_usize!("charge_now") / get_usize!("charge_full") * 100.0)
+    // TODO: potentially use this at some stage?
+    #[allow(unused)]
+    async fn current_watts(&self) -> Result<f64, Box<dyn Error>> {
+        let (current_pico, voltage_pico) = try_join!(
+            self.read_usize("current_now"),
+            self.read_usize("voltage_now"),
+        )?;
+        Ok((current_pico as f64) * (voltage_pico as f64) / 1_000_000_000_000.0)
     }
 
     async fn format(&self, theme: &Theme) -> Result<(String, String), Box<dyn Error>> {
