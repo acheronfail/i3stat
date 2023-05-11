@@ -37,9 +37,9 @@ impl BarItem for Dunst {
 
         // connect to dbus
         let (resource, con) = dbus_tokio::connection::new_session_sync()?;
+        let (exit_tx, mut exit_rx) = mpsc::channel(1);
         tokio::spawn(async move {
-            // TODO: handle, rather than panicking
-            panic!("Lost connecton to dbus: {}", resource.await);
+            let _ = exit_tx.send(resource.await).await;
         });
 
         // get initial paused state
@@ -78,15 +78,15 @@ impl BarItem for Dunst {
 
         // TODO: is there an "async" way to stream response from a monitor? (rather than this hack)
         // See: https://github.com/diwic/dbus-rs/issues/431
-        let (tx, mut rx) = mpsc::channel(8);
+        let (msg_tx, mut msg_rx) = mpsc::channel(8);
         con.start_receive(
             rule.clone(),
             Box::new(move |msg: Message, _con: &SyncConnection| {
                 let (_, what, is_paused): (&str, &str, Variant<bool>) = msg.read3().unwrap();
                 if what == "paused" {
-                    let tx = tx.clone();
+                    let tx = msg_tx.clone();
                     tokio::spawn(async move {
-                        tx.send(is_paused.0).await.unwrap();
+                        let _ = tx.send(is_paused.0).await;
                     });
                 }
 
@@ -95,9 +95,15 @@ impl BarItem for Dunst {
         );
 
         loop {
-            match rx.recv().await {
-                Some(paused) => ctx.update_item(Dunst::item(&ctx.theme, paused)).await?,
-                None => {}
+            tokio::select! {
+                // update item on dbus messages
+                Some(paused) = msg_rx.recv() => {
+                    ctx.update_item(Dunst::item(&ctx.theme, paused)).await?
+                }
+                // exit on error
+                Some(err) = exit_rx.recv() => {
+                    break Err(format!("unexpected disconnect from dbus: {}", err).into())
+                }
             }
         }
     }
