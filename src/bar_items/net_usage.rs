@@ -6,7 +6,7 @@ use bytesize::ByteSize;
 use hex_color::HexColor;
 use serde_derive::{Deserialize, Serialize};
 use sysinfo::{NetworkExt, NetworksExt, SystemExt};
-use tokio::time::sleep;
+use tokio::time::{sleep, Instant};
 
 use crate::context::{BarItem, Context};
 use crate::i3::{I3Item, I3Markup};
@@ -56,19 +56,32 @@ impl BarItem for NetUsage {
             }
         };
 
-        // TODO: click to cycle between bits and bytes
-        // https://github.com/hyunsik/bytesize/issues/30
+        let div_as_u64 = |u, f| (u as f64 / f) as u64;
+        let mut last_check = Instant::now();
         loop {
             let (down, up) = {
                 let mut state = ctx.state.borrow_mut();
                 let networks = state.sys.networks_mut();
+
+                // NOTE: can call `networks.refresh()` instead of this to only update networks rather
+                // than searching for new ones each time
                 networks.refresh_networks_list();
-                networks.iter().fold((0, 0), |(d, u), (_, net)| {
+
+                // this returns the number of bytes since the last refresh
+                let (down, up) = networks.iter().fold((0, 0), |(d, u), (_, net)| {
                     (d + net.received(), u + net.transmitted())
-                })
+                });
+
+                // so we check how long it's been since the last refresh, and adjust accordingly
+                let elapsed = last_check.elapsed().as_secs_f64();
+                last_check = Instant::now();
+
+                (div_as_u64(down, elapsed), div_as_u64(up, elapsed))
             };
 
             ctx.update_item(
+                // TODO: click to cycle between bits and bytes
+                // https://github.com/hyunsik/bytesize/issues/30
                 I3Item::new(format!(
                     "<span{}>{}↓</span> <span{}>{}↑</span>",
                     fg(down),
