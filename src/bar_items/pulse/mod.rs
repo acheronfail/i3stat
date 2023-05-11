@@ -111,7 +111,7 @@ macro_rules! impl_pa_methods {
                             None => items.push(info.into()),
                         }
                     },
-                    ListResult::Error => todo!("add_{} failed", stringify!($name)),
+                    ListResult::Error => log::warn!("pulse::add_{} failed:", stringify!($name)),
                     ListResult::End => {}
                 }
             }
@@ -124,7 +124,7 @@ macro_rules! impl_pa_methods {
                 let mut inspect = self.pa_ctx.borrow_mut().introspect();
                 inspect.[<set_ $name _mute_by_index>](idx, mute, Some(Box::new(move |success| {
                     if !success {
-                        // TODO: handle
+                        log::error!("pulse::set_mute_{} failed", stringify!(name));
                     }
                 })));
             }
@@ -133,7 +133,7 @@ macro_rules! impl_pa_methods {
                 let mut inspect = self.pa_ctx.borrow_mut().introspect();
                 inspect.[<set_ $name _volume_by_index>](idx, cv, Some(Box::new(move |success| {
                     if !success {
-                        // TODO: handle
+                        log::error!("pulse::set_volume_{} failed", stringify!(name));
                     }
                 })));
             }
@@ -293,8 +293,9 @@ impl BarItem for Pulse {
             })));
 
             pa_ctx.subscribe(InterestMaskSet::ALL, |success| {
-                // TODO handle
-                assert!(success, "failed to subscribe")
+                if !success {
+                    log::error!("pulse::subscribe failed");
+                }
             });
         }
 
@@ -327,7 +328,7 @@ impl BarItem for Pulse {
         tokio::task::spawn_local(async move {
             let code = main_loop.run().await;
             // TODO: potentially try to reconnect? test it out with restarting pulse, etc
-            todo!("Handle pulse loop exit: {}", code.0);
+            log::error!("pulse::mainloop exited unexpectedly with value: {}", code.0);
         });
 
         loop {

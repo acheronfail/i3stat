@@ -51,8 +51,11 @@ impl FromStr for BatState {
 struct Bat(PathBuf);
 
 impl Bat {
-    fn name(&self) -> String {
-        self.0.file_name().unwrap().to_string_lossy().into_owned()
+    fn name(&self) -> Result<String, Box<dyn Error>> {
+        match self.0.file_name() {
+            Some(name) => Ok(name.to_string_lossy().into_owned()),
+            None => Err(format!("failed to parse file name from: {}", self.0.display()).into()),
+        }
     }
 
     async fn get_state(&self) -> Result<BatState, Box<dyn Error>> {
@@ -76,7 +79,7 @@ impl Bat {
 
     async fn format(&self, theme: &Theme) -> Result<(String, String), Box<dyn Error>> {
         let (charge, state) = future::join(self.get_charge(), self.get_state()).await;
-        let name = self.name();
+        let name = self.name()?;
         let charge = charge?;
         let state = state?;
 

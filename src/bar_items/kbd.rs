@@ -63,7 +63,10 @@ impl Keys {
                 let value: u32 = fs::read_to_string(&brightness).await?.trim().parse()?;
                 Ok(value == 1)
             }
-            None => todo!("handle when not found"),
+            None => {
+                let name = serde_json::to_string(&self)?;
+                Err(format!("failed to find led file for: {}", name).into())
+            }
         }
     }
 

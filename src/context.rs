@@ -81,8 +81,7 @@ impl Context {
                 loop {
                     match self.rx_event.try_recv() {
                         Ok(click) => closure(click).await,
-                        Err(TryRecvError::Empty) => break,
-                        Err(TryRecvError::Disconnected) => todo!()
+                        Err(TryRecvError::Empty) | Err(TryRecvError::Disconnected)=> break,
                     }
                 }
             }

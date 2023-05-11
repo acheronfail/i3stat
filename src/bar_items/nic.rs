@@ -88,10 +88,10 @@ pub struct Nic {
 }
 
 impl Nic {
-    fn get_interfaces() -> Vec<Interface> {
+    fn get_interfaces() -> Result<Vec<Interface>, Box<dyn Error>> {
         let if_addrs = match getifaddrs() {
             Ok(if_addrs) => if_addrs,
-            Err(_) => todo!(),
+            Err(e) => return Err(format!("call to `getifaddrs` failed: {}", e).into()),
         };
 
         let mut interfaces = vec![];
@@ -106,11 +106,13 @@ impl Nic {
                 continue;
             }
 
+            // skip any unsupported entry (see nix's `getifaddrs` documentation)
             let addr = match if_addr.address {
                 Some(addr) => addr,
                 None => continue,
             };
 
+            // extract ip address
             let addr = match (addr.as_sockaddr_in(), addr.as_sockaddr_in6()) {
                 (Some(ipv4), _) => format!("{}", SocketAddrV4::from(*ipv4).ip()),
                 (_, Some(ipv6)) => format!("{}", SocketAddrV6::from(*ipv6).ip()),
@@ -120,7 +122,7 @@ impl Nic {
             interfaces.push(Interface::new(if_addr.interface_name, addr));
         }
 
-        interfaces
+        Ok(interfaces)
     }
 }
 
@@ -131,7 +133,7 @@ impl BarItem for Nic {
     async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
         let mut idx = 0;
         loop {
-            let mut interfaces = Nic::get_interfaces();
+            let mut interfaces = Nic::get_interfaces()?;
             let len = interfaces.len();
             idx = idx % len;
 
