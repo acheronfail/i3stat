@@ -44,6 +44,7 @@ impl BarItem for Mem {
     async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
         let mut total = None;
         let mut display_iter = MemDisplay::iter().cycle();
+        // SAFETY: this is an endless iterator through the enum, so it should never be empty
         let display = &mut display_iter.next().unwrap();
         loop {
             let (available, total) = {
@@ -70,6 +71,7 @@ impl BarItem for Mem {
             ctx.delay_with_event_handler(self.interval, |ev| {
                 if let BarEvent::Click(c) = ev {
                     if let I3Button::Left = c.button {
+                        // SAFETY: this is an endless iterator through the enum, so it should never be empty
                         *display = display_iter.next().unwrap();
                     }
                 }

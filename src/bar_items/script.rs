@@ -24,7 +24,7 @@ pub struct Script {
     pub command: String,
     #[serde(default)]
     pub output: ScriptFormat,
-    #[serde(with = "humantime_serde")]
+    #[serde(default, with = "humantime_serde")]
     interval: Option<Duration>,
     #[serde(default)]
     pub markup: I3Markup,
@@ -62,10 +62,12 @@ impl BarItem for Script {
                     "I3_MODIFIERS",
                     c.modifiers
                         .iter()
+                        // SAFETY: if these types don't serialise then things would have gone wrong previously
                         .map(|m| serde_json::to_string(m).unwrap())
                         .collect::<Vec<_>>()
                         .join(","),
                 );
+                // SAFETY: if these types don't serialise then things would have gone wrong previously
                 env.insert("I3_BUTTON", serde_json::to_string(&c.button).unwrap());
                 env.insert("I3_X", c.x.to_string());
                 env.insert("I3_Y", c.y.to_string());

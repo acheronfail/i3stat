@@ -74,10 +74,15 @@ fn update_volume(cv: &mut ChannelVolumes, delta: i64) -> &mut ChannelVolumes {
     let step = Volume::NORMAL.0 / 100;
     let v = Volume(((delta.abs() as u32) * step) as u32);
     if delta < 0 {
-        cv.decrease(v).unwrap()
+        if cv.decrease(v).is_none() {
+            log::error!("pulse::failed to decrease ChannelVolumes");
+        }
     } else {
-        cv.increase(v).unwrap()
+        if cv.increase(v).is_none() {
+            log::error!("pulse::failed to increase ChannelVolumes");
+        }
     }
+    cv
 }
 
 #[derive(Debug)]
@@ -162,8 +167,13 @@ impl PulseState {
     }
 
     fn update_item(self: &Rc<Self>) {
-        let default_sink = self.default_sink().unwrap();
-        let default_source = self.default_source().unwrap();
+        let (default_sink, default_source) = match (self.default_sink(), self.default_source()) {
+            (Some(sink), Some(source)) => (sink, source),
+            _ => {
+                log::warn!("pulse::tried to update, but failed to find default sink and source");
+                return;
+            }
+        };
 
         let sink_fg = if default_sink.mute {
             format!(r#" foreground="{}""#, self.theme.dark4)
@@ -197,7 +207,7 @@ impl PulseState {
             .name("pulse")
             .markup(crate::i3::I3Markup::Pango);
 
-        self.tx.send(CtxCommand::UpdateItem(item)).unwrap();
+        let _ = self.tx.send(CtxCommand::UpdateItem(item));
     }
 
     fn subscribe_cb(
@@ -341,14 +351,14 @@ impl BarItem for Pulse {
                         // show a popup with information about the current state
                         I3Button::Right => {
                             let s = |s: &str| s.chars().filter(char::is_ascii).collect::<String>();
-
-                            let sink = inner.default_sink().unwrap();
-                            let source = inner.default_source().unwrap();
+                            let m = |p: Port| format!("name: {}\nvolume: {}\n", s(&p.name), p.volume_pct());
+                            let sink = inner.default_sink().map(m).unwrap_or("???".into());
+                            let source = inner.default_source().map(m).unwrap_or("???".into());
                             exec(
                                 format!(
-                                    r#"zenity --info --text='{}\n\n{}'"#,
-                                    format!("[sink]\nname: {}\nvolume: {}\n", s(&sink.name), sink.volume_pct()),
-                                    format!("[source]\nname: {}\nvolume: {}\n", s(&source.name), source.volume_pct())
+                                    r#"zenity --info --text='[sink]\n{}\n\n[source]\n{}'"#,
+                                    sink,
+                                    source
                                 )
                             ).await
                         },
@@ -379,7 +389,7 @@ impl BarItem for Pulse {
                 // handle item updates
                 Some(cmd) = rx.recv() => match cmd {
                     CtxCommand::UpdateItem(item) => {
-                        ctx.update_item(item).await.unwrap();
+                        let _ = ctx.update_item(item).await;
                     }
                 },
 

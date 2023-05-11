@@ -82,15 +82,25 @@ impl BarItem for Dunst {
         con.start_receive(
             rule.clone(),
             Box::new(move |msg: Message, _con: &SyncConnection| {
-                let (_, what, is_paused): (&str, &str, Variant<bool>) = msg.read3().unwrap();
-                if what == "paused" {
-                    let tx = msg_tx.clone();
-                    tokio::spawn(async move {
-                        let _ = tx.send(is_paused.0).await;
-                    });
-                }
+                match msg.read3::<&str, &str, Variant<bool>>() {
+                    Ok((_, what, is_paused)) => {
+                        if what == "paused" {
+                            let tx = msg_tx.clone();
+                            tokio::spawn(async move {
+                                let _ = tx.send(is_paused.0).await;
+                            });
+                        }
 
-                true
+                        // false to continue receiving events
+                        true
+                    }
+                    Err(e) => {
+                        log::error!("failed to read dbus message: {}", e);
+
+                        // false to stop receiving events
+                        false
+                    }
+                }
             }),
         );
 

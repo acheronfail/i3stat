@@ -39,7 +39,8 @@ impl BarItem for Sensors {
 
         loop {
             let temp = {
-                ctx.state
+                let search = ctx
+                    .state
                     .borrow_mut()
                     .sys
                     .components_mut()
@@ -51,8 +52,14 @@ impl BarItem for Sensors {
                         } else {
                             None
                         }
-                    })
-                    .unwrap()
+                    });
+
+                match search {
+                    Some(temp) => temp,
+                    None => {
+                        break Err(format!("no component found with label: {}", self.label).into())
+                    }
+                }
             };
 
             let (icon, color) = Self::get_icon(&ctx.theme, temp as u32);

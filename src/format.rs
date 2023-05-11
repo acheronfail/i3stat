@@ -23,6 +23,7 @@ pub struct FloatFormat {
 }
 
 fn num_digits<F: Float>(n: F) -> usize {
+    // SAFETY: the input type is constrained to a float, and all f32's fit into an f64
     let n = n.abs().to_f64().unwrap();
     if n < 1.0 {
         1
@@ -32,6 +33,7 @@ fn num_digits<F: Float>(n: F) -> usize {
 }
 
 pub fn float<F: Float>(n: F, fmt: &FloatFormat) -> String {
+    // SAFETY: the input type is constrained to a float, and all f32's fit into an f64
     let n = n.to_f64().unwrap();
     let pad_count = fmt.pad_count.unwrap_or_else(|| {
         if fmt.precision > 0 {
