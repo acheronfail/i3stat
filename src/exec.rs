@@ -2,19 +2,15 @@ use tokio::process::Command;
 
 pub async fn exec(cmd: impl AsRef<str>) {
     let cmd = cmd.as_ref();
-    dbg!(cmd); // TODO: proper logging
+    log::debug!("exec: command --> {} <--", cmd);
 
     let child = Command::new("sh").arg("-c").arg(cmd).output();
     match child.await {
         Ok(output) => {
             if !output.status.success() {
-                todo!(
-                    "handle child proc exit status: {} exited with {}",
-                    cmd,
-                    output.status
-                );
+                log::warn!("exit: command --> {} <-- {}", cmd, output.status);
             }
         }
-        Err(e) => todo!("handle child proc error: {}", e),
+        Err(e) => log::error!("fail: command --> {} <-- {}", cmd, e),
     }
 }

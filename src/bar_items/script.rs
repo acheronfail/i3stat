@@ -59,8 +59,8 @@ impl BarItem for Script {
                 ScriptFormat::Json => match serde_json::from_str(&stdout) {
                     Ok(item) => item,
                     Err(e) => {
-                        dbg!(&stdout, &e); // TODO: error logging
-                        I3Item::new(e.to_string()).background_color(ctx.theme.error)
+                        log::error!("failed to parse script json output: {}", e);
+                        I3Item::new("ERROR").background_color(ctx.theme.error)
                     }
                 },
             };

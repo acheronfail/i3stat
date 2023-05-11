@@ -9,8 +9,11 @@ mod format;
 pub mod i3;
 mod theme;
 
+use std::cell::RefCell;
 use std::convert::Infallible;
 use std::error::Error;
+use std::process;
+use std::rc::Rc;
 
 use clap::Parser;
 use libc::{SIGRTMAX, SIGRTMIN};
@@ -24,16 +27,11 @@ use crate::config::Common;
 use crate::context::{Context, SharedState};
 use crate::i3::click::I3ClickEvent;
 use crate::i3::header::I3BarHeader;
-
-macro_rules! json {
-    ($input:expr) => {
-        serde_json::to_string(&$input).unwrap()
-    };
-}
+use crate::i3::I3Item;
 
 macro_rules! cont {
     ($($arg:tt)*) => {{
-        eprintln!($($arg)*);
+        log::warn!($($arg)*);
         continue;
     }};
 }
@@ -45,22 +43,30 @@ pub enum BarEvent {
 }
 
 // TODO: central place for storing formatting options? (precision, GB vs G, padding, etc)
-// TODO: logging facilities for errors, etc
 
-fn main() -> Result<Infallible, Box<dyn Error>> {
+fn main() {
+    if let Err(err) = start_runtime() {
+        log::error!("{}", err);
+        process::exit(1);
+    }
+}
+
+fn start_runtime() -> Result<Infallible, Box<dyn Error>> {
+    pretty_env_logger::try_init()?;
+
     let args = Cli::parse();
 
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;
 
-    tokio::task::LocalSet::new().block_on(&runtime, async move { async_main(args).await })
+    tokio::task::LocalSet::new().block_on(&runtime, async_main(args))
 }
 
 async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
     let config = config::read(args.config).await?;
 
-    println!("{}", json!(I3BarHeader::default()));
+    println!("{}", serde_json::to_string(&I3BarHeader::default())?);
     println!("[");
 
     let item_count = config.items.len();
@@ -71,29 +77,54 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
     let state = SharedState::new();
 
     // state for the bar (moved to bar_printer)
-    let mut bar: Vec<i3::I3Item> = vec![i3::I3Item::empty(); item_count];
+    let bar: Rc<RefCell<_>> = Rc::new(RefCell::new(vec![i3::I3Item::empty(); item_count]));
     let mut bar_txs: Vec<Sender<BarEvent>> = Vec::with_capacity(item_count);
 
     // for each BarItem, spawn a new task to manage it
     let (item_tx, mut item_rx) = mpsc::channel(item_count + 1);
-    for (i, bar_item) in items.into_iter().enumerate() {
+    for (idx, bar_item) in items.into_iter().enumerate() {
         let (event_tx, event_rx) = mpsc::channel(32);
         bar_txs.push(event_tx);
-        let ctx = Context::new(state.clone(), item_tx.clone(), event_rx, i);
+        let ctx = Context::new(state.clone(), item_tx.clone(), event_rx, idx);
+        let bar = bar.clone();
         tokio::task::spawn_local(async move {
+            let theme = ctx.theme.clone();
             let fut = bar_item.start(ctx);
-            // TODO: handle if a bar item fails
-            fut.await.unwrap();
+            // since this item has terminated, remove its entry from the bar
+            match fut.await {
+                Ok(()) => {
+                    log::info!("item[{}] finished running", idx);
+                    // replace with an empty item
+                    bar.borrow_mut()[idx] = I3Item::empty();
+                }
+                Err(e) => {
+                    log::error!("item[{}] exited with error: {}", idx, e);
+                    // replace with an error item
+                    bar.borrow_mut()[idx] = I3Item::new("ERROR")
+                        .color(theme.dark1)
+                        .background_color(theme.error);
+                }
+            }
         });
     }
 
     // task to manage updating the bar and printing it as JSON
     // TODO: buffer these and only print a single line within a threshold (no point in super quick updates)
-    tokio::spawn(async move {
+    tokio::task::spawn_local(async move {
         while let Some((item, i)) = item_rx.recv().await {
+            let mut bar = bar.borrow_mut();
             // always override the bar item's `instance`, since we track that ourselves
             bar[i] = item.instance(i.to_string());
-            println!("{},", json!(bar));
+            // print bar to STDOUT for i3
+            match serde_json::to_string(&*bar) {
+                Ok(json) => println!("{},", json),
+                Err(e) => {
+                    log::error!("failed to serialise bar to json: {}", e);
+                    println!(
+                        r#"[{{"full_text":"FATAL ERROR: see logs in stderr","color":"black","background":"red"}}],"#
+                    );
+                }
+            }
         }
     });
 
@@ -163,14 +194,17 @@ fn handle_signals(
                 .collect();
 
             if indices.is_empty() {
-                cont!("Received signal: {} but no item is expecting it", signal);
+                cont!(
+                    "received signal: SIGRTMIN+{} but no item is expecting it",
+                    signal - min
+                );
             }
 
             // send signal event to all items
             for idx in indices {
-                send_bar_event(&bar_tx[idx], BarEvent::Signal)
-                    .await
-                    .unwrap();
+                if let Err(e) = send_bar_event(&bar_tx[idx], BarEvent::Signal).await {
+                    cont!("failed to send signal event to item[{}]: {}", idx, e);
+                }
             }
         }
     });
@@ -186,7 +220,7 @@ async fn handle_click_events(bar_tx: Vec<Sender<BarEvent>>) -> Result<Infallible
         let mut line = lines
             .next_line()
             .await?
-            .ok_or_else(|| "Received unexpected end of STDIN")?;
+            .ok_or_else(|| "received unexpected end of STDIN")?;
 
         // skip opening array as part of the protocol
         if line.trim() == "[" {
@@ -206,15 +240,21 @@ async fn handle_click_events(bar_tx: Vec<Sender<BarEvent>>) -> Result<Infallible
         let i = match click.instance.as_ref() {
             Some(inst) => match inst.parse::<usize>() {
                 Ok(i) => i,
-                Err(e) => cont!("Failed to parse click instance: {}, error: {}", inst, e),
+                Err(e) => cont!(
+                    "failed to parse click 'instance' property: {}, error: {}",
+                    inst,
+                    e
+                ),
             },
             None => cont!(
-                "Received click event without instance, cannot route to item: {:?}",
+                "received click event without 'instance' property, cannot route to item: {:?}",
                 click
             ),
         };
 
-        send_bar_event(&bar_tx[i], BarEvent::Click(click)).await?;
+        if let Err(e) = send_bar_event(&bar_tx[i], BarEvent::Click(click)).await {
+            cont!("failed to send click event to item[{}]: {}", i, e);
+        }
     }
 }
 
@@ -222,12 +262,12 @@ async fn send_bar_event(tx: &mpsc::Sender<BarEvent>, ev: BarEvent) -> Result<(),
     // if the channel fills up (the bar never reads click events), since this is a bounded channel
     // sending the event would block forever, so just drop the event
     if tx.capacity() == 0 {
-        return Err("Could not send event to item, dropping event (channel is full)".into());
+        return Err("dropping event (channel is full)".into());
     }
 
     // send click event to its corresponding bar item
     if let Err(SendError(_)) = tx.send(ev).await {
-        return Err("Could not send event to item, dropping event (receiver dropped)".into());
+        return Err("dropping event (receiver dropped)".into());
     }
 
     Ok(())
