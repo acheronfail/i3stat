@@ -6,11 +6,10 @@ use async_trait::async_trait;
 use serde_derive::{Deserialize, Serialize};
 use tokio::process::Command;
 
-use crate::context::{BarItem, Context};
+use crate::context::{BarEvent, BarItem, Context};
 use crate::i3::{I3Item, I3Markup};
-use crate::BarEvent;
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[allow(dead_code)]
 pub enum ScriptFormat {
@@ -19,7 +18,7 @@ pub enum ScriptFormat {
     Json,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Script {
     pub command: String,
     #[serde(default)]
@@ -78,6 +77,7 @@ impl BarItem for Script {
                 env.insert("I3_WIDTH", c.width.to_string());
                 env.insert("I3_HEIGHT", c.height.to_string());
             }
+            BarEvent::Custom { .. } => {}
         };
 
         loop {

@@ -12,7 +12,7 @@ use crate::format::{float, FloatFormat};
 use crate::i3::I3Item;
 use crate::theme::Theme;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Cpu {
     #[serde(with = "humantime_serde")]
     interval: Duration,

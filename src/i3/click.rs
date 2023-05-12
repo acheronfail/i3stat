@@ -1,9 +1,10 @@
 use serde_derive::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-#[derive(Debug, Serialize_repr, Deserialize_repr, PartialEq, Eq)]
+#[derive(Debug, Default, Copy, Clone, Serialize_repr, Deserialize_repr, PartialEq, Eq)]
 #[repr(u8)]
 pub enum I3Button {
+    #[default]
     Left = 1,
     Middle = 2,
     Right = 3,
@@ -11,7 +12,7 @@ pub enum I3Button {
     ScrollDown = 5,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum I3Modifier {
     Mod1,
     Mod2,
@@ -23,7 +24,7 @@ pub enum I3Modifier {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct I3ClickEvent {
     pub name: Option<String>,
     pub instance: Option<String>,

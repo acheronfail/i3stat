@@ -4,16 +4,31 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use async_trait::async_trait;
+use clap::builder::StyledStr;
 use futures_core::Future;
+use serde_json::Value;
 use sysinfo::{System, SystemExt};
 use tokio::sync::mpsc::error::{SendError, TryRecvError};
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::{mpsc, oneshot};
 use tokio::time::sleep;
 
 use crate::i3::bar_item::I3Item;
-use crate::i3::I3Button;
+use crate::i3::{I3Button, I3ClickEvent};
 use crate::theme::Theme;
-use crate::BarEvent;
+
+pub enum CustomResponse {
+    Help(StyledStr),
+    Json(Value),
+}
+
+pub enum BarEvent {
+    Click(I3ClickEvent),
+    Signal,
+    Custom {
+        payload: Vec<String>,
+        responder: oneshot::Sender<CustomResponse>,
+    },
+}
 
 pub struct SharedState {
     pub sys: System,
@@ -34,16 +49,18 @@ pub struct Context {
     pub theme: Theme,
     // Used as an internal cache to prevent sending the same item multiple times
     last_item: RefCell<I3Item>,
-    tx_item: Sender<(I3Item, usize)>,
-    rx_event: Receiver<BarEvent>,
+    tx_item: mpsc::Sender<(I3Item, usize)>,
+    tx_event: mpsc::Sender<BarEvent>,
+    rx_event: mpsc::Receiver<BarEvent>,
     index: usize,
 }
 
 impl Context {
     pub fn new(
         state: Rc<RefCell<SharedState>>,
-        tx_item: Sender<(I3Item, usize)>,
-        rx_event: Receiver<BarEvent>,
+        tx_item: mpsc::Sender<(I3Item, usize)>,
+        tx_event: mpsc::Sender<BarEvent>,
+        rx_event: mpsc::Receiver<BarEvent>,
         index: usize,
     ) -> Context {
         Context {
@@ -51,6 +68,7 @@ impl Context {
             theme: Theme::NORD,
             last_item: RefCell::default(),
             tx_item,
+            tx_event,
             rx_event,
             index,
         }
@@ -89,7 +107,11 @@ impl Context {
         }
     }
 
-    pub fn raw_event_rx(&mut self) -> &mut Receiver<BarEvent> {
+    pub fn get_event_tx(&self) -> mpsc::Sender<BarEvent> {
+        self.tx_event.clone()
+    }
+
+    pub fn raw_event_rx(&mut self) -> &mut mpsc::Receiver<BarEvent> {
         &mut self.rx_event
     }
 

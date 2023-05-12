@@ -11,7 +11,7 @@ use crate::context::{BarItem, Context};
 use crate::i3::I3Item;
 use crate::theme::Theme;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Sensors {
     #[serde(with = "humantime_serde")]
     interval: Duration,

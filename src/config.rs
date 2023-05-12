@@ -13,7 +13,7 @@ pub struct Common {
     pub signal: Option<u32>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum Item {
     Battery {
@@ -91,20 +91,55 @@ pub enum Item {
 }
 
 impl Item {
-    pub fn to_bar_item(self) -> (Common, Box<dyn BarItem>) {
+    pub fn to_bar_item(&self) -> Box<dyn BarItem> {
         match self {
-            Item::Battery { inner, common } => (common, Box::new(inner)),
-            Item::Cpu { inner, common } => (common, Box::new(inner)),
-            Item::Disk { inner, common } => (common, Box::new(inner)),
-            Item::Dunst { inner, common } => (common, Box::new(inner)),
-            Item::Kbd { inner, common } => (common, Box::new(inner)),
-            Item::Mem { inner, common } => (common, Box::new(inner)),
-            Item::NetUsage { inner, common } => (common, Box::new(inner)),
-            Item::Nic { inner, common } => (common, Box::new(inner)),
-            Item::Pulse { inner, common } => (common, Box::new(inner)),
-            Item::Script { inner, common } => (common, Box::new(inner)),
-            Item::Sensors { inner, common } => (common, Box::new(inner)),
-            Item::Time { inner, common } => (common, Box::new(inner)),
+            Item::Battery { inner, .. } => Box::new(inner.clone()),
+            Item::Cpu { inner, .. } => Box::new(inner.clone()),
+            Item::Disk { inner, .. } => Box::new(inner.clone()),
+            Item::Dunst { inner, .. } => Box::new(inner.clone()),
+            Item::Kbd { inner, .. } => Box::new(inner.clone()),
+            Item::Mem { inner, .. } => Box::new(inner.clone()),
+            Item::NetUsage { inner, .. } => Box::new(inner.clone()),
+            Item::Nic { inner, .. } => Box::new(inner.clone()),
+            Item::Pulse { inner, .. } => Box::new(inner.clone()),
+            Item::Script { inner, .. } => Box::new(inner.clone()),
+            Item::Sensors { inner, .. } => Box::new(inner.clone()),
+            Item::Time { inner, .. } => Box::new(inner.clone()),
+        }
+    }
+
+    pub fn common(&self) -> &Common {
+        match self {
+            Item::Battery { common, .. } => common,
+            Item::Cpu { common, .. } => common,
+            Item::Disk { common, .. } => common,
+            Item::Dunst { common, .. } => common,
+            Item::Kbd { common, .. } => common,
+            Item::Mem { common, .. } => common,
+            Item::NetUsage { common, .. } => common,
+            Item::Nic { common, .. } => common,
+            Item::Pulse { common, .. } => common,
+            Item::Script { common, .. } => common,
+            Item::Sensors { common, .. } => common,
+            Item::Time { common, .. } => common,
+        }
+    }
+
+    // TODO: can I use serde's internal "tag" here rather than building it manually here?
+    pub fn tag(&self) -> &'static str {
+        match self {
+            Item::Battery { .. } => "battery",
+            Item::Cpu { .. } => "cpu",
+            Item::Disk { .. } => "disk",
+            Item::Dunst { .. } => "dunst",
+            Item::Kbd { .. } => "kbd",
+            Item::Mem { .. } => "mem",
+            Item::NetUsage { .. } => "net_usage",
+            Item::Nic { .. } => "nic",
+            Item::Pulse { .. } => "pulse",
+            Item::Script { .. } => "script",
+            Item::Sensors { .. } => "sensors",
+            Item::Time { .. } => "time",
         }
     }
 }

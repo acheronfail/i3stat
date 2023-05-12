@@ -8,11 +8,10 @@ use serde_derive::{Deserialize, Serialize};
 use strum::{EnumIter, IntoEnumIterator};
 use sysinfo::SystemExt;
 
-use crate::context::{BarItem, Context};
+use crate::context::{BarEvent, BarItem, Context};
 use crate::format::{float, FloatFormat};
 use crate::i3::{I3Button, I3Item};
 use crate::theme::Theme;
-use crate::BarEvent;
 
 #[derive(Debug, PartialEq, EnumIter)]
 pub enum MemDisplay {
@@ -20,7 +19,7 @@ pub enum MemDisplay {
     Percentage,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Mem {
     #[serde(with = "humantime_serde")]
     interval: Duration,

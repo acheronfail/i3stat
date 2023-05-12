@@ -5,12 +5,11 @@ use async_trait::async_trait;
 use chrono::prelude::*;
 use serde_derive::{Deserialize, Serialize};
 
-use crate::context::{BarItem, Context};
+use crate::context::{BarEvent, BarItem, Context};
 use crate::exec::exec;
 use crate::i3::{I3Button, I3Item};
-use crate::BarEvent;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Time {
     #[serde(with = "humantime_serde")]
     interval: Duration,

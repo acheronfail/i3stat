@@ -48,7 +48,7 @@ impl FromStr for BatState {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Bat(PathBuf);
 
 impl Bat {
@@ -133,7 +133,7 @@ impl Bat {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Battery {
     #[serde(with = "humantime_serde")]
     interval: Duration,

@@ -5,12 +5,11 @@ use serde_derive::{Deserialize, Serialize};
 use strum::{EnumIter, IntoEnumIterator};
 use tokio::fs;
 
-use crate::context::{BarItem, Context};
+use crate::context::{BarEvent, BarItem, Context};
 use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
-use crate::BarEvent;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Kbd {
     pub show: Option<Vec<Keys>>,
 }

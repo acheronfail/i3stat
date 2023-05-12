@@ -6,12 +6,16 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [[bin]]
-name = "signals"
-path = "scripts/signals.rs"
+name = "staturs-signals"
+path = "bin/signals.rs"
 
 [[bin]]
-name = "sensors"
-path = "scripts/sensors.rs"
+name = "staturs-sensors"
+path = "bin/sensors.rs"
+
+[[bin]]
+name = "staturs-ipc"
+path = "bin/ipc.rs"
 
 [dependencies]
 async-stream = "0.3.5"
@@ -31,6 +35,7 @@ humantime-serde = "1.1.1"
 iwlib = "0.1.0"
 libc = "0.2.142"
 libpulse-binding = { version = "2.27.1", features = ["pa_v14"] }
+libpulse-tokio = "0.1.0"
 log = "0.4.17"
 nix = { version = "0.26.2", features = ["net"] }
 num-traits = "0.2.15"

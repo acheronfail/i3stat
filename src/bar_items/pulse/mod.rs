@@ -1,4 +1,4 @@
-mod pulse_tokio;
+mod custom;
 
 use std::cell::RefCell;
 use std::error::Error;
@@ -15,15 +15,22 @@ use libpulse_binding::def::DevicePortType;
 use libpulse_binding::proplist::properties::{APPLICATION_NAME, APPLICATION_PROCESS_ID};
 use libpulse_binding::proplist::Proplist;
 use libpulse_binding::volume::{ChannelVolumes, Volume};
+use libpulse_tokio::TokioMain;
 use serde_derive::{Deserialize, Serialize};
 use tokio::sync::mpsc::{self, UnboundedSender};
 
-use self::pulse_tokio::TokioMain;
-use crate::context::{BarItem, Context};
+use crate::context::{BarEvent, BarItem, Context};
 use crate::exec::exec;
 use crate::i3::{I3Button, I3Item, I3Modifier};
 use crate::theme::Theme;
-use crate::BarEvent;
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum Vol {
+    Incr(u32),
+    Decr(u32),
+    Set(u32),
+}
 
 /// Information about a `Sink` or a `Source`
 #[derive(Debug, Default, Clone)]
@@ -43,9 +50,9 @@ impl Port {
 
     fn port_symbol(&self) -> Option<&str> {
         match self.port_type {
-            Some(DevicePortType::Bluetooth) => Some("󰂰"),
-            Some(DevicePortType::Headphones) => Some("󰋋"),
-            Some(DevicePortType::Headset) => Some("󰋎"),
+            Some(DevicePortType::Bluetooth) => Some("󰂰 "),
+            Some(DevicePortType::Headphones) => Some("󰋋 "),
+            Some(DevicePortType::Headset) => Some("󰋎 "),
             _ => None,
         }
     }
@@ -70,33 +77,22 @@ macro_rules! impl_port_from {
 impl_port_from!(SinkInfo<'a>);
 impl_port_from!(SourceInfo<'a>);
 
-fn update_volume(cv: &mut ChannelVolumes, delta: i64) -> &mut ChannelVolumes {
-    let step = Volume::NORMAL.0 / 100;
-    let v = Volume(((delta.abs() as u32) * step) as u32);
-    if delta < 0 {
-        if cv.decrease(v).is_none() {
-            log::error!("pulse::failed to decrease ChannelVolumes");
-        }
-    } else {
-        if cv.increase(v).is_none() {
-            log::error!("pulse::failed to increase ChannelVolumes");
-        }
-    }
-
-    cv
-}
-
 #[derive(Debug)]
 enum CtxCommand {
     UpdateItem(I3Item),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Pulse {}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Pulse {
+    increment: Option<u32>,
+    // TODO: a sample to play each time the volume is changed?
+    // TODO: max volume setting allowed (i.e., don't exceed 150%, etc)
+}
 
 pub struct PulseState {
     tx: UnboundedSender<CtxCommand>,
     theme: Theme,
+    increment: u32,
     // NOTE: wrapped in `RefCell`s so they can be easily shared between tokio tasks on the same thread
     pa_ctx: RefCell<PAContext>,
     default_sink: RefCell<String>,
@@ -117,7 +113,7 @@ macro_rules! impl_pa_methods {
                             None => items.push(info.into()),
                         }
                     },
-                    ListResult::Error => log::warn!("pulse::add_{} failed:", stringify!($name)),
+                    ListResult::Error => log::warn!("add_{} failed", stringify!($name)),
                     ListResult::End => {}
                 }
             }
@@ -127,19 +123,23 @@ macro_rules! impl_pa_methods {
             }
 
             fn [<set_mute_ $name>](self: &Rc<Self>, idx: u32, mute: bool) {
+                let inner = self.clone();
                 let mut inspect = self.pa_ctx.borrow_mut().introspect();
                 inspect.[<set_ $name _mute_by_index>](idx, mute, Some(Box::new(move |success| {
                     if !success {
-                        log::error!("pulse::set_mute_{} failed", stringify!(name));
+                        let port = inner.get_port_by_idx(idx);
+                        log::error!("set_mute_{} failed: idx={}, port={:?}", stringify!(name), idx, port);
                     }
                 })));
             }
 
             fn [<set_volume_ $name>](self: &Rc<Self>, idx: u32, cv: &ChannelVolumes) {
+                let inner = self.clone();
                 let mut inspect = self.pa_ctx.borrow_mut().introspect();
                 inspect.[<set_ $name _volume_by_index>](idx, cv, Some(Box::new(move |success| {
                     if !success {
-                        log::error!("pulse::set_volume_{} failed", stringify!(name));
+                        let port = inner.get_port_by_idx(idx);
+                        log::error!("set_volume_{} failed: idx={}, port={:?}", stringify!(name), idx, port);
                     }
                 })));
             }
@@ -150,6 +150,15 @@ macro_rules! impl_pa_methods {
 impl PulseState {
     impl_pa_methods!(sink);
     impl_pa_methods!(source);
+
+    fn get_port_by_idx(&self, idx: u32) -> Option<Port> {
+        self.sinks
+            .borrow()
+            .iter()
+            .chain(self.sources.borrow().iter())
+            .find(|p| p.index == idx)
+            .cloned()
+    }
 
     fn default_sink(&self) -> Option<Port> {
         self.sinks
@@ -167,11 +176,40 @@ impl PulseState {
             .cloned()
     }
 
+    fn update_volume(cv: &mut ChannelVolumes, vol: Vol) -> &mut ChannelVolumes {
+        let step = Volume::NORMAL.0 / 100;
+        let current_pct = cv.max().0 / step;
+        match vol {
+            Vol::Decr(inc_pct) => {
+                if cv
+                    .decrease(Volume((inc_pct - (current_pct % inc_pct)) * step))
+                    .is_none()
+                {
+                    log::error!("failed to decrease ChannelVolumes");
+                }
+            }
+            Vol::Incr(inc_pct) => {
+                // TODO: use inc_clamp here if we have a max
+                if cv
+                    .increase(Volume((inc_pct - (current_pct % inc_pct)) * step))
+                    .is_none()
+                {
+                    log::error!("failed to increase ChannelVolumes");
+                }
+            }
+            Vol::Set(pct) => {
+                cv.set(cv.len(), Volume(pct * step));
+            }
+        }
+
+        cv
+    }
+
     fn update_item(self: &Rc<Self>) {
         let (default_sink, default_source) = match (self.default_sink(), self.default_source()) {
             (Some(sink), Some(source)) => (sink, source),
             _ => {
-                log::warn!("pulse::tried to update, but failed to find default sink and source");
+                log::warn!("tried to update, but failed to find default sink and source");
                 return;
             }
         };
@@ -183,11 +221,11 @@ impl PulseState {
         };
 
         let sink_text = format!(
-            "<span{}>{} {}%</span>",
+            "<span{}>{}{}%</span>",
             sink_fg,
             default_sink
                 .port_symbol()
-                .unwrap_or_else(|| if default_sink.mute { "" } else { "" }),
+                .unwrap_or_else(|| if default_sink.mute { " " } else { " " }),
             default_sink.volume_pct(),
         );
 
@@ -241,6 +279,9 @@ impl PulseState {
                                 self.fetch_server_state();
                             },
                         )*
+                        // triggered when the defaults change
+                        (Server, _) => self.fetch_server_state(),
+                        // ignore other events
                         _ => {}
                     }
                 }
@@ -318,6 +359,8 @@ impl BarItem for Pulse {
         let inner = Rc::new(PulseState {
             tx,
             theme: ctx.theme.clone(),
+            increment: self.increment.unwrap_or(2),
+
             pa_ctx: RefCell::new(pa_ctx),
             default_sink: RefCell::new("?".into()),
             default_source: RefCell::new("?".into()),
@@ -338,7 +381,7 @@ impl BarItem for Pulse {
             let mask = InterestMaskSet::SERVER | InterestMaskSet::SINK | InterestMaskSet::SOURCE;
             pa_ctx.subscribe(mask, |success| {
                 if !success {
-                    log::error!("pulse::subscribe failed");
+                    log::error!("subscribe failed");
                 }
             });
         }
@@ -354,13 +397,13 @@ impl BarItem for Pulse {
             let _ = exit_tx.send(main_loop.run().await).await;
         });
 
-        // TODO: is there anyway to map keyboard events so volume buttons can control this?
-        //  ^^ open a socket, and wait for events there?
         loop {
             tokio::select! {
-                // handle click events
-                Some(BarEvent::Click(click)) = ctx.raw_event_rx().recv() => {
-                    match click.button {
+                // handle events
+                Some(event) = ctx.raw_event_rx().recv() => match event {
+                    BarEvent::Signal => {}
+                    BarEvent::Custom { payload, responder } => inner.handle_custom_message(payload, responder),
+                    BarEvent::Click(click) => match click.button {
                         // open control panel
                         I3Button::Left => exec("i3-msg exec pavucontrol").await,
 
@@ -384,25 +427,33 @@ impl BarItem for Pulse {
                             inner.default_source().map(|x| inner.set_mute_source(x.index, !x.mute));
                         },
                         I3Button::ScrollUp if click.modifiers.contains(&I3Modifier::Shift) => {
-                            inner.default_source().map(|mut x| inner.set_volume_source(x.index, update_volume(&mut x.volume, 2)));
+                            inner.default_source().map(|mut x| {
+                                inner.set_volume_source(x.index, PulseState::update_volume(&mut x.volume, Vol::Incr(inner.increment)));
+                            });
                         }
                         I3Button::ScrollDown if click.modifiers.contains(&I3Modifier::Shift) => {
-                            inner.default_source().map(|mut x| inner.set_volume_source(x.index, update_volume(&mut x.volume, -2)));
+                            inner.default_source().map(|mut x| {
+                                inner.set_volume_source(x.index, PulseState::update_volume(&mut x.volume, Vol::Decr(inner.increment)));
+                            });
                         }
                         // sink
                         I3Button::Middle  => {
                             inner.default_sink().map(|x| inner.set_mute_sink(x.index, !x.mute));
                         },
                         I3Button::ScrollUp  => {
-                            inner.default_sink().map(|mut x| inner.set_volume_sink(x.index, update_volume(&mut x.volume, 2)));
+                            inner.default_sink().map(|mut x| {
+                                inner.set_volume_sink(x.index, PulseState::update_volume(&mut x.volume, Vol::Incr(inner.increment)));
+                            });
                         }
                         I3Button::ScrollDown  => {
-                            inner.default_sink().map(|mut x| inner.set_volume_sink(x.index, update_volume(&mut x.volume, -2)));
+                            inner.default_sink().map(|mut x| {
+                                inner.set_volume_sink(x.index, PulseState::update_volume(&mut x.volume, Vol::Decr(inner.increment)));
+                            });
                         }
                     }
                 },
 
-                // handle item updates
+                // whenever we want to refresh our item, an event it send on this channel
                 Some(cmd) = rx.recv() => match cmd {
                     CtxCommand::UpdateItem(item) => {
                         let _ = ctx.update_item(item).await;
@@ -411,7 +462,7 @@ impl BarItem for Pulse {
 
                 // handle pulse main loop exited
                 Some(ret_val) = exit_rx.recv() => {
-                    break Err(format!("pulse::mainloop exited unexpectedly with value: {}", ret_val.0).into());
+                    break Err(format!("mainloop exited unexpectedly with value: {}", ret_val.0).into());
                 }
             }
         }

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/// <reference path="./node_modules/@types/node/index.d.ts" />
 
 import { ExecaChildProcess, execa, $ } from 'execa';
 import { parse, HTMLElement } from 'node-html-parser';
@@ -30,8 +31,18 @@ let _input = '';
 // spawn, pipe stdout/err and write initial stdin
 process.chdir('../..');
 const { sigrtmin, sigrtmax } = JSON.parse((await $`./target/debug/signals`).stdout);
-const child: ExecaChildProcess = execa('./target/debug/staturs', ['--config', './sample_config.toml']);
+const child = execa(`./target/debug/staturs`, ['--config=./sample_config.toml', '--socket=/tmp/staturs-socket.dev']);
+if (!child.stdin) throw new Error("Child's STDIN was not setup correctly!");
+if (!child.stdout) throw new Error("Child's STDOUT was not setup correctly!");
+if (!child.stderr) throw new Error("Child's STDERR was not setup correctly!");
+
 child.stdin.write('[\n');
+
+// exit if the child exits unexpectedly
+child.on('exit', (code: number, signal: string) => {
+  process.stdout.write(chalk.red(`Exited: ${code || signal}\n`));
+  process.exit(0);
+});
 
 // custom stdout listening for pango markup
 child.stdout.setEncoding('utf8');
@@ -98,6 +109,10 @@ process.stdin.on('data', (char: string) => {
 
   drawInterface();
 });
+
+for (const cmd of process.argv.slice(2)) {
+  handleInput(cmd);
+}
 
 function drawInterface() {
   // draw instance info in line
@@ -213,7 +228,7 @@ function handleInput(input: string) {
     // for realtime signals, see:
     // https://github.com/nodejs/node/blob/0b3fcfcf351fba9f29234976eeec4afb09ae2cc0/src/node_process_methods.cc#L145
     // https://github.com/nodejs/node/blob/0b3fcfcf351fba9f29234976eeec4afb09ae2cc0/src/node_process_methods.cc#L597
-    process._kill(child._handle.pid, signal);
+    (process as any)._kill((child as any)._handle.pid, signal);
   }
 
   // list
@@ -246,7 +261,7 @@ function handleInput(input: string) {
       height: 10,
     };
 
-    child.stdin.write(JSON.stringify(click) + '\n');
+    child.stdin!.write(JSON.stringify(click) + '\n');
   } else {
     return displayHelp();
   }
@@ -327,7 +342,14 @@ function c(fg?: string, bg?: string) {
 }
 
 function exit(code: number) {
-  process.stdout.cursorTo(0, process.stdout.rows);
-  process.stdout.clearLine();
-  process.exit(code);
+  const doExit = () => {
+    process.stdout.cursorTo(0, process.stdout.rows);
+    process.stdout.clearLine(0);
+    process.exit(code);
+  };
+
+  child.removeAllListeners('exit').on('exit', doExit);
+  child.kill('SIGTERM');
+
+  setTimeout(doExit, 5_000);
 }
