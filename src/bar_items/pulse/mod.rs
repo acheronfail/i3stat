@@ -172,7 +172,6 @@ impl PulseState {
             (Some(sink), Some(source)) => (sink, source),
             _ => {
                 log::warn!("pulse::tried to update, but failed to find default sink and source");
-                self.request_initial_state(self.pa_ctx.borrow().introspect());
                 return;
             }
         };
@@ -221,6 +220,7 @@ impl PulseState {
     ) {
         use Facility::*;
         use Operation::*;
+        // TODO: these events come in fast with many per type, can we debounce the `fetch_server_state` call?
         macro_rules! impl_handler {
             ($(($obj:ty, $get:ident)),*) => {
                 paste::paste! {
@@ -229,11 +229,17 @@ impl PulseState {
                             ($obj, New) | ($obj, Changed) => {
                                 let state = self.clone();
                                 inspect.$get(idx, move |result| {
+                                    let should_refetch = matches!(&result, ListResult::End | ListResult::Error);
                                     state.[<add_ $obj:snake>](result);
-                                    state.update_item();
+                                    if should_refetch {
+                                        state.fetch_server_state();
+                                    }
                                 });
                             }
-                            ($obj, Removed) => self.[<remove_ $obj:snake>](idx),
+                            ($obj, Removed) => {
+                                self.[<remove_ $obj:snake>](idx);
+                                self.fetch_server_state();
+                            },
                         )*
                         _ => {}
                     }
@@ -247,7 +253,9 @@ impl PulseState {
         );
     }
 
-    fn request_initial_state(self: &Rc<Self>, inspect: Introspector) {
+    fn fetch_server_state(self: &Rc<Self>) {
+        let inspect = self.pa_ctx.borrow().introspect();
+
         let state = self.clone();
         inspect.get_sink_info_list(move |item| {
             state.add_sink(item);
@@ -304,7 +312,6 @@ impl BarItem for Pulse {
         };
 
         let inspect_sub = pa_ctx.introspect();
-        let inspect = pa_ctx.introspect();
 
         // this is shared between all the async tasks
         let (tx, mut rx) = mpsc::unbounded_channel();
@@ -328,7 +335,8 @@ impl BarItem for Pulse {
                 state.subscribe_cb(&inspect_sub, fac.unwrap(), op.unwrap(), idx);
             })));
 
-            pa_ctx.subscribe(InterestMaskSet::ALL, |success| {
+            let mask = InterestMaskSet::SERVER | InterestMaskSet::SINK | InterestMaskSet::SOURCE;
+            pa_ctx.subscribe(mask, |success| {
                 if !success {
                     log::error!("pulse::subscribe failed");
                 }
@@ -336,7 +344,9 @@ impl BarItem for Pulse {
         }
 
         // request initial state
-        inner.request_initial_state(inspect);
+        {
+            inner.fetch_server_state();
+        }
 
         // run pulse main loop
         let (exit_tx, mut exit_rx) = mpsc::channel(1);
