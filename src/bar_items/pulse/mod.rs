@@ -87,6 +87,7 @@ pub struct Pulse {
     increment: Option<u32>,
     max_volume: Option<u32>,
     // TODO: a sample to play each time the volume is changed?
+    // See: https://docs.rs/libpulse-binding/2.26.0/libpulse_binding/mainloop/threaded/index.html#example
 }
 
 pub struct PulseState {

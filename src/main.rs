@@ -102,7 +102,6 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
     );
 
     // task to manage updating the bar and printing it as JSON
-    // TODO: buffer these and only print a single line within a threshold (no point in super quick updates)
     tokio::task::spawn_local(async move {
         while let Some((item, i)) = item_rx.recv().await {
             let mut bar = bar.borrow_mut();

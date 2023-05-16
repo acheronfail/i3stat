@@ -16,26 +16,42 @@ use crate::theme::Theme;
 pub struct NetUsage {
     #[serde(with = "crate::human_time")]
     interval: Duration,
+    minimum: Option<ByteSize>,
+    thresholds: Vec<ByteSize>,
 }
 
 impl NetUsage {
-    // TODO: make these configurable
-    const THRESHOLD_1: u64 = bytesize::KIB;
-    const THRESHOLD_2: u64 = bytesize::MIB;
-    const THRESHOLD_3: u64 = bytesize::MIB * 10;
-    const THRESHOLD_4: u64 = bytesize::MIB * 25;
-    const THRESHOLD_5: u64 = bytesize::MIB * 100;
-
-    fn get_color(theme: &Theme, bytes: u64) -> Option<HexColor> {
-        match bytes {
-            0..Self::THRESHOLD_1 => Some(theme.dark4),
-            Self::THRESHOLD_1..Self::THRESHOLD_2 => None,
-            Self::THRESHOLD_2..Self::THRESHOLD_3 => Some(theme.warning),
-            Self::THRESHOLD_3..Self::THRESHOLD_4 => Some(theme.danger),
-            Self::THRESHOLD_4..Self::THRESHOLD_5 => Some(theme.error),
-            Self::THRESHOLD_5..u64::MAX => Some(theme.special),
-            _ => None,
+    fn get_color(&self, theme: &Theme, bytes: u64) -> Option<HexColor> {
+        if self.thresholds.len() == 0 {
+            return None;
         }
+
+        let end = self
+            .thresholds
+            .first()
+            .map(|b| b.as_u64())
+            .unwrap_or(u64::MAX);
+
+        if (0..=end).contains(&bytes) {
+            return Some(theme.dark4);
+        }
+
+        // NOTE: since we have 5 thresholds, and windows of 2, there will only be 4 windows
+        // so we only need to map it to 4 colours here
+        let threshold_colors = &[
+            None,
+            Some(theme.warning),
+            Some(theme.danger),
+            Some(theme.error),
+        ];
+        for (idx, w) in self.thresholds.windows(2).enumerate() {
+            if (w[0].as_u64()..w[1].as_u64()).contains(&bytes) {
+                return threshold_colors[idx];
+            }
+        }
+
+        // it was above any of the thresholds listed
+        Some(theme.special)
     }
 }
 
@@ -46,16 +62,17 @@ impl BarItem for NetUsage {
         ctx.raw_event_rx().close();
 
         let fg = |bytes| {
-            Self::get_color(&ctx.theme, bytes)
+            self.get_color(&ctx.theme, bytes)
                 .map(|c| format!(r#" foreground="{}""#, c))
                 .unwrap_or("".into())
         };
 
+        let min = self.minimum.map_or(bytesize::KIB, |b| b.as_u64());
         let text = |bytes| {
-            if bytes > bytesize::KIB {
+            if bytes > min {
                 ByteSize(bytes).to_string_as(true)
             } else {
-                "0".into()
+                "-".into()
             }
         };
 

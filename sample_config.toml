@@ -1,6 +1,16 @@
 [[items]]
 type = "net_usage"
 interval = "1s"
+# anything under this threshold will show as "-"
+minimum = "1 kiB"
+# 5 levels:
+#     0..1st: grey
+#   1st..2nd: normal
+#   2nd..3rd: yellow
+#   3rd..4th: orange
+#   4th..5th: red
+#   5th..MAX: purple
+thresholds = ["1kiB", "1MiB", "10MiB", "25MiB", "100MiB"]
 
 [[items]]
 type = "nic"

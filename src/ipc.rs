@@ -79,7 +79,6 @@ pub async fn handle_ipc_events(
         Err(e) => return Err(e.into()),
     }
 
-    // TODO: clean up socket on program exit? (i3bar sends SIGTERM, could handle that?)
     let listener = UnixListener::bind(&socket_path)?;
     loop {
         match listener.accept().await {
@@ -103,7 +102,7 @@ async fn handle_ipc_client(
     stream: UnixStream,
     dispatcher: Dispatcher,
 ) -> Result<(), Box<dyn Error>> {
-    // TODO: upper limit? error if too big? how to handle that?
+    // TODO: upper limit? error if too big? how to handle that? add len in ipc protocol?
     let mut buf = vec![0; 1024];
     loop {
         stream.readable().await?;
@@ -198,7 +197,6 @@ async fn send_ipc_response(stream: &UnixStream, resp: &IpcReply) -> Result<(), B
         match stream.try_write(&data[idx..]) {
             Ok(n) => {
                 idx += n;
-                // TODO: is this the right check?
                 if idx == data.len() {
                     break Ok(());
                 }
