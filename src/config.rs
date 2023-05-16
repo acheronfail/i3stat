@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use figment::providers::{Format, Json, Toml, Yaml};
 use figment::Figment;
 use serde_derive::{Deserialize, Serialize};
+use strum::EnumIter;
 
 use crate::bar_items::*;
 use crate::context::BarItem;
@@ -13,134 +14,73 @@ pub struct Common {
     pub signal: Option<u32>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, EnumIter)]
 #[serde(rename_all = "snake_case", tag = "type")]
-pub enum Item {
-    Battery {
-        #[serde(flatten)]
-        common: Common,
-        #[serde(flatten)]
-        inner: Battery,
-    },
-    Cpu {
-        #[serde(flatten)]
-        common: Common,
-        #[serde(flatten)]
-        inner: Cpu,
-    },
-    Disk {
-        #[serde(flatten)]
-        common: Common,
-        #[serde(flatten)]
-        inner: Disk,
-    },
-    Dunst {
-        #[serde(flatten)]
-        common: Common,
-        #[serde(flatten)]
-        inner: Dunst,
-    },
-    Kbd {
-        #[serde(flatten)]
-        common: Common,
-        #[serde(flatten)]
-        inner: Kbd,
-    },
-    Mem {
-        #[serde(flatten)]
-        common: Common,
-        #[serde(flatten)]
-        inner: Mem,
-    },
-    NetUsage {
-        #[serde(flatten)]
-        common: Common,
-        #[serde(flatten)]
-        inner: NetUsage,
-    },
-    Nic {
-        #[serde(flatten)]
-        common: Common,
-        #[serde(flatten)]
-        inner: Nic,
-    },
-    Pulse {
-        #[serde(flatten)]
-        common: Common,
-        #[serde(flatten)]
-        inner: Pulse,
-    },
-    Script {
-        #[serde(flatten)]
-        common: Common,
-        #[serde(flatten)]
-        inner: Script,
-    },
-    Sensors {
-        #[serde(flatten)]
-        common: Common,
-        #[serde(flatten)]
-        inner: Sensors,
-    },
-    Time {
-        #[serde(flatten)]
-        common: Common,
-        #[serde(flatten)]
-        inner: Time,
-    },
+pub enum ItemInner {
+    Battery(Battery),
+    Cpu(Cpu),
+    Disk(Disk),
+    Dunst(Dunst),
+    Kbd(Kbd),
+    Mem(Mem),
+    NetUsage(NetUsage),
+    Nic(Nic),
+    Pulse(Pulse),
+    Script(Script),
+    Sensors(Sensors),
+    Time(Time),
+}
+
+impl ItemInner {
+    // Can't seem to use serde to access the tags, even though it's automatically derived the tags.
+    // For now, we have a test ensuring this is accurate.
+    // See: https://github.com/serde-rs/serde/issues/2455
+    pub fn tag(&self) -> &'static str {
+        match self {
+            ItemInner::Battery(_) => "battery",
+            ItemInner::Cpu(_) => "cpu",
+            ItemInner::Disk(_) => "disk",
+            ItemInner::Dunst(_) => "dunst",
+            ItemInner::Kbd(_) => "kbd",
+            ItemInner::Mem(_) => "mem",
+            ItemInner::NetUsage(_) => "net_usage",
+            ItemInner::Nic(_) => "nic",
+            ItemInner::Pulse(_) => "pulse",
+            ItemInner::Script(_) => "script",
+            ItemInner::Sensors(_) => "sensors",
+            ItemInner::Time(_) => "time",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Item {
+    #[serde(flatten)]
+    pub common: Common,
+    #[serde(flatten)]
+    inner: ItemInner,
 }
 
 impl Item {
     pub fn to_bar_item(&self) -> Box<dyn BarItem> {
-        match self {
-            Item::Battery { inner, .. } => Box::new(inner.clone()),
-            Item::Cpu { inner, .. } => Box::new(inner.clone()),
-            Item::Disk { inner, .. } => Box::new(inner.clone()),
-            Item::Dunst { inner, .. } => Box::new(inner.clone()),
-            Item::Kbd { inner, .. } => Box::new(inner.clone()),
-            Item::Mem { inner, .. } => Box::new(inner.clone()),
-            Item::NetUsage { inner, .. } => Box::new(inner.clone()),
-            Item::Nic { inner, .. } => Box::new(inner.clone()),
-            Item::Pulse { inner, .. } => Box::new(inner.clone()),
-            Item::Script { inner, .. } => Box::new(inner.clone()),
-            Item::Sensors { inner, .. } => Box::new(inner.clone()),
-            Item::Time { inner, .. } => Box::new(inner.clone()),
+        match &self.inner {
+            ItemInner::Battery(inner) => Box::new(inner.clone()),
+            ItemInner::Cpu(inner) => Box::new(inner.clone()),
+            ItemInner::Disk(inner) => Box::new(inner.clone()),
+            ItemInner::Dunst(inner) => Box::new(inner.clone()),
+            ItemInner::Kbd(inner) => Box::new(inner.clone()),
+            ItemInner::Mem(inner) => Box::new(inner.clone()),
+            ItemInner::NetUsage(inner) => Box::new(inner.clone()),
+            ItemInner::Nic(inner) => Box::new(inner.clone()),
+            ItemInner::Pulse(inner) => Box::new(inner.clone()),
+            ItemInner::Script(inner) => Box::new(inner.clone()),
+            ItemInner::Sensors(inner) => Box::new(inner.clone()),
+            ItemInner::Time(inner) => Box::new(inner.clone()),
         }
     }
 
-    pub fn common(&self) -> &Common {
-        match self {
-            Item::Battery { common, .. } => common,
-            Item::Cpu { common, .. } => common,
-            Item::Disk { common, .. } => common,
-            Item::Dunst { common, .. } => common,
-            Item::Kbd { common, .. } => common,
-            Item::Mem { common, .. } => common,
-            Item::NetUsage { common, .. } => common,
-            Item::Nic { common, .. } => common,
-            Item::Pulse { common, .. } => common,
-            Item::Script { common, .. } => common,
-            Item::Sensors { common, .. } => common,
-            Item::Time { common, .. } => common,
-        }
-    }
-
-    // TODO: can I use serde's internal "tag" here rather than building it manually here?
     pub fn tag(&self) -> &'static str {
-        match self {
-            Item::Battery { .. } => "battery",
-            Item::Cpu { .. } => "cpu",
-            Item::Disk { .. } => "disk",
-            Item::Dunst { .. } => "dunst",
-            Item::Kbd { .. } => "kbd",
-            Item::Mem { .. } => "mem",
-            Item::NetUsage { .. } => "net_usage",
-            Item::Nic { .. } => "nic",
-            Item::Pulse { .. } => "pulse",
-            Item::Script { .. } => "script",
-            Item::Sensors { .. } => "sensors",
-            Item::Time { .. } => "time",
-        }
+        self.inner.tag()
     }
 }
 
@@ -163,4 +103,30 @@ pub async fn read(config_path: Option<PathBuf>) -> Result<AppConfig, Box<dyn Err
         .extract::<AppConfig>()?;
 
     Ok(c)
+}
+
+#[cfg(test)]
+mod tests {
+    use strum::IntoEnumIterator;
+
+    use super::*;
+
+    #[test]
+    fn item_tags() {
+        let assert_tag = |item: &ItemInner| {
+            let v = serde_json::to_value(&item).unwrap();
+            let serialised_tag = v.get("type").unwrap();
+            let computed_tag = item.tag();
+            assert_eq!(
+                serialised_tag, computed_tag,
+                "item tags did not match, expected {} got {}",
+                serialised_tag, computed_tag
+            );
+        };
+
+        // iterate over all enums and assert tags
+        for variant in ItemInner::iter() {
+            assert_tag(&variant);
+        }
+    }
 }

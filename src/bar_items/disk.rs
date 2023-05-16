@@ -12,9 +12,9 @@ use crate::format::fraction;
 use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Disk {
-    #[serde(with = "humantime_serde")]
+    #[serde(with = "crate::human_time")]
     interval: Duration,
 }
 

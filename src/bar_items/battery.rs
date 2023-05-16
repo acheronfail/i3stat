@@ -133,9 +133,9 @@ impl Bat {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Battery {
-    #[serde(with = "humantime_serde")]
+    #[serde(with = "crate::human_time")]
     interval: Duration,
     batteries: Option<Vec<Bat>>,
 }

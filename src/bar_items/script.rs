@@ -18,7 +18,7 @@ pub enum ScriptFormat {
     Json,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Script {
     pub command: String,
     #[serde(default)]

@@ -82,7 +82,7 @@ enum CtxCommand {
     UpdateItem(I3Item),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Pulse {
     increment: Option<u32>,
     // TODO: a sample to play each time the volume is changed?

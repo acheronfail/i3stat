@@ -7,6 +7,7 @@ pub mod context;
 pub mod dispatcher;
 pub mod exec;
 pub mod format;
+pub mod human_time;
 pub mod i3;
 pub mod ipc;
 pub mod signals;

@@ -102,9 +102,9 @@ impl Interface {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Nic {
-    #[serde(with = "humantime_serde")]
+    #[serde(with = "crate::human_time")]
     interval: Duration,
 }
 

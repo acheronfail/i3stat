@@ -19,9 +19,9 @@ pub enum MemDisplay {
     Percentage,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Mem {
-    #[serde(with = "humantime_serde")]
+    #[serde(with = "crate::human_time")]
     interval: Duration,
     #[serde(flatten)]
     float_fmt: FloatFormat,

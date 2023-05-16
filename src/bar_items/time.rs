@@ -9,9 +9,9 @@ use crate::context::{BarEvent, BarItem, Context};
 use crate::exec::exec;
 use crate::i3::{I3Button, I3Item};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Time {
-    #[serde(with = "humantime_serde")]
+    #[serde(with = "crate::human_time")]
     interval: Duration,
     format_long: String,
     format_short: String,

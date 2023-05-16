@@ -12,9 +12,9 @@ use crate::format::{float, FloatFormat};
 use crate::i3::I3Item;
 use crate::theme::Theme;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Cpu {
-    #[serde(with = "humantime_serde")]
+    #[serde(with = "crate::human_time")]
     interval: Duration,
     #[serde(flatten)]
     float_fmt: FloatFormat,

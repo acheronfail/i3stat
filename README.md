@@ -30,8 +30,8 @@ Probably don't use this yet... I'm still hacking on it, but you can have a look 
 
 ## To Do
 
-* [ ] think of a better name than `staturs` (+ for other included binaries)
-* [ ] all the other "todo"s in the repository
 * [ ] kerberos item
-* [ ] change nic to list all names, with colors for quality, and interact for ips?
+* [ ] fill out documentation for included binaries (clap apis)
+* [ ] all the other "todo"s in the repository
+* [ ] think of a better name than `staturs` (+ for other included binaries)
 * [ ] publish crate

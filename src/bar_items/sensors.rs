@@ -11,9 +11,9 @@ use crate::context::{BarItem, Context};
 use crate::i3::I3Item;
 use crate::theme::Theme;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Sensors {
-    #[serde(with = "humantime_serde")]
+    #[serde(with = "crate::human_time")]
     interval: Duration,
     label: String,
 }

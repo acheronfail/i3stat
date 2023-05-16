@@ -23,7 +23,7 @@ pub fn handle_signals(
 
     let mut sig_to_indices: HashMap<i32, Vec<usize>> = HashMap::new();
     for (idx, (_, item)) in dispatcher.iter() {
-        if let Some(sig) = item.common().signal {
+        if let Some(sig) = item.common.signal {
             // signals are passed in from 0..(SIGRTMAX - SIGRTMIN)
             let translated_sig = min + sig as i32;
             // make sure all signals are valid

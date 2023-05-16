@@ -9,7 +9,7 @@ use crate::context::{BarEvent, BarItem, Context};
 use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Kbd {
     pub show: Option<Vec<Keys>>,
 }
