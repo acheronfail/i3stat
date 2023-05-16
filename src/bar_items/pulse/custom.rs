@@ -80,10 +80,10 @@ impl PulseState {
     fn set_volume(self: &Rc<Self>, what: Object, vol: Vol) -> PulseResponse {
         match what {
             Object::Sink => self.default_sink().map(|mut p| {
-                self.set_volume_sink(p.index, &PulseState::update_volume(&mut p.volume, vol))
+                self.set_volume_sink(p.index, &self.update_volume(&mut p.volume, vol))
             }),
             Object::Source => self.default_source().map(|mut p| {
-                self.set_volume_source(p.index, PulseState::update_volume(&mut p.volume, vol))
+                self.set_volume_source(p.index, self.update_volume(&mut p.volume, vol))
             }),
         };
 

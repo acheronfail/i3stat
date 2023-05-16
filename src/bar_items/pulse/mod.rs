@@ -85,14 +85,15 @@ enum CtxCommand {
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Pulse {
     increment: Option<u32>,
+    max_volume: Option<u32>,
     // TODO: a sample to play each time the volume is changed?
-    // TODO: max volume setting allowed (i.e., don't exceed 150%, etc)
 }
 
 pub struct PulseState {
     tx: UnboundedSender<CtxCommand>,
     theme: Theme,
     increment: u32,
+    max_volume: Option<u32>,
     // NOTE: wrapped in `RefCell`s so they can be easily shared between tokio tasks on the same thread
     pa_ctx: RefCell<PAContext>,
     default_sink: RefCell<String>,
@@ -176,7 +177,11 @@ impl PulseState {
             .cloned()
     }
 
-    fn update_volume(cv: &mut ChannelVolumes, vol: Vol) -> &mut ChannelVolumes {
+    fn update_volume<'a, 'b>(
+        &'a self,
+        cv: &'b mut ChannelVolumes,
+        vol: Vol,
+    ) -> &'b mut ChannelVolumes {
         let step = Volume::NORMAL.0 / 100;
         let current_pct = cv.max().0 / step;
         match vol {
@@ -189,10 +194,12 @@ impl PulseState {
                 }
             }
             Vol::Incr(inc_pct) => {
-                // TODO: use inc_clamp here if we have a max
-                if cv
-                    .increase(Volume((inc_pct - (current_pct % inc_pct)) * step))
-                    .is_none()
+                let tgt = Volume((inc_pct - (current_pct % inc_pct)) * step);
+                if (match self.max_volume {
+                    Some(max_pct) => cv.inc_clamp(tgt, Volume(max_pct * step)),
+                    None => cv.increase(tgt),
+                })
+                .is_none()
                 {
                     log::error!("failed to increase ChannelVolumes");
                 }
@@ -360,6 +367,7 @@ impl BarItem for Pulse {
             tx,
             theme: ctx.theme.clone(),
             increment: self.increment.unwrap_or(2),
+            max_volume: self.max_volume,
 
             pa_ctx: RefCell::new(pa_ctx),
             default_sink: RefCell::new("?".into()),
@@ -428,12 +436,12 @@ impl BarItem for Pulse {
                         },
                         I3Button::ScrollUp if click.modifiers.contains(&I3Modifier::Shift) => {
                             inner.default_source().map(|mut x| {
-                                inner.set_volume_source(x.index, PulseState::update_volume(&mut x.volume, Vol::Incr(inner.increment)));
+                                inner.set_volume_source(x.index, inner.update_volume(&mut x.volume, Vol::Incr(inner.increment)));
                             });
                         }
                         I3Button::ScrollDown if click.modifiers.contains(&I3Modifier::Shift) => {
                             inner.default_source().map(|mut x| {
-                                inner.set_volume_source(x.index, PulseState::update_volume(&mut x.volume, Vol::Decr(inner.increment)));
+                                inner.set_volume_source(x.index, inner.update_volume(&mut x.volume, Vol::Decr(inner.increment)));
                             });
                         }
                         // sink
@@ -442,12 +450,12 @@ impl BarItem for Pulse {
                         },
                         I3Button::ScrollUp  => {
                             inner.default_sink().map(|mut x| {
-                                inner.set_volume_sink(x.index, PulseState::update_volume(&mut x.volume, Vol::Incr(inner.increment)));
+                                inner.set_volume_sink(x.index, inner.update_volume(&mut x.volume, Vol::Incr(inner.increment)));
                             });
                         }
                         I3Button::ScrollDown  => {
                             inner.default_sink().map(|mut x| {
-                                inner.set_volume_sink(x.index, PulseState::update_volume(&mut x.volume, Vol::Decr(inner.increment)));
+                                inner.set_volume_sink(x.index, inner.update_volume(&mut x.volume, Vol::Decr(inner.increment)));
                             });
                         }
                     }

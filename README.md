@@ -32,6 +32,7 @@ Probably don't use this yet... I'm still hacking on it, but you can have a look 
 
 * [ ] kerberos item
 * [ ] fill out documentation for included binaries (clap apis)
+* [ ] fill out documentation for each item's config
 * [ ] all the other "todo"s in the repository
 * [ ] think of a better name than `staturs` (+ for other included binaries)
 * [ ] publish crate

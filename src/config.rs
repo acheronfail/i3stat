@@ -107,6 +107,7 @@ pub async fn read(config_path: Option<PathBuf>) -> Result<AppConfig, Box<dyn Err
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
     use strum::IntoEnumIterator;
 
     use super::*;
@@ -114,7 +115,7 @@ mod tests {
     #[test]
     fn item_tags() {
         let assert_tag = |item: &ItemInner| {
-            let v = serde_json::to_value(&item).unwrap();
+            let v = json!(item);
             let serialised_tag = v.get("type").unwrap();
             let computed_tag = item.tag();
             assert_eq!(
