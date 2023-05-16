@@ -67,22 +67,24 @@ impl BarItem for Disk {
                 state.sys.disks().iter().map(DiskStats::from_disk).collect()
             };
             let len = stats.len();
-            idx = idx % len;
+            if len > 0 {
+                idx = idx % len;
 
-            let disk = &stats[idx];
-            let (full, short) = disk.format();
-            let full = format!("{}{}", full, fraction(&ctx.theme, idx + 1, len));
+                let disk = &stats[idx];
+                let (full, short) = disk.format();
+                let full = format!("{}{}", full, fraction(&ctx.theme, idx + 1, len));
 
-            let mut item = I3Item::new(full)
-                .short_text(short)
-                .name("disk")
-                .markup(I3Markup::Pango);
+                let mut item = I3Item::new(full)
+                    .short_text(short)
+                    .name("disk")
+                    .markup(I3Markup::Pango);
 
-            if let Some(fg) = disk.get_color(&ctx.theme) {
-                item = item.color(fg);
+                if let Some(fg) = disk.get_color(&ctx.theme) {
+                    item = item.color(fg);
+                }
+
+                ctx.update_item(item).await?;
             }
-
-            ctx.update_item(item).await?;
 
             // cycle through disks
             ctx.delay_with_event_handler(self.interval, |event| {

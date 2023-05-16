@@ -153,17 +153,19 @@ impl BarItem for Battery {
         let mut idx = 0;
         let len = batteries.len();
         loop {
-            idx = idx % len;
+            if len > 0 {
+                idx = idx % len;
 
-            let (full, short) = &batteries[idx].format(&ctx.theme).await?;
-            let full = format!("{}{}", full, fraction(&ctx.theme, idx + 1, len));
+                let (full, short) = &batteries[idx].format(&ctx.theme).await?;
+                let full = format!("{}{}", full, fraction(&ctx.theme, idx + 1, len));
 
-            let item = I3Item::new(full)
-                .short_text(short)
-                .name("bat")
-                .markup(I3Markup::Pango);
+                let item = I3Item::new(full)
+                    .short_text(short)
+                    .name("bat")
+                    .markup(I3Markup::Pango);
 
-            ctx.update_item(item).await?;
+                ctx.update_item(item).await?;
+            }
 
             // cycle though batteries
             ctx.delay_with_event_handler(self.interval, |event| {

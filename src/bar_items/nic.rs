@@ -161,6 +161,20 @@ impl BarItem for Nic {
         loop {
             let mut interfaces = Nic::get_interfaces()?;
             let len = interfaces.len();
+
+            // no networks active
+            if len == 0 {
+                ctx.update_item(
+                    I3Item::new("disconnected")
+                        .name("nic")
+                        .color(ctx.theme.error),
+                )
+                .await?;
+                ctx.delay_with_event_handler(self.interval, |_| async {})
+                    .await;
+                continue;
+            }
+
             idx = idx % len;
 
             let (full, short) = interfaces[idx].format(&ctx.theme);

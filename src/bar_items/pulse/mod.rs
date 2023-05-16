@@ -359,7 +359,7 @@ impl BarItem for Pulse {
             (main_loop, pa_ctx)
         };
 
-        let inspect_sub = pa_ctx.introspect();
+        let inspect = pa_ctx.introspect();
 
         // this is shared between all the async tasks
         let (tx, mut rx) = mpsc::unbounded_channel();
@@ -383,7 +383,7 @@ impl BarItem for Pulse {
             pa_ctx.set_subscribe_callback(Some(Box::new(move |fac, op, idx| {
                 // SAFETY: `libpulse_binding` decodes these values from an integer, and explains
                 // that it's probably safe to always unwrap them
-                state.subscribe_cb(&inspect_sub, fac.unwrap(), op.unwrap(), idx);
+                state.subscribe_cb(&inspect, fac.unwrap(), op.unwrap(), idx);
             })));
 
             let mask = InterestMaskSet::SERVER | InterestMaskSet::SINK | InterestMaskSet::SOURCE;
