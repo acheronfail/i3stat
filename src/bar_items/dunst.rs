@@ -1,13 +1,10 @@
-mod generated;
-
 use std::error::Error;
 use std::time::Duration;
 
 use async_trait::async_trait;
 use dbus::arg::Variant;
 use dbus::message::MatchRule;
-use dbus::nonblock;
-use generated::OrgDunstprojectCmd0;
+use dbus::nonblock::{self, MethodReply};
 use serde_derive::{Deserialize, Serialize};
 
 use crate::context::{BarEvent, BarItem, Context};
@@ -50,11 +47,16 @@ impl BarItem for Dunst {
                 Duration::from_secs(5),
                 con,
             );
-            match dunst_proxy.paused().await {
-                Ok(paused) => {
-                    ctx.update_item(Dunst::item(&ctx.theme, paused))
-                        .await
-                        .unwrap();
+
+            let reply: MethodReply<(Variant<bool>,)> = dunst_proxy.method_call(
+                "org.freedesktop.DBus.Properties",
+                "Get",
+                ("org.dunstproject.cmd0", "paused"),
+            );
+
+            match reply.await {
+                Ok((Variant(paused),)) => {
+                    let _ = ctx.update_item(Dunst::item(&ctx.theme, paused)).await;
                 }
                 Err(e) => log::error!("failed to get initial paused state: {}", e),
             }
