@@ -410,7 +410,6 @@ impl BarItem for Pulse {
             tokio::select! {
                 // handle events
                 Some(event) = ctx.raw_event_rx().recv() => match event {
-                    BarEvent::Signal => {}
                     BarEvent::Custom { payload, responder } => inner.handle_custom_message(payload, responder),
                     BarEvent::Click(click) => match click.button {
                         // open control panel
@@ -460,6 +459,7 @@ impl BarItem for Pulse {
                             });
                         }
                     }
+                    _ => {}
                 },
 
                 // whenever we want to refresh our item, an event it send on this channel

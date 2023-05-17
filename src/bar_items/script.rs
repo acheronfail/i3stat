@@ -77,7 +77,7 @@ impl BarItem for Script {
                 env.insert("I3_WIDTH", c.width.to_string());
                 env.insert("I3_HEIGHT", c.height.to_string());
             }
-            BarEvent::Custom { .. } => {}
+            _ => {}
         };
 
         loop {

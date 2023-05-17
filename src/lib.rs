@@ -4,6 +4,7 @@ pub mod bar_items;
 pub mod cli;
 pub mod config;
 pub mod context;
+pub mod dbus;
 pub mod dispatcher;
 pub mod exec;
 pub mod format;

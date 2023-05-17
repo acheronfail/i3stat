@@ -4,12 +4,12 @@ interval = "1s"
 # anything under this threshold will show as "-"
 minimum = "1 kiB"
 # 5 levels:
-#     0..1st: grey
-#   1st..2nd: normal
-#   2nd..3rd: yellow
-#   3rd..4th: orange
-#   4th..5th: red
-#   5th..MAX: purple
+#     0..1st: theme.dim
+#   1st..2nd: theme.normal
+#   2nd..3rd: theme.warning
+#   3rd..4th: theme.danger
+#   4th..5th: theme.error
+#   5th..MAX: theme.special
 thresholds = ["1kiB", "1MiB", "10MiB", "25MiB", "100MiB"]
 
 [[items]]
