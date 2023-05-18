@@ -3,10 +3,10 @@ use std::error::Error;
 use async_trait::async_trait;
 use futures_util::StreamExt;
 use serde_derive::{Deserialize, Serialize};
-use zbus::dbus_proxy;
 
 use crate::context::{BarItem, Context};
 use crate::dbus::dbus_connection;
+use crate::dbus::dunst::DunstProxy;
 use crate::i3::I3Item;
 use crate::theme::Theme;
 
@@ -22,17 +22,6 @@ impl Dunst {
     }
 }
 
-#[dbus_proxy(
-    default_path = "/org/freedesktop/Notifications",
-    default_service = "org.freedesktop.Notifications",
-    interface = "org.dunstproject.cmd0",
-    gen_blocking = false
-)]
-trait DunstDbus {
-    #[dbus_proxy(property, name = "paused")]
-    fn paused(&self) -> zbus::Result<bool>;
-}
-
 #[async_trait(?Send)]
 impl BarItem for Dunst {
     async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
@@ -41,7 +30,7 @@ impl BarItem for Dunst {
 
         // get initial state
         let connection = dbus_connection(crate::dbus::BusType::Session).await?;
-        let dunst_proxy = DunstDbusProxy::new(&connection).await?;
+        let dunst_proxy = DunstProxy::new(&connection).await?;
         let _ = ctx
             .update_item(Dunst::item(&ctx.theme, dunst_proxy.paused().await?))
             .await;

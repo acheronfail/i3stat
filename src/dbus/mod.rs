@@ -1,3 +1,6 @@
+pub mod dunst;
+pub mod network_manager;
+
 use std::error::Error;
 
 use tokio::sync::OnceCell;

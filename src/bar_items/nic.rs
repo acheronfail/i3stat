@@ -4,6 +4,7 @@ use std::net::{SocketAddrV4, SocketAddrV6};
 use std::time::Duration;
 
 use async_trait::async_trait;
+use futures::StreamExt;
 use hex_color::HexColor;
 use iwlib::{get_wireless_info, WirelessInfo};
 use nix::ifaddrs::getifaddrs;
@@ -11,6 +12,8 @@ use nix::net::if_::InterfaceFlags;
 use serde_derive::{Deserialize, Serialize};
 
 use crate::context::{BarItem, Context};
+use crate::dbus::dbus_connection;
+use crate::dbus::network_manager::NetworkManagerProxy;
 use crate::format::fraction;
 use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
@@ -149,6 +152,8 @@ impl Nic {
     }
 }
 
+// TODO: remove custom code here, and replace with zbus getters
+
 #[async_trait(?Send)]
 impl BarItem for Nic {
     // TODO: is there an agnostic/kernel way to detect network changes and _only then_ check for ips?
@@ -157,6 +162,22 @@ impl BarItem for Nic {
     //  also: https://github.com/mullvad/mnl-rs
     // fallback dbus: `dbus-monitor --system "type='signal',interface='org.freedesktop.NetworkManager'"`
     async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
+        {
+            let connection = dbus_connection(crate::dbus::BusType::System).await?;
+            let nm = NetworkManagerProxy::new(&connection).await?;
+            let devices = nm.get_all_devices().await?;
+            dbg!(devices[0].ip4_config().await?.address_data().await?);
+
+            let mut stream = nm.receive__active_connections_changed().await;
+            while let Some(change) = stream.next().await {
+                let paths = change.get().await?;
+                let connections = nm.convert_network_manager_active_connection(paths).await?;
+                for c in connections {
+                    dbg!(c.id().await?);
+                }
+            }
+        }
+
         let mut idx = 0;
         loop {
             let mut interfaces = Nic::get_interfaces()?;
