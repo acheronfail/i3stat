@@ -1,13 +1,10 @@
 use std::cell::RefCell;
 use std::error::Error;
 use std::rc::Rc;
-use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
 use clap::builder::StyledStr;
-use dbus::message::MatchRule;
-use dbus::nonblock::LocalConnection;
 use futures_core::Future;
 use serde_json::Value;
 use sysinfo::{System, SystemExt};
@@ -15,7 +12,6 @@ use tokio::sync::mpsc::error::{SendError, TryRecvError};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::sleep;
 
-use crate::dbus::{dbus_connect, BusType, DbusMessage};
 use crate::i3::bar_item::I3Item;
 use crate::i3::{I3Button, I3ClickEvent};
 use crate::theme::Theme;
@@ -28,7 +24,6 @@ pub enum CustomResponse {
 pub enum BarEvent {
     Click(I3ClickEvent),
     Signal,
-    DbusMessage(DbusMessage),
     Custom {
         payload: Vec<String>,
         responder: oneshot::Sender<CustomResponse>,
@@ -37,29 +32,14 @@ pub enum BarEvent {
 
 pub struct SharedState {
     pub sys: System,
-    dbus_session_con: RefCell<Option<Arc<LocalConnection>>>,
 }
 
 impl SharedState {
     pub fn new() -> Rc<RefCell<SharedState>> {
         Rc::new(RefCell::new(SharedState {
-            dbus_session_con: RefCell::new(None),
             // this loads nothing, it's up to each item to load what it needs
             sys: System::new(),
         }))
-    }
-
-    /// Get a connection to dbus, lazily initialising the connection the first time this is called
-    pub fn get_dbus_connection(&self) -> Result<Arc<LocalConnection>, Box<dyn Error>> {
-        let mut cell = self.dbus_session_con.borrow_mut();
-        match cell.as_mut() {
-            Some(con) => Ok(con.clone()),
-            None => {
-                let con = dbus_connect()?;
-                let _ = cell.insert(con.clone());
-                Ok(con)
-            }
-        }
     }
 }
 
@@ -154,8 +134,4 @@ impl Context {
 #[async_trait(?Send)]
 pub trait BarItem: Send {
     async fn start(self: Box<Self>, ctx: Context) -> Result<(), Box<dyn Error>>;
-
-    fn register_dbus_interest(&self) -> Option<(BusType, MatchRule<'static>)> {
-        None
-    }
 }

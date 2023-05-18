@@ -10,7 +10,6 @@ use clap::Parser;
 use staturs::cli::Cli;
 use staturs::config;
 use staturs::context::{Context, SharedState};
-use staturs::dbus::{dbus_subscribe, DbusInterest};
 use staturs::dispatcher::Dispatcher;
 use staturs::i3::header::I3BarHeader;
 use staturs::i3::ipc::handle_click_events;
@@ -62,15 +61,11 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
     // state for the bar (moved to bar_printer)
     let bar: Rc<RefCell<_>> = Rc::new(RefCell::new(vec![I3Item::empty(); item_count]));
     let mut bar_txs = vec![];
-    let mut dbus_interests = vec![];
 
     // for each BarItem, spawn a new task to manage it
     let (item_tx, mut item_rx) = mpsc::channel(item_count + 1);
     for (idx, item) in config.items.iter().enumerate() {
         let bar_item = item.to_bar_item();
-        bar_item
-            .register_dbus_interest()
-            .map(|(bus, rule)| dbus_interests.push(DbusInterest::new(idx, bus, rule)));
 
         let (event_tx, event_rx) = mpsc::channel(32);
         bar_txs.push(event_tx.clone());
@@ -105,10 +100,6 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
             .map(|(idx, tx)| (idx, (tx, config.items[idx].clone())))
             .collect::<HashMap<usize, _>>(),
     );
-
-    if let Err(e) = dbus_subscribe(dispatcher.clone(), dbus_interests).await {
-        log::error!("dbus subscription failed: {}", e);
-    }
 
     // task to manage updating the bar and printing it as JSON
     tokio::task::spawn_local(async move {
