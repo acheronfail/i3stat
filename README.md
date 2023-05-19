@@ -31,7 +31,7 @@ Probably don't use this yet... I'm still hacking on it, but you can have a look 
 ## To Do
 
 * [ ] kerberos item
-* [ ] fill out documentation for included binaries (clap apis)
+* [ ] support multiple bars (ipc?)
 * [ ] fill out documentation for each item's config
 * [ ] all the other "todo"s in the repository
 * [ ] think of a better name than `staturs` (+ for other included binaries)

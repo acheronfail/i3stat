@@ -14,7 +14,6 @@ pub fn fraction(theme: &Theme, num: usize, den: usize) -> String {
     )
 }
 
-// TODO: adjust defaults to be something a little nicer (no pad?)
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct FloatFormat {
     pad: Option<char>,

@@ -125,7 +125,9 @@ async fn handle_ipc_client(
                             // ipc message contained an index
                             Ok(idx) => idx,
                             Err(e) => match dispatcher.iter().find_map(|(idx, (_, item))| {
-                                if instance == item.tag() {
+                                if instance == item.tag()
+                                    || Some(&instance) == item.common.name.as_ref()
+                                {
                                     Some(idx)
                                 } else {
                                     None

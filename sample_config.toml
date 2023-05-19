@@ -26,6 +26,7 @@ pad = ' '
 pad_count = 2
 
 [[items]]
+name = "cpu-temp"
 type = "sensors"
 interval = "5s"
 label = "coretemp Package id 0"
@@ -39,6 +40,7 @@ type = "pulse"
 max_volume = 120
 
 [[items]]
+
 type = "battery"
 interval = "10s"
 batteries = ["/sys/class/power_supply/BAT0"]

@@ -25,7 +25,15 @@ impl Dispatcher {
     pub fn instance_mapping(&self) -> HashMap<usize, String> {
         self.inner
             .iter()
-            .map(|(idx, (_, item))| (*idx, item.tag().into()))
+            .map(|(idx, (_, item))| {
+                (
+                    *idx,
+                    item.common
+                        .name
+                        .as_ref()
+                        .map_or_else(|| item.tag().into(), |n| n.to_string()),
+                )
+            })
             .collect()
     }
 

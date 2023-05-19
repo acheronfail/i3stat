@@ -12,6 +12,7 @@ use crate::context::BarItem;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Common {
     pub signal: Option<u32>,
+    pub name: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, EnumIter)]

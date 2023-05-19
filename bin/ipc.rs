@@ -5,25 +5,31 @@ use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 
 use clap::builder::PossibleValue;
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{ColorChoice, Parser, Subcommand, ValueEnum};
 use staturs::i3::{I3Button, I3ClickEvent, I3Modifier};
 use staturs::ipc::{get_socket_path, IpcBarEvent, IpcMessage, IpcReply};
 
 #[derive(Debug, Parser)]
+#[clap(color = ColorChoice::Always)]
 struct Cli {
     #[command(subcommand)]
     cmd: CliCommand,
+    /// Path to the socket to use for ipc
     #[clap(long)]
     socket: Option<PathBuf>,
 }
 
-// TODO: doc "instance/target" which is either a number or a tag, and if tag, the first that's found
 #[derive(Debug, Subcommand)]
 enum CliCommand {
+    /// Returns information about the currently running bar
     Info,
+    /// Send a click event to a bar item
     Click {
-        instance: String,
+        /// The target bar item: can be an index or the name of the item
+        target: String,
+        /// The mouse button to send
         button: Button,
+        /// A list of modifiers (pass multiple times) emulated in the click event
         #[clap(long, short)]
         modifiers: Vec<Modifier>,
         #[clap(long, short)]
@@ -43,11 +49,17 @@ enum CliCommand {
         #[clap(long, short = 'H')]
         height: Option<usize>,
     },
+    /// Send a signal event to a bar item, this is the same as setting `signal=1` in the config file
+    /// and then sending the signal (e.g., `pkill -RTMIN+1 staturs`)
     Signal {
+        /// The target bar item: can be an index or the name of the item
         target: String,
     },
+    /// Send a custom event to a bar item. Only a few bar items support custom events, see the documentation for details
     Custom {
+        /// The target bar item: can be an index or the name of the item
         target: String,
+        /// Arguments to send to the bar item
         #[clap(trailing_var_arg = true)]
         args: Vec<String>,
     },
@@ -96,13 +108,13 @@ impl ValueEnum for Modifier {
 
     fn to_possible_value(&self) -> Option<PossibleValue> {
         match self.0 {
-            I3Modifier::Control => Some(PossibleValue::new("Control")),
-            I3Modifier::Mod1 => Some(PossibleValue::new("Mod1")),
-            I3Modifier::Mod2 => Some(PossibleValue::new("Mod2")),
-            I3Modifier::Mod3 => Some(PossibleValue::new("Mod3")),
-            I3Modifier::Mod4 => Some(PossibleValue::new("Mod4")),
-            I3Modifier::Mod5 => Some(PossibleValue::new("Mod5")),
-            I3Modifier::Shift => Some(PossibleValue::new("Shift")),
+            I3Modifier::Control => Some(PossibleValue::new("control")),
+            I3Modifier::Mod1 => Some(PossibleValue::new("mod1")),
+            I3Modifier::Mod2 => Some(PossibleValue::new("mod2")),
+            I3Modifier::Mod3 => Some(PossibleValue::new("mod3")),
+            I3Modifier::Mod4 => Some(PossibleValue::new("mod4")),
+            I3Modifier::Mod5 => Some(PossibleValue::new("mod5")),
+            I3Modifier::Shift => Some(PossibleValue::new("shift")),
         }
     }
 }
@@ -134,7 +146,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let msg = match args.cmd {
         CliCommand::Info => IpcMessage::Info,
         CliCommand::Click {
-            instance,
+            target,
             button,
             modifiers,
             x,
@@ -148,7 +160,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         } => {
             let mut click = I3ClickEvent::default();
             click.button = button.0;
-            click.instance = Some(instance.clone());
+            click.instance = Some(target.clone());
             click.modifiers = modifiers.into_iter().map(|m| m.0).collect();
             x.map(|x| click.x = x);
             y.map(|y| click.y = y);
@@ -160,7 +172,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             height.map(|height| click.height = height);
 
             let event = IpcBarEvent::Click(click);
-            IpcMessage::BarEvent { instance, event }
+            IpcMessage::BarEvent {
+                instance: target,
+                event,
+            }
         }
         CliCommand::Signal { target } => IpcMessage::BarEvent {
             instance: target,
