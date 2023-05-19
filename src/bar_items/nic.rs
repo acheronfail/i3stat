@@ -108,8 +108,8 @@ impl Interface {
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Nic {
-    #[serde(with = "crate::human_time")]
-    interval: Duration,
+    #[serde(default, with = "crate::human_time::option")]
+    interval: Option<Duration>,
 }
 
 impl Nic {
@@ -160,6 +160,13 @@ impl BarItem for Nic {
         let nm = NetworkManagerProxy::new(&connection).await?;
         let mut nm_state_change = nm.receive_state_changed().await?;
 
+        let timeout = || async {
+            match self.interval {
+                Some(duration) => sleep(duration).await,
+                None => futures_util::future::pending::<()>().await,
+            }
+        };
+
         let mut idx = 0;
         loop {
             let mut interfaces = Nic::get_interfaces()?;
@@ -173,8 +180,9 @@ impl BarItem for Nic {
                 )
                 .await?;
 
+                idx = 0;
                 tokio::select! {
-                    () = sleep(self.interval) => continue,
+                    () = timeout() => continue,
                     Some(_) = ctx.wait_for_event() => continue,
                     Some(_) = nm_state_change.next() => continue,
                 }
@@ -193,12 +201,25 @@ impl BarItem for Nic {
             ctx.update_item(item).await?;
 
             // cycle through networks on click
-            let wait_for_click = ctx.delay_with_event_handler(self.interval, |event| {
-                Context::paginate(&event, len, &mut idx);
-                async {}
-            });
+            let wait_for_click = async {
+                match self.interval {
+                    Some(duration) => {
+                        ctx.delay_with_event_handler(duration, |event| {
+                            Context::paginate(&event, len, &mut idx);
+                            async {}
+                        })
+                        .await
+                    }
+                    None => {
+                        if let Some(event) = ctx.wait_for_event().await {
+                            Context::paginate(&event, len, &mut idx);
+                        }
+                    }
+                }
+            };
 
             tokio::select! {
+                () = timeout() => continue,
                 () = wait_for_click => continue,
                 Some(_) = nm_state_change.next() => continue,
             }

@@ -14,7 +14,6 @@ thresholds = ["1kiB", "1MiB", "10MiB", "25MiB", "100MiB"]
 
 [[items]]
 type = "nic"
-interval = "60s"
 
 [[items]]
 type = "disk"
