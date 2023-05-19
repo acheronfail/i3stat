@@ -16,11 +16,13 @@ use crate::i3::bar_item::I3Item;
 use crate::i3::{I3Button, I3ClickEvent};
 use crate::theme::Theme;
 
+#[derive(Debug)]
 pub enum CustomResponse {
     Help(StyledStr),
     Json(Value),
 }
 
+#[derive(Debug)]
 pub enum BarEvent {
     Click(I3ClickEvent),
     Signal,

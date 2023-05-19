@@ -10,6 +10,7 @@ use iwlib::{get_wireless_info, WirelessInfo};
 use nix::ifaddrs::getifaddrs;
 use nix::net::if_::InterfaceFlags;
 use serde_derive::{Deserialize, Serialize};
+use tokio::time::sleep;
 
 use crate::context::{BarItem, Context};
 use crate::dbus::dbus_connection;
@@ -152,50 +153,34 @@ impl Nic {
     }
 }
 
-// TODO: remove custom code here, and replace with zbus getters
-
 #[async_trait(?Send)]
 impl BarItem for Nic {
-    // TODO: is there an agnostic/kernel way to detect network changes and _only then_ check for ips?
-    // kernel-userspace api would be: netlink, see: https://stackoverflow.com/a/2353441/5552584
-    //  also: https://inai.de/documents/Netlink_Protocol.pdf
-    //  also: https://github.com/mullvad/mnl-rs
-    // fallback dbus: `dbus-monitor --system "type='signal',interface='org.freedesktop.NetworkManager'"`
     async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
-        {
-            let connection = dbus_connection(crate::dbus::BusType::System).await?;
-            let nm = NetworkManagerProxy::new(&connection).await?;
-            let devices = nm.get_all_devices().await?;
-            dbg!(devices[0].ip4_config().await?.address_data().await?);
-
-            let mut stream = nm.receive__active_connections_changed().await;
-            while let Some(change) = stream.next().await {
-                let paths = change.get().await?;
-                let connections = nm.convert_network_manager_active_connection(paths).await?;
-                for c in connections {
-                    dbg!(c.id().await?);
-                }
-            }
-        }
+        let connection = dbus_connection(crate::dbus::BusType::System).await?;
+        let nm = NetworkManagerProxy::new(&connection).await?;
+        let mut nm_state_change = nm.receive_state_changed().await?;
 
         let mut idx = 0;
         loop {
             let mut interfaces = Nic::get_interfaces()?;
-            let len = interfaces.len();
 
             // no networks active
-            if len == 0 {
+            if interfaces.is_empty() {
                 ctx.update_item(
                     I3Item::new("disconnected")
                         .name("nic")
                         .color(ctx.theme.error),
                 )
                 .await?;
-                ctx.delay_with_event_handler(self.interval, |_| async {})
-                    .await;
-                continue;
+
+                tokio::select! {
+                    () = sleep(self.interval) => continue,
+                    Some(_) = ctx.wait_for_event() => continue,
+                    Some(_) = nm_state_change.next() => continue,
+                }
             }
 
+            let len = interfaces.len();
             idx = idx % len;
 
             let (full, short) = interfaces[idx].format(&ctx.theme);
@@ -208,11 +193,15 @@ impl BarItem for Nic {
             ctx.update_item(item).await?;
 
             // cycle through networks on click
-            ctx.delay_with_event_handler(self.interval, |event| {
+            let wait_for_click = ctx.delay_with_event_handler(self.interval, |event| {
                 Context::paginate(&event, len, &mut idx);
                 async {}
-            })
-            .await;
+            });
+
+            tokio::select! {
+                () = wait_for_click => continue,
+                Some(_) = nm_state_change.next() => continue,
+            }
         }
     }
 }

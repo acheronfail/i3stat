@@ -37,11 +37,17 @@ impl BarItem for Dunst {
 
         // listen for changes
         let mut stream = dunst_proxy.receive_paused_changed().await;
-        while let Some(change) = stream.next().await {
-            let paused = change.get().await?;
-            let _ = ctx.update_item(Dunst::item(&ctx.theme, paused)).await;
+        loop {
+            tokio::select! {
+                Some(change) = stream.next() => {
+                    let paused = change.get().await?;
+                    let _ = ctx.update_item(Dunst::item(&ctx.theme, paused)).await;
+                },
+                Some(_) = ctx.wait_for_event() => {
+                    let paused = dunst_proxy.paused().await?;
+                    let _ = ctx.update_item(Dunst::item(&ctx.theme, paused)).await;
+                }
+            }
         }
-
-        Err("unexpected end of dbus stream".into())
     }
 }

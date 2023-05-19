@@ -6,8 +6,8 @@ use zbus::zvariant::{DeserializeDict, OwnedObjectPath, OwnedValue, SerializeDict
 #[derive(Debug, DeserializeDict, SerializeDict, Value, OwnedValue, Type)]
 #[zvariant(signature = "dict")]
 pub struct AddressData {
-    address: String,
-    prefix: u32,
+    pub address: String,
+    pub prefix: u32,
 }
 
 #[dbus_proxy(
@@ -21,6 +21,16 @@ pub trait NetworkManagerIP4Config {
     fn address_data(&self) -> zbus::Result<Vec<AddressData>>;
 }
 
+impl<'a> NetworkManagerIP4ConfigProxy<'a> {
+    pub async fn extract_address(&self) -> zbus::Result<Option<String>> {
+        Ok(self
+            .address_data()
+            .await?
+            .first()
+            .map(|d| d.address.to_owned()))
+    }
+}
+
 #[dbus_proxy(
     default_path = "/org/freedesktop/NetworkManager/IP6Config",
     default_service = "org.freedesktop.NetworkManager",
@@ -30,6 +40,16 @@ pub trait NetworkManagerIP4Config {
 pub trait NetworkManagerIP6Config {
     #[dbus_proxy(property)]
     fn address_data(&self) -> zbus::Result<Vec<AddressData>>;
+}
+
+impl<'a> NetworkManagerIP6ConfigProxy<'a> {
+    pub async fn extract_address(&self) -> zbus::Result<Option<String>> {
+        Ok(self
+            .address_data()
+            .await?
+            .first()
+            .map(|d| d.address.to_owned()))
+    }
 }
 
 #[dbus_proxy(
@@ -43,13 +63,13 @@ trait NetworkManagerActiveConnection {
     fn vpn(&self) -> zbus::Result<bool>;
 
     #[dbus_proxy(property, name = "Ip4Config")]
-    fn _ip4_config(&self) -> zbus::Result<OwnedObjectPath>;
+    fn ip4_config_objpath(&self) -> zbus::Result<OwnedObjectPath>;
 
     #[dbus_proxy(property, name = "Ip6Config")]
-    fn _ip6_config(&self) -> zbus::Result<OwnedObjectPath>;
+    fn ip6_config_objpath(&self) -> zbus::Result<OwnedObjectPath>;
 
     #[dbus_proxy(property, name = "Devices")]
-    fn _devices(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
+    fn devices_objpath(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
 
     #[dbus_proxy(property)]
     fn id(&self) -> zbus::Result<String>;
@@ -72,10 +92,10 @@ pub trait NetworkManagerDevice {
     fn interface(&self) -> zbus::Result<String>;
 
     #[dbus_proxy(property, name = "Ip4Config")]
-    fn _ip4_config(&self) -> zbus::Result<OwnedObjectPath>;
+    fn ip4_config_objpath(&self) -> zbus::Result<OwnedObjectPath>;
 
     #[dbus_proxy(property, name = "Ip6Config")]
-    fn _ip6_config(&self) -> zbus::Result<OwnedObjectPath>;
+    fn ip6_config_objpath(&self) -> zbus::Result<OwnedObjectPath>;
 
     #[dbus_proxy(property)]
     fn hw_address(&self) -> zbus::Result<String>;
@@ -92,13 +112,13 @@ pub trait NetworkManager {
     fn state_changed(&self) -> zbus::Result<()>;
 
     #[dbus_proxy(property, name = "ActiveConnections")]
-    fn _active_connections(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
+    fn active_connections_objpath(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
 
     #[dbus_proxy(name = "GetAllDevices")]
-    fn _get_all_devices(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
+    fn get_all_devices_objpath(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
 
     #[dbus_proxy(property, name = "AllDevices")]
-    fn _all_devices(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
+    fn all_devices_objpath(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
 
     #[dbus_proxy(property)]
     fn networking_enabled(&self) -> zbus::Result<bool>;
@@ -137,8 +157,7 @@ macro_rules! impl_object_vec {
 
                 $(
                     pub async fn $method(&self) -> zbus::Result<Vec<[<$child Proxy>]>> {
-                        // TODO: change naming convention so we don't get `__`s in method names
-                        let paths = self.[<_ $method>]().await?;
+                        let paths = self.[<$method _objpath>]().await?;
                         self.[<convert_ $child:snake>](paths).await
                     }
                 )+
@@ -176,7 +195,7 @@ macro_rules! impl_object_prop {
         paste::paste! {
             $(impl<'a> [<$parent Proxy>]<'a> {
                 pub async fn $method(&self) -> zbus::Result<[<$child Proxy>]> {
-                    let path = self.[<_ $method>]().await?;
+                    let path = self.[<$method _objpath>]().await?;
                     Ok(<[<$child Proxy>]>::builder(self.connection())
                         .path(path)?
                         .build()
