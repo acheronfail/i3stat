@@ -6,14 +6,8 @@ use serde_derive::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tokio::sync::oneshot;
 
-use super::{Port, PulseState, Vol};
+use super::{Object, Port, PulseState, Vol};
 use crate::context::CustomResponse;
-
-#[derive(Debug, Copy, Clone, ValueEnum)]
-enum Object {
-    Source,
-    Sink,
-}
 
 #[derive(Debug, Copy, Clone, ValueEnum)]
 enum Bool {
@@ -77,45 +71,6 @@ impl Port {
 }
 
 impl PulseState {
-    fn set_volume(self: &Rc<Self>, what: Object, vol: Vol) -> PulseResponse {
-        match what {
-            Object::Sink => self.default_sink().map(|mut p| {
-                self.set_volume_sink(p.index, &self.update_volume(&mut p.volume, vol))
-            }),
-            Object::Source => self.default_source().map(|mut p| {
-                self.set_volume_source(p.index, self.update_volume(&mut p.volume, vol))
-            }),
-        };
-
-        PulseResponse::Success
-    }
-
-    fn set_mute(self: &Rc<Self>, what: Object, mute: bool) -> PulseResponse {
-        match what {
-            Object::Sink => self
-                .default_sink()
-                .map(|p| self.set_mute_sink(p.index, mute)),
-            Object::Source => self
-                .default_source()
-                .map(|p| self.set_mute_source(p.index, mute)),
-        };
-
-        PulseResponse::Success
-    }
-
-    fn toggle_mute(self: &Rc<Self>, what: Object) -> PulseResponse {
-        match what {
-            Object::Sink => self
-                .default_sink()
-                .map(|p| self.set_mute_sink(p.index, !p.mute)),
-            Object::Source => self
-                .default_source()
-                .map(|p| self.set_mute_source(p.index, !p.mute)),
-        };
-
-        PulseResponse::Success
-    }
-
     pub fn handle_custom_message(
         self: &Rc<Self>,
         args: Vec<String>,
@@ -139,14 +94,25 @@ impl PulseState {
                         ),
                     },
                     PulseCommand::VolumeUp { what } => {
-                        self.set_volume(what, Vol::Incr(self.increment))
+                        self.set_volume(what, Vol::Incr(self.increment));
+                        PulseResponse::Success
                     }
                     PulseCommand::VolumeDown { what } => {
-                        self.set_volume(what, Vol::Decr(self.increment))
+                        self.set_volume(what, Vol::Decr(self.increment));
+                        PulseResponse::Success
                     }
-                    PulseCommand::VolumeSet { what, vol } => self.set_volume(what, Vol::Set(vol)),
-                    PulseCommand::Mute { what, mute } => self.set_mute(what, mute.into()),
-                    PulseCommand::MuteToggle { what } => self.toggle_mute(what),
+                    PulseCommand::VolumeSet { what, vol } => {
+                        self.set_volume(what, Vol::Set(vol));
+                        PulseResponse::Success
+                    }
+                    PulseCommand::Mute { what, mute } => {
+                        self.set_mute(what, mute.into());
+                        PulseResponse::Success
+                    }
+                    PulseCommand::MuteToggle { what } => {
+                        self.toggle_mute(what);
+                        PulseResponse::Success
+                    }
                 };
 
                 CustomResponse::Json(json!(resp))

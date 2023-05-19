@@ -38,6 +38,7 @@ interval = "10s"
 [[items]]
 type = "pulse"
 max_volume = 120
+notify = "volume_mute"
 
 [[items]]
 

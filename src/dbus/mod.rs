@@ -1,5 +1,6 @@
 pub mod dunst;
 pub mod network_manager;
+pub mod notifications;
 
 use std::error::Error;
 

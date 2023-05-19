@@ -7,6 +7,7 @@ use std::process;
 use std::rc::Rc;
 
 use async_trait::async_trait;
+use clap::ValueEnum;
 use libpulse_binding::callbacks::ListResult;
 use libpulse_binding::context::introspect::{Introspector, SinkInfo, SourceInfo};
 use libpulse_binding::context::subscribe::{Facility, InterestMaskSet, Operation};
@@ -18,11 +19,19 @@ use libpulse_binding::volume::{ChannelVolumes, Volume};
 use libpulse_tokio::TokioMain;
 use serde_derive::{Deserialize, Serialize};
 use tokio::sync::mpsc::{self, UnboundedSender};
+use zbus::Connection;
 
 use crate::context::{BarEvent, BarItem, Context};
+use crate::dbus::notifications::NotificationsProxy;
 use crate::exec::exec;
 use crate::i3::{I3Button, I3Item, I3Modifier};
 use crate::theme::Theme;
+
+#[derive(Debug, Copy, Clone, ValueEnum)]
+pub enum Object {
+    Source,
+    Sink,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -56,6 +65,14 @@ impl Port {
             _ => None,
         }
     }
+
+    fn notify_volume_mute(&self) -> Command {
+        Command::NotifyVolume {
+            name: self.name.clone(),
+            volume: self.volume_pct(),
+            mute: self.mute,
+        }
+    }
 }
 
 macro_rules! impl_port_from {
@@ -78,23 +95,45 @@ impl_port_from!(SinkInfo<'a>);
 impl_port_from!(SourceInfo<'a>);
 
 #[derive(Debug)]
-enum CtxCommand {
+enum Command {
     UpdateItem(I3Item),
+    NotifyVolume {
+        name: String,
+        volume: u32,
+        mute: bool,
+    },
+}
+
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum NotificationSetting {
+    /// No notifications are sent (the default)
+    #[default]
+    None,
+    /// When volumes are changed
+    VolumeMute,
+    // TODO: server defaults + sink/source added
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Pulse {
+    /// How much to increment when increasing/decreasing the volume; measured in percent
     increment: Option<u32>,
+    /// The maximum allowed volume; measured in percent
     max_volume: Option<u32>,
+    /// Whether to send notifications on server state changes
+    #[serde(default)]
+    notify: NotificationSetting,
     // TODO: a sample to play each time the volume is changed?
     // See: https://docs.rs/libpulse-binding/2.26.0/libpulse_binding/mainloop/threaded/index.html#example
 }
 
 pub struct PulseState {
-    tx: UnboundedSender<CtxCommand>,
+    tx: UnboundedSender<Command>,
     theme: Theme,
     increment: u32,
     max_volume: Option<u32>,
+
     // NOTE: wrapped in `RefCell`s so they can be easily shared between tokio tasks on the same thread
     pa_ctx: RefCell<PAContext>,
     default_sink: RefCell<String>,
@@ -213,6 +252,58 @@ impl PulseState {
         cv
     }
 
+    fn set_volume(self: &Rc<Self>, what: Object, vol: Vol) {
+        (match what {
+            Object::Sink => self.default_sink().map(|mut p| {
+                self.set_volume_sink(p.index, self.update_volume(&mut p.volume, vol));
+                p
+            }),
+            Object::Source => self.default_source().map(|mut p| {
+                self.set_volume_source(p.index, self.update_volume(&mut p.volume, vol));
+                p
+            }),
+        })
+        .map(|p| {
+            let _ = self.tx.send(p.notify_volume_mute());
+        });
+    }
+
+    fn set_mute(self: &Rc<Self>, what: Object, mute: bool) {
+        (match what {
+            Object::Sink => self.default_sink().map(|mut p| {
+                p.mute = mute;
+                self.set_mute_sink(p.index, p.mute);
+                p
+            }),
+            Object::Source => self.default_source().map(|mut p| {
+                p.mute = mute;
+                self.set_mute_source(p.index, p.mute);
+                p
+            }),
+        })
+        .map(|p| {
+            let _ = self.tx.send(p.notify_volume_mute());
+        });
+    }
+
+    fn toggle_mute(self: &Rc<Self>, what: Object) {
+        (match what {
+            Object::Sink => self.default_sink().map(|mut p| {
+                p.mute = !p.mute;
+                self.set_mute_sink(p.index, p.mute);
+                p
+            }),
+            Object::Source => self.default_source().map(|mut p| {
+                p.mute = !p.mute;
+                self.set_mute_source(p.index, p.mute);
+                p
+            }),
+        })
+        .map(|p| {
+            let _ = self.tx.send(p.notify_volume_mute());
+        });
+    }
+
     fn update_item(self: &Rc<Self>) {
         let (default_sink, default_source) = match (self.default_sink(), self.default_source()) {
             (Some(sink), Some(source)) => (sink, source),
@@ -254,7 +345,7 @@ impl PulseState {
             .name("pulse")
             .markup(crate::i3::I3Markup::Pango);
 
-        let _ = self.tx.send(CtxCommand::UpdateItem(item));
+        let _ = self.tx.send(Command::UpdateItem(item));
     }
 
     fn subscribe_cb(
@@ -406,6 +497,8 @@ impl BarItem for Pulse {
             let _ = exit_tx.send(main_loop.run().await).await;
         });
 
+        let dbus = Connection::session().await?;
+        let notifications = NotificationsProxy::new(&dbus).await?;
         loop {
             tokio::select! {
                 // handle events
@@ -432,31 +525,23 @@ impl BarItem for Pulse {
 
                         // source
                         I3Button::Middle if click.modifiers.contains(&I3Modifier::Shift) => {
-                            inner.default_source().map(|x| inner.set_mute_source(x.index, !x.mute));
+                            inner.toggle_mute(Object::Source);
                         },
                         I3Button::ScrollUp if click.modifiers.contains(&I3Modifier::Shift) => {
-                            inner.default_source().map(|mut x| {
-                                inner.set_volume_source(x.index, inner.update_volume(&mut x.volume, Vol::Incr(inner.increment)));
-                            });
+                            inner.set_volume(Object::Source, Vol::Incr(inner.increment));
                         }
                         I3Button::ScrollDown if click.modifiers.contains(&I3Modifier::Shift) => {
-                            inner.default_source().map(|mut x| {
-                                inner.set_volume_source(x.index, inner.update_volume(&mut x.volume, Vol::Decr(inner.increment)));
-                            });
+                            inner.set_volume(Object::Source, Vol::Decr(inner.increment));
                         }
                         // sink
                         I3Button::Middle  => {
-                            inner.default_sink().map(|x| inner.set_mute_sink(x.index, !x.mute));
+                            inner.toggle_mute(Object::Sink);
                         },
                         I3Button::ScrollUp  => {
-                            inner.default_sink().map(|mut x| {
-                                inner.set_volume_sink(x.index, inner.update_volume(&mut x.volume, Vol::Incr(inner.increment)));
-                            });
+                            inner.set_volume(Object::Sink, Vol::Incr(inner.increment));
                         }
                         I3Button::ScrollDown  => {
-                            inner.default_sink().map(|mut x| {
-                                inner.set_volume_sink(x.index, inner.update_volume(&mut x.volume, Vol::Decr(inner.increment)));
-                            });
+                            inner.set_volume(Object::Sink, Vol::Decr(inner.increment));
                         }
                     }
                     _ => {}
@@ -464,8 +549,16 @@ impl BarItem for Pulse {
 
                 // whenever we want to refresh our item, an event it send on this channel
                 Some(cmd) = rx.recv() => match cmd {
-                    CtxCommand::UpdateItem(item) => {
-                        let _ = ctx.update_item(item).await;
+                    Command::UpdateItem(item) => {
+                        ctx.update_item(item).await?;
+                    }
+                    Command::NotifyVolume { name, volume, mute } => {
+                        match self.notify {
+                            NotificationSetting::None => {},
+                            NotificationSetting::VolumeMute => {
+                                let _ = notifications.volume(name, volume, mute).await;
+                            }
+                        }
                     }
                 },
 
