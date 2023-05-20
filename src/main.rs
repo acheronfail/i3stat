@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use clap::Parser;
 use istat::cli::Cli;
-use istat::config;
+use istat::config::{self, Item};
 use istat::context::{Context, SharedState};
 use istat::dispatcher::Dispatcher;
 use istat::i3::header::I3BarHeader;
@@ -16,7 +16,7 @@ use istat::i3::ipc::handle_click_events;
 use istat::i3::I3Item;
 use istat::ipc::handle_ipc_events;
 use istat::signals::handle_signals;
-use tokio::sync::mpsc;
+use tokio::sync::mpsc::{self, Receiver};
 
 fn main() {
     if let Err(err) = start_runtime() {
@@ -47,6 +47,8 @@ fn start_runtime() -> Result<Infallible, Box<dyn Error>> {
     result
 }
 
+type Bar = Rc<RefCell<Vec<I3Item>>>;
+
 async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
     let config = config::read(args.config).await?;
 
@@ -59,11 +61,11 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
     let state = SharedState::new();
 
     // state for the bar (moved to bar_printer)
-    let bar: Rc<RefCell<_>> = Rc::new(RefCell::new(vec![I3Item::empty(); item_count]));
+    let bar: Bar = Rc::new(RefCell::new(vec![I3Item::empty(); item_count]));
     let mut bar_txs = vec![];
 
     // for each BarItem, spawn a new task to manage it
-    let (item_tx, mut item_rx) = mpsc::channel(item_count + 1);
+    let (item_tx, item_rx) = mpsc::channel(item_count + 1);
     for (idx, item) in config.items.iter().enumerate() {
         let bar_item = item.to_bar_item();
 
@@ -101,24 +103,8 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
             .collect::<HashMap<usize, _>>(),
     );
 
-    // task to manage updating the bar and printing it as JSON
-    tokio::task::spawn_local(async move {
-        while let Some((item, i)) = item_rx.recv().await {
-            let mut bar = bar.borrow_mut();
-            // always override the bar item's `instance`, since we track that ourselves
-            bar[i] = item.instance(i.to_string());
-            // print bar to STDOUT for i3
-            match serde_json::to_string(&*bar) {
-                Ok(json) => println!("{},", json),
-                Err(e) => {
-                    log::error!("failed to serialise bar to json: {}", e);
-                    println!(
-                        r#"[{{"full_text":"FATAL ERROR: see logs in stderr","color":"black","background":"red"}}],"#
-                    );
-                }
-            }
-        }
-    });
+    // setup listener for handling item updates and printing the bar to STDOUT
+    handle_item_updates(config.items.clone(), item_rx, bar);
 
     // handle incoming signals
     let signal_handle = handle_signals(args.socket.clone(), dispatcher.clone())?;
@@ -132,4 +118,37 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
     // if we reach here, then something went wrong while reading STDIN, so clean up
     signal_handle.close();
     return err;
+}
+
+// task to manage updating the bar and printing it as JSON
+fn handle_item_updates(items: Vec<Item>, mut rx: Receiver<(I3Item, usize)>, bar: Bar) {
+    let item_names = items
+        .into_iter()
+        .map(|item| match item.common.name {
+            Some(name) => name,
+            None => item.tag().into(),
+        })
+        .collect::<Vec<_>>();
+
+    tokio::task::spawn_local(async move {
+        while let Some((i3_item, idx)) = rx.recv().await {
+            let mut bar = bar.borrow_mut();
+            bar[idx] = i3_item
+                // the name of the item
+                .name(item_names[idx].clone())
+                // always override the bar item's `instance`, since we track that ourselves
+                .instance(idx.to_string());
+
+            // print bar to STDOUT for i3
+            match serde_json::to_string(&*bar) {
+                Ok(json) => println!("{},", json),
+                Err(e) => {
+                    log::error!("failed to serialise bar to json: {}", e);
+                    println!(
+                        r#"[{{"full_text":"FATAL ERROR: see logs in stderr","color":"black","background":"red"}}],"#
+                    );
+                }
+            }
+        }
+    });
 }

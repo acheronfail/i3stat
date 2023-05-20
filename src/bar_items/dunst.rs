@@ -18,7 +18,6 @@ impl Dunst {
         I3Item::new(if paused { "   " } else { "" })
             .color(theme.dark1)
             .background_color(theme.warning)
-            .name("dunst")
     }
 }
 

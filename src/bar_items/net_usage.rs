@@ -109,7 +109,6 @@ impl BarItem for NetUsage {
                     fg(up),
                     text(up)
                 ))
-                .name("net_usage")
                 .markup(I3Markup::Pango),
             )
             .await?;

@@ -162,11 +162,15 @@ impl I3Item {
         self
     }
 
+    /// The name of the item. NOTE: setting this from within an item will have no effect, since
+    /// istat manages this property itself from config.
     pub fn name(mut self, name: impl AsRef<str>) -> Self {
         self.name = Some(name.as_ref().into());
         self
     }
 
+    /// The instance of the item. NOTE: setting this from within an item will have no effect, since
+    /// istat manages this property itself from config.
     pub fn instance(mut self, instance: impl AsRef<str>) -> Self {
         self.instance = Some(instance.as_ref().into());
         self

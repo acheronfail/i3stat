@@ -93,7 +93,7 @@ impl BarItem for Script {
                     }
                 },
             };
-            item = item.name("script").markup(self.markup);
+            item = item.markup(self.markup);
 
             ctx.update_item(item).await?;
 

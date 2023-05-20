@@ -19,6 +19,7 @@ struct Cli {
     socket: Option<PathBuf>,
 }
 
+// TODO: refresh all
 #[derive(Debug, Subcommand)]
 enum CliCommand {
     /// Returns information about the currently running bar

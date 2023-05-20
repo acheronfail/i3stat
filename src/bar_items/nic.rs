@@ -173,12 +173,8 @@ impl BarItem for Nic {
 
             // no networks active
             if interfaces.is_empty() {
-                ctx.update_item(
-                    I3Item::new("disconnected")
-                        .name("nic")
-                        .color(ctx.theme.error),
-                )
-                .await?;
+                ctx.update_item(I3Item::new("disconnected").color(ctx.theme.error))
+                    .await?;
 
                 idx = 0;
                 tokio::select! {
@@ -194,10 +190,7 @@ impl BarItem for Nic {
             let (full, short) = interfaces[idx].format(&ctx.theme);
             let full = format!(r#"{}{}"#, full, fraction(&ctx.theme, idx + 1, len));
 
-            let item = I3Item::new(full)
-                .short_text(short)
-                .name("nic")
-                .markup(I3Markup::Pango);
+            let item = I3Item::new(full).short_text(short).markup(I3Markup::Pango);
             ctx.update_item(item).await?;
 
             // cycle through networks on click

@@ -35,7 +35,3 @@ Probably don't use this yet... I'm still hacking on it, but you can have a look 
 ## To Do
 
 * [ ] kerberos item
-* [ ] support multiple bars (ipc?)
-* [ ] fill out documentation for each item's config
-* [ ] all the other "todo"s in the repository
-* [ ] publish crate

@@ -61,7 +61,7 @@ impl BarItem for Mem {
                 MemDisplay::Percentage => format!("{}%", float(used_pct, &self.float_fmt)),
             };
 
-            let mut item = I3Item::new(format!(" {}", s)).name("mem");
+            let mut item = I3Item::new(format!(" {}", s));
             if let Some(fg) = Self::get_color(&ctx.theme, used_pct) {
                 item = item.color(fg);
             }

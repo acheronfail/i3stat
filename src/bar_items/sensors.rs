@@ -8,6 +8,7 @@ use sysinfo::{ComponentExt, SystemExt};
 use tokio::time::sleep;
 
 use crate::context::{BarItem, Context};
+use crate::format::{float, FloatFormat};
 use crate::i3::I3Item;
 use crate::theme::Theme;
 
@@ -16,6 +17,8 @@ pub struct Sensors {
     #[serde(with = "crate::human_time")]
     interval: Duration,
     label: String,
+    #[serde(flatten)]
+    float_fmt: FloatFormat,
 }
 
 impl Sensors {
@@ -63,9 +66,9 @@ impl BarItem for Sensors {
             };
 
             let (icon, color) = Self::get_icon(&ctx.theme, temp as u32);
-            let mut item = I3Item::new(format!("{} {:.0}°C", icon, temp))
-                .short_text(format!("{:.0}C", temp))
-                .name("sensors");
+            let temp = float(temp, &self.float_fmt);
+            let mut item =
+                I3Item::new(format!("{} {}°C", icon, temp)).short_text(format!("{}C", temp));
 
             if let Some(color) = color {
                 item = item.color(color);

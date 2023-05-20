@@ -388,7 +388,6 @@ impl PulseState {
 
         let item = I3Item::new(full)
             .short_text(sink_text)
-            .name("pulse")
             .markup(crate::i3::I3Markup::Pango);
 
         let _ = self.tx.send(Command::UpdateItem(item));

@@ -23,7 +23,6 @@ impl BarItem for Time {
         loop {
             let now = Local::now();
             let item = I3Item::new(now.format(&self.format_long).to_string())
-                .name("time")
                 .short_text(now.format(&self.format_short).to_string());
 
             ctx.update_item(item).await?;

@@ -91,7 +91,7 @@ impl BarItem for Kbd {
                 .collect::<Result<Vec<_>, _>>()?
                 .join("");
 
-            let item = I3Item::new(text).name("kbd").markup(I3Markup::Pango);
+            let item = I3Item::new(text).markup(I3Markup::Pango);
             ctx.update_item(item).await?;
 
             // wait for a signal and then refresh

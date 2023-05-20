@@ -8,21 +8,28 @@ use tokio::sync::mpsc::Sender;
 use crate::config::Item;
 use crate::context::BarEvent;
 
+type InnerItem = (Sender<BarEvent>, Item);
+
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
-    inner: HashMap<usize, (Sender<BarEvent>, Item)>,
+    inner: HashMap<usize, InnerItem>,
 }
 
 impl Dispatcher {
-    pub fn new(inner: HashMap<usize, (Sender<BarEvent>, Item)>) -> Dispatcher {
+    pub fn new(inner: HashMap<usize, InnerItem>) -> Dispatcher {
         Dispatcher { inner }
     }
 
-    pub fn iter(&self) -> Iter<usize, (Sender<BarEvent>, Item)> {
+    pub fn iter(&self) -> Iter<usize, InnerItem> {
         self.inner.iter()
     }
 
+    pub fn get(&self, idx: usize) -> Option<&InnerItem> {
+        self.inner.get(&idx)
+    }
+
     pub fn instance_mapping(&self) -> HashMap<usize, String> {
+        // TODO: consistent ordering (indexmap?)
         self.inner
             .iter()
             .map(|(idx, (_, item))| {
@@ -66,9 +73,9 @@ impl Dispatcher {
 }
 
 impl IntoIterator for Dispatcher {
-    type Item = (usize, (Sender<BarEvent>, Item));
+    type Item = (usize, InnerItem);
 
-    type IntoIter = IntoIter<usize, (Sender<BarEvent>, Item)>;
+    type IntoIter = IntoIter<usize, InnerItem>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.inner.into_iter()

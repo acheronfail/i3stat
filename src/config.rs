@@ -9,6 +9,15 @@ use strum::EnumIter;
 use crate::bar_items::*;
 use crate::context::BarItem;
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AppConfig {
+    /// Path to the socket to use for ipc. Useful when having multiple bars to separate their sockets.
+    /// The CLI option takes precedence over this.
+    pub socket: Option<PathBuf>,
+    /// List of the items for the bar - ordered left to right.
+    pub items: Vec<Item>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Common {
     pub signal: Option<u32>,
@@ -85,11 +94,6 @@ impl Item {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct AppConfig {
-    pub items: Vec<Item>,
-}
-
 pub async fn read(config_path: Option<PathBuf>) -> Result<AppConfig, Box<dyn Error>> {
     let path = config_path
         .map(|p| p.with_extension(""))
@@ -102,6 +106,27 @@ pub async fn read(config_path: Option<PathBuf>) -> Result<AppConfig, Box<dyn Err
         .merge(Yaml::file(path.with_extension("yaml")))
         .merge(Json::file(path.with_extension("json")))
         .extract::<AppConfig>()?;
+
+    // config validation
+    {
+        for (i, a) in c.items.iter().enumerate().rev() {
+            for (j, b) in c.items.iter().enumerate() {
+                if i == j {
+                    continue;
+                }
+
+                if let (Some(a), Some(b)) = (&a.common.name, &b.common.name) {
+                    if a == b {
+                        return Err(format!(
+                                "item names must be unique, item[{}] and item[{}] share the same name: {}",
+                                i, j, a
+                            )
+                            .into());
+                    }
+                }
+            }
+        }
+    }
 
     Ok(c)
 }
