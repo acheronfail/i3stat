@@ -2,6 +2,10 @@
 name = "rstat"
 version = "0.1.0"
 edition = "2021"
+description = "a lightweight and batteries-included status_command for i3 and sway"
+license = "GPL-3"
+homepage = "https://github.com/acheronfail/rstat"
+repository = "https://github.com/acheronfail/rstat"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
