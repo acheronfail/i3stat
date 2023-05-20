@@ -56,9 +56,9 @@ impl Interface {
 
     fn format_wireless(&self, i: WirelessInfo, theme: &Theme) -> (String, Option<HexColor>) {
         let fg = match i.wi_quality {
-            80..u8::MAX => theme.success,
-            60..80 => theme.warning,
-            40..60 => theme.danger,
+            80..=u8::MAX => theme.success,
+            60..=79 => theme.warning,
+            40..=59 => theme.danger,
             _ => theme.error,
         };
 

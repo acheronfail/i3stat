@@ -31,8 +31,8 @@ impl Mem {
     fn get_color(theme: &Theme, used_pct: f64) -> Option<HexColor> {
         match used_pct as u64 {
             80..=100 => Some(theme.error),
-            60..80 => Some(theme.danger),
-            40..60 => Some(theme.warning),
+            60..=79 => Some(theme.danger),
+            40..=59 => Some(theme.warning),
             _ => None,
         }
     }

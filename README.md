@@ -32,3 +32,7 @@ So, I decided to write my own `status_command` generator, and what better langua
 ## Usage
 
 Probably don't use this yet... I'm still hacking on it, but you can have a look around?
+
+## To Do
+
+* conditionally disable bar items

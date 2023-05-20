@@ -1,5 +1,3 @@
-#![feature(exclusive_range_pattern)]
-
 pub mod bar_items;
 pub mod cli;
 pub mod config;

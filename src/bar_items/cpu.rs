@@ -28,8 +28,8 @@ impl Cpu {
     fn get_color(&self, theme: &Theme, pct: f32) -> Option<HexColor> {
         match pct as u64 {
             80..=100 => Some(theme.error),
-            60..80 => Some(theme.danger),
-            40..60 => Some(theme.warning),
+            60..=79 => Some(theme.danger),
+            40..=59 => Some(theme.warning),
             _ => None,
         }
     }
