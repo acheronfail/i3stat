@@ -1,4 +1,4 @@
-# `rstat`
+# `istat`
 
 I used to use [`i3blocks`](https://github.com/vivien/i3blocks) for `i3`'s `status_command`, but I found that having all
 my configuration in separate scripts was getting a little cumbersome.

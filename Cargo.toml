@@ -1,24 +1,24 @@
 [package]
-name = "rstat"
+name = "istat"
 version = "0.1.0"
 edition = "2021"
 description = "a lightweight and batteries-included status_command for i3 and sway"
-license = "GPL-3"
-homepage = "https://github.com/acheronfail/rstat"
-repository = "https://github.com/acheronfail/rstat"
+license = "GPL-3.0-only"
+homepage = "https://github.com/acheronfail/istat"
+repository = "https://github.com/acheronfail/istat"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [[bin]]
-name = "rstat-signals"
+name = "istat-signals"
 path = "bin/signals.rs"
 
 [[bin]]
-name = "rstat-sensors"
+name = "istat-sensors"
 path = "bin/sensors.rs"
 
 [[bin]]
-name = "rstat-ipc"
+name = "istat-ipc"
 path = "bin/ipc.rs"
 
 [dependencies]

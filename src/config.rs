@@ -93,7 +93,7 @@ pub struct AppConfig {
 pub async fn read(config_path: Option<PathBuf>) -> Result<AppConfig, Box<dyn Error>> {
     let path = config_path
         .map(|p| p.with_extension(""))
-        .or_else(|| dirs::config_dir().map(|d| d.join("rstat/config")))
+        .or_else(|| dirs::config_dir().map(|d| d.join("istat/config")))
         .ok_or_else(|| "failed to find config dir")?;
 
     // TODO: document this order in help text

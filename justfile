@@ -1,4 +1,4 @@
-log := "RUST_LOG=rstat=trace"
+log := "RUST_LOG=istat=trace"
 
 default:
   just --list
@@ -13,12 +13,12 @@ dev *args: build
   cd ./scripts/run && {{log}} yarn start {{args}}
 
 ipc *args: build
-  cargo lrun --quiet --bin rstat-ipc -- --socket /tmp/rstat-socket.dev {{args}}
+  cargo lrun --quiet --bin istat-ipc -- --socket /tmp/istat-socket.dev {{args}}
 
 install:
   cargo install --offline --debug --path .
-  mkdir -p ~/.config/rstat/
-  cp ./sample_config.toml ~/.config/rstat/config.toml
+  mkdir -p ~/.config/istat/
+  cp ./sample_config.toml ~/.config/istat/config.toml
 
 debug: install
   Xephyr -ac -br -reset -terminate -screen 3800x200 :1 &
