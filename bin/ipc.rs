@@ -6,8 +6,8 @@ use std::path::PathBuf;
 
 use clap::builder::PossibleValue;
 use clap::{ColorChoice, Parser, Subcommand, ValueEnum};
-use staturs::i3::{I3Button, I3ClickEvent, I3Modifier};
-use staturs::ipc::{get_socket_path, IpcBarEvent, IpcMessage, IpcReply};
+use rstat::i3::{I3Button, I3ClickEvent, I3Modifier};
+use rstat::ipc::{get_socket_path, IpcBarEvent, IpcMessage, IpcReply};
 
 #[derive(Debug, Parser)]
 #[clap(color = ColorChoice::Always)]
@@ -50,7 +50,7 @@ enum CliCommand {
         height: Option<usize>,
     },
     /// Send a signal event to a bar item, this is the same as setting `signal=1` in the config file
-    /// and then sending the signal (e.g., `pkill -RTMIN+1 staturs`)
+    /// and then sending the signal (e.g., `pkill -RTMIN+1 rstat`)
     Signal {
         /// The target bar item: can be an index or the name of the item
         target: String,

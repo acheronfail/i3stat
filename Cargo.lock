@@ -1390,6 +1390,43 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a5996294f19bd3aae0453a862ad728f60e6600695733dd5df01da90c54363a3c"
 
 [[package]]
+name = "rstat"
+version = "0.1.0"
+dependencies = [
+ "async-stream",
+ "async-trait",
+ "bytesize",
+ "chrono",
+ "clap 4.2.7",
+ "dirs",
+ "figment",
+ "futures",
+ "futures-core",
+ "futures-util",
+ "hex_color",
+ "humantime-serde",
+ "iwlib",
+ "libc",
+ "libpulse-binding",
+ "libpulse-tokio",
+ "log",
+ "nix",
+ "num-traits",
+ "paste",
+ "pretty_env_logger",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "serde_repr",
+ "signal-hook",
+ "signal-hook-tokio",
+ "strum",
+ "sysinfo",
+ "tokio",
+ "zbus",
+]
+
+[[package]]
 name = "rustc-hash"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1566,43 +1603,6 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
-
-[[package]]
-name = "staturs"
-version = "0.1.0"
-dependencies = [
- "async-stream",
- "async-trait",
- "bytesize",
- "chrono",
- "clap 4.2.7",
- "dirs",
- "figment",
- "futures",
- "futures-core",
- "futures-util",
- "hex_color",
- "humantime-serde",
- "iwlib",
- "libc",
- "libpulse-binding",
- "libpulse-tokio",
- "log",
- "nix",
- "num-traits",
- "paste",
- "pretty_env_logger",
- "serde",
- "serde_derive",
- "serde_json",
- "serde_repr",
- "signal-hook",
- "signal-hook-tokio",
- "strum",
- "sysinfo",
- "tokio",
- "zbus",
-]
 
 [[package]]
 name = "strsim"

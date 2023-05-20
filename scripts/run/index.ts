@@ -31,7 +31,7 @@ let _input = '';
 // spawn, pipe stdout/err and write initial stdin
 process.chdir('../..');
 const { sigrtmin, sigrtmax } = JSON.parse((await $`./target/debug/signals`).stdout);
-const child = execa(`./target/debug/staturs`, ['--config=./sample_config.toml', '--socket=/tmp/staturs-socket.dev']);
+const child = execa(`./target/debug/rstat`, ['--config=./sample_config.toml', '--socket=/tmp/rstat-socket.dev']);
 if (!child.stdin) throw new Error("Child's STDIN was not setup correctly!");
 if (!child.stdout) throw new Error("Child's STDOUT was not setup correctly!");
 if (!child.stderr) throw new Error("Child's STDERR was not setup correctly!");

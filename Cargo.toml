@@ -1,20 +1,20 @@
 [package]
-name = "staturs"
+name = "rstat"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [[bin]]
-name = "staturs-signals"
+name = "rstat-signals"
 path = "bin/signals.rs"
 
 [[bin]]
-name = "staturs-sensors"
+name = "rstat-sensors"
 path = "bin/sensors.rs"
 
 [[bin]]
-name = "staturs-ipc"
+name = "rstat-ipc"
 path = "bin/ipc.rs"
 
 [dependencies]

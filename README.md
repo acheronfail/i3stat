@@ -1,4 +1,4 @@
-# `staturs`
+# `rstat`
 
 I used to use [`i3blocks`](https://github.com/vivien/i3blocks) for `i3`'s `status_command`, but I found that having all
 my configuration in separate scripts was getting a little cumbersome.
@@ -23,6 +23,10 @@ So, I decided to write my own `status_command` generator, and what better langua
   * Arbitrary scripts
   * Dunst monitor
     * checks if `dunst` has been paused or not, like a "do not disturb" indicator
+* ipc control
+  * send click events via a command
+  * custom events for some integrations (e.g., controlling PulseAudio, etc)
+  * refresh items
 
 ## Usage
 
@@ -34,5 +38,4 @@ Probably don't use this yet... I'm still hacking on it, but you can have a look 
 * [ ] support multiple bars (ipc?)
 * [ ] fill out documentation for each item's config
 * [ ] all the other "todo"s in the repository
-* [ ] think of a better name than `staturs` (+ for other included binaries)
 * [ ] publish crate

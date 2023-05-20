@@ -7,15 +7,15 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use clap::Parser;
-use staturs::cli::Cli;
-use staturs::config;
-use staturs::context::{Context, SharedState};
-use staturs::dispatcher::Dispatcher;
-use staturs::i3::header::I3BarHeader;
-use staturs::i3::ipc::handle_click_events;
-use staturs::i3::I3Item;
-use staturs::ipc::handle_ipc_events;
-use staturs::signals::handle_signals;
+use rstat::cli::Cli;
+use rstat::config;
+use rstat::context::{Context, SharedState};
+use rstat::dispatcher::Dispatcher;
+use rstat::i3::header::I3BarHeader;
+use rstat::i3::ipc::handle_click_events;
+use rstat::i3::I3Item;
+use rstat::ipc::handle_ipc_events;
+use rstat::signals::handle_signals;
 use tokio::sync::mpsc;
 
 fn main() {

@@ -39,7 +39,7 @@ impl<'a> From<Urgency> for Value<'a> {
 }
 
 impl<'a> NotificationsProxy<'a> {
-    const APP_NAME: &str = "staturs";
+    const APP_NAME: &str = "rstat";
 
     pub async fn volume_mute(&self, name: impl AsRef<str>, pct: u32, mute: bool) {
         let mut hints = HashMap::new();
