@@ -24,3 +24,15 @@ debug: install
   Xephyr -ac -br -reset -terminate -screen 3800x200 :1 &
   sleep 1
   env -u I3SOCK DISPLAY=:1.0 i3-with-shmlog --config ./scripts/i3.conf
+
+publish:
+  #!/usr/bin/env bash
+  set -ex
+  cargo publish
+  version=$(grep -m1 'version' ./Cargo.toml | cut -d' ' -f3)
+  pushd aur
+  sed --regexp-extended --in-place -E "0,/pkgver=.+$/{s/(pkgver=)(.+$)/\1${version}/}" ./PKGBUILD
+  sed --regexp-extended --in-place -E "0,/sha512sums=.+$/{s/sha512sums=.+$/$(makepkg --geninteg)/}" ./PKGBUILD
+  makepkg --printsrcinfo > .SRCINFO
+  git commit --all --message $(echo $version | tr -d '"'})
+  popd
