@@ -1,5 +1,6 @@
 mod custom;
 
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::error::Error;
 use std::fmt::Debug;
@@ -31,6 +32,15 @@ use crate::theme::Theme;
 pub enum Object {
     Source,
     Sink,
+}
+
+impl ToString for Object {
+    fn to_string(&self) -> String {
+        match self {
+            Object::Sink => "sink".into(),
+            Object::Source => "source".into(),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -73,6 +83,13 @@ impl Port {
             mute: self.mute,
         }
     }
+
+    fn notify_new(&self, r#type: &'static str) -> Command {
+        Command::NotifyNewSourceSink {
+            name: self.name.clone(),
+            what: r#type.into(),
+        }
+    }
 }
 
 macro_rules! impl_port_from {
@@ -102,9 +119,17 @@ enum Command {
         volume: u32,
         mute: bool,
     },
+    NotifyNewSourceSink {
+        name: String,
+        what: String,
+    },
+    NotifyDefaultsChange {
+        name: String,
+        what: String,
+    },
 }
 
-#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum NotificationSetting {
     /// No notifications are sent (the default)
@@ -112,7 +137,21 @@ enum NotificationSetting {
     None,
     /// When volumes are changed
     VolumeMute,
-    // TODO: server defaults + sink/source added
+    /// When a source or sink is added
+    NewSourceSink,
+    /// When the default source or sink has changed
+    DefaultsChange,
+    /// All notifications
+    All,
+}
+
+impl NotificationSetting {
+    pub fn should_notify(&self, ask: Self) -> bool {
+        match self {
+            NotificationSetting::All => true,
+            other => *other == ask,
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -151,7 +190,14 @@ macro_rules! impl_pa_methods {
                         let mut items = self.[<$name s>].borrow_mut();
                         match items.iter_mut().find(|s| s.index == info.index) {
                             Some(s) => *s = info.into(),
-                            None => items.push(info.into()),
+                            None => {
+                                let obj = info.into();
+                                if matches!(obj, Port { .. }) {
+                                    let _ = self.tx.send(obj.notify_new(stringify!($name)));
+                                }
+
+                                items.push(obj);
+                            },
                         }
                     },
                     ListResult::Error => log::warn!("add_{} failed", stringify!($name)),
@@ -364,12 +410,12 @@ impl PulseState {
                     match (facility, op) {
                         $(
                             ($obj, New) | ($obj, Changed) => {
-                                let state = self.clone();
+                                let inner = self.clone();
                                 inspect.$get(idx, move |result| {
                                     let should_refetch = matches!(&result, ListResult::End | ListResult::Error);
-                                    state.[<add_ $obj:snake>](result);
+                                    inner.[<add_ $obj:snake>](result);
                                     if should_refetch {
-                                        state.fetch_server_state();
+                                        inner.fetch_server_state();
                                     }
                                 });
                             }
@@ -396,26 +442,38 @@ impl PulseState {
     fn fetch_server_state(self: &Rc<Self>) {
         let inspect = self.pa_ctx.borrow().introspect();
 
-        let state = self.clone();
+        let inner = self.clone();
         inspect.get_sink_info_list(move |item| {
-            state.add_sink(item);
+            inner.add_sink(item);
         });
 
-        let state = self.clone();
+        let inner = self.clone();
         inspect.get_source_info_list(move |item| {
-            state.add_source(item);
+            inner.add_source(item);
         });
 
-        let state = self.clone();
+        let inner = self.clone();
         inspect.get_server_info(move |info| {
+            let update_default = |name: &Cow<str>, default: &RefCell<String>, what: Object| {
+                let name = (**name).to_owned();
+                let prev = default.replace(name.clone());
+                if &*prev != &*name {
+                    let _ = inner.tx.send(Command::NotifyDefaultsChange {
+                        name,
+                        what: what.to_string(),
+                    });
+                }
+            };
+
             if let Some(name) = &info.default_sink_name {
-                state.default_sink.replace((**name).to_owned());
-            }
-            if let Some(name) = &info.default_source_name {
-                state.default_source.replace((**name).to_owned());
+                update_default(name, &inner.default_sink, Object::Sink);
             }
 
-            state.update_item();
+            if let Some(name) = &info.default_source_name {
+                update_default(name, &inner.default_source, Object::Source);
+            }
+
+            inner.update_item();
         });
     }
 }
@@ -553,11 +611,18 @@ impl BarItem for Pulse {
                         ctx.update_item(item).await?;
                     }
                     Command::NotifyVolume { name, volume, mute } => {
-                        match self.notify {
-                            NotificationSetting::None => {},
-                            NotificationSetting::VolumeMute => {
-                                let _ = notifications.volume(name, volume, mute).await;
-                            }
+                        if self.notify.should_notify(NotificationSetting::VolumeMute) {
+                            let _ = notifications.volume_mute(name, volume, mute).await;
+                        }
+                    }
+                    Command::NotifyNewSourceSink { name, what } => {
+                        if self.notify.should_notify(NotificationSetting::NewSourceSink) {
+                            let _ = notifications.new_source_sink(name, what).await;
+                        }
+                    }
+                    Command::NotifyDefaultsChange { name, what } => {
+                        if self.notify.should_notify(NotificationSetting::DefaultsChange) {
+                            let _ = notifications.defaults_change(name, what).await;
                         }
                     }
                 },

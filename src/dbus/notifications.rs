@@ -39,20 +39,64 @@ impl<'a> From<Urgency> for Value<'a> {
 }
 
 impl<'a> NotificationsProxy<'a> {
-    pub async fn volume(&self, name: impl AsRef<str>, pct: u32, mute: bool) {
+    const APP_NAME: &str = "staturs";
+
+    pub async fn volume_mute(&self, name: impl AsRef<str>, pct: u32, mute: bool) {
         let mut hints = HashMap::new();
         hints.insert("value", Value::U32(pct));
         hints.insert("urgency", Urgency::Low.into());
 
         if let Err(e) = self
             .notify_full(
-                "staturs",
+                &format!("{}:volume", Self::APP_NAME),
                 0,
                 // TODO: icon
                 "audio-card",
                 name.as_ref(),
                 // TODO: better muted state (notification icon or more obvious in notification)
                 &format!("{}{}%", if mute { " " } else { " " }, pct),
+                &[],
+                hints,
+                2_000,
+            )
+            .await
+        {
+            log::warn!("failed to send notification: {}", e);
+        }
+    }
+
+    pub async fn new_source_sink(&self, name: impl AsRef<str>, what: impl AsRef<str>) {
+        let mut hints = HashMap::new();
+        hints.insert("urgency", Urgency::Low.into());
+
+        if let Err(e) = self
+            .notify_full(
+                Self::APP_NAME,
+                0,
+                "",
+                &format!("New {} added", what.as_ref()),
+                name.as_ref(),
+                &[],
+                hints,
+                2_000,
+            )
+            .await
+        {
+            log::warn!("failed to send notification: {}", e);
+        }
+    }
+
+    pub async fn defaults_change(&self, name: impl AsRef<str>, what: impl AsRef<str>) {
+        let mut hints = HashMap::new();
+        hints.insert("urgency", Urgency::Low.into());
+
+        if let Err(e) = self
+            .notify_full(
+                Self::APP_NAME,
+                0,
+                "",
+                &format!("Default {}", what.as_ref()),
+                name.as_ref(),
                 &[],
                 hints,
                 2_000,
