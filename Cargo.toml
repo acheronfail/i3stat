@@ -1,8 +1,8 @@
 [package]
 name = "istat"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
-description = "a lightweight and batteries-included status_command for i3 and sway"
+description = "A lightweight and batteries-included status_command for i3 and sway"
 license = "GPL-3.0-only"
 homepage = "https://github.com/acheronfail/istat"
 repository = "https://github.com/acheronfail/istat"
