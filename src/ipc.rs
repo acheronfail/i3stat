@@ -1,10 +1,10 @@
-use std::collections::HashMap;
 use std::convert::Infallible;
 use std::env;
 use std::error::Error;
 use std::io::ErrorKind;
 use std::path::PathBuf;
 
+use indexmap::IndexMap;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::net::{UnixListener, UnixStream};
@@ -36,10 +36,10 @@ pub enum IpcMessage {
 #[serde(rename_all = "snake_case")]
 pub enum IpcReply {
     Result(IpcResult),
-    Response(Value),
     // NOTE: ANSI text
     Help(String),
-    Info(HashMap<usize, String>),
+    Info(IndexMap<usize, String>),
+    CustomResponse(Value),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -165,7 +165,9 @@ async fn handle_ipc_client(
                                     Ok(CustomResponse::Help(help)) => {
                                         IpcReply::Help(help.ansi().to_string())
                                     }
-                                    Ok(CustomResponse::Json(value)) => IpcReply::Response(value),
+                                    Ok(CustomResponse::Json(value)) => {
+                                        IpcReply::CustomResponse(value)
+                                    }
                                     Err(_) => IpcReply::Result(IpcResult::Failure(
                                         "not listening for events".into(),
                                     )),

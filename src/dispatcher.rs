@@ -2,6 +2,7 @@ use std::collections::hash_map::{IntoIter, Iter};
 use std::collections::HashMap;
 use std::error::Error;
 
+use indexmap::IndexMap;
 use tokio::sync::mpsc::error::SendError;
 use tokio::sync::mpsc::Sender;
 
@@ -28,9 +29,9 @@ impl Dispatcher {
         self.inner.get(&idx)
     }
 
-    pub fn instance_mapping(&self) -> HashMap<usize, String> {
-        // TODO: consistent ordering (indexmap?)
-        self.inner
+    pub fn instance_mapping(&self) -> IndexMap<usize, String> {
+        let mut mapping = self
+            .inner
             .iter()
             .map(|(idx, (_, item))| {
                 (
@@ -41,7 +42,10 @@ impl Dispatcher {
                         .map_or_else(|| item.tag().into(), |n| n.to_string()),
                 )
             })
-            .collect()
+            .collect::<IndexMap<usize, String>>();
+
+        mapping.sort_keys();
+        mapping
     }
 
     pub async fn send_bar_event(&self, idx: usize, ev: BarEvent) -> Result<(), Box<dyn Error>> {

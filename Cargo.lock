@@ -896,6 +896,7 @@ checksum = "bd070e393353796e801d209ad339e89596eb4c8d430d18ede6a1cced8fafbd99"
 dependencies = [
  "autocfg",
  "hashbrown",
+ "serde",
 ]
 
 [[package]]
@@ -946,6 +947,7 @@ dependencies = [
  "futures-util",
  "hex_color",
  "humantime-serde",
+ "indexmap",
  "iwlib",
  "libc",
  "libpulse-binding",

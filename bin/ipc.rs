@@ -193,7 +193,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         "{}",
         match resp {
             IpcReply::Help(help) => help,
-            IpcReply::Response(value) => value.to_string(),
+            IpcReply::CustomResponse(value) => value.to_string(),
             x => serde_json::to_string(&x)?,
         }
     );
