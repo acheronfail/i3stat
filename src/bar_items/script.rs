@@ -108,7 +108,7 @@ impl BarItem for Script {
                 }
                 // if not, re-run the script on any event
                 None => {
-                    if let Some(event) = ctx.wait_for_event().await {
+                    if let Some(event) = ctx.wait_for_event(None).await {
                         handle_event(event, &mut script_env);
                     }
                 }

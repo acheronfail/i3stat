@@ -10,7 +10,6 @@ use iwlib::{get_wireless_info, WirelessInfo};
 use nix::ifaddrs::getifaddrs;
 use nix::net::if_::InterfaceFlags;
 use serde_derive::{Deserialize, Serialize};
-use tokio::time::sleep;
 
 use crate::context::{BarItem, Context};
 use crate::dbus::dbus_connection;
@@ -160,13 +159,6 @@ impl BarItem for Nic {
         let nm = NetworkManagerProxy::new(&connection).await?;
         let mut nm_state_change = nm.receive_state_changed().await?;
 
-        let timeout = || async {
-            match self.interval {
-                Some(duration) => sleep(duration).await,
-                None => futures_util::future::pending::<()>().await,
-            }
-        };
-
         let mut idx = 0;
         loop {
             let mut interfaces = Nic::get_interfaces()?;
@@ -178,8 +170,7 @@ impl BarItem for Nic {
 
                 idx = 0;
                 tokio::select! {
-                    () = timeout() => continue,
-                    Some(_) = ctx.wait_for_event() => continue,
+                    Some(_) = ctx.wait_for_event(self.interval) => continue,
                     Some(_) = nm_state_change.next() => continue,
                 }
             }
@@ -204,7 +195,7 @@ impl BarItem for Nic {
                         .await
                     }
                     None => {
-                        if let Some(event) = ctx.wait_for_event().await {
+                        if let Some(event) = ctx.wait_for_event(self.interval).await {
                             Context::paginate(&event, len, &mut idx);
                         }
                     }
@@ -212,7 +203,6 @@ impl BarItem for Nic {
             };
 
             tokio::select! {
-                () = timeout() => continue,
                 () = wait_for_click => continue,
                 Some(_) = nm_state_change.next() => continue,
             }

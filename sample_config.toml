@@ -47,6 +47,12 @@ type = "nic"
 # interval = "60s"
 
 [[items]]
+# Kerberos item - simply calls `klist` and displays the result
+type = "krb"
+# How often this item should refresh
+interval = "2m"
+
+[[items]]
 # Disk usage item - provides an interactive list of disks and their free space.
 type = "disk"
 # How often this item should refresh

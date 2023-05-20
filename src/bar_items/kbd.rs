@@ -96,7 +96,7 @@ impl BarItem for Kbd {
 
             // wait for a signal and then refresh
             loop {
-                if let Some(BarEvent::Signal) = ctx.wait_for_event().await {
+                if let Some(BarEvent::Signal) = ctx.wait_for_event(None).await {
                     continue 'outer;
                 }
             }

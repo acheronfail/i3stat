@@ -85,8 +85,14 @@ impl Context {
         self.tx_item.send((item, self.index)).await
     }
 
-    pub async fn wait_for_event(&mut self) -> Option<BarEvent> {
-        self.rx_event.recv().await
+    pub async fn wait_for_event(&mut self, delay: Option<Duration>) -> Option<BarEvent> {
+        match delay {
+            None => self.rx_event.recv().await,
+            Some(delay) => tokio::select! {
+                event = self.rx_event.recv() => event,
+                _ = sleep(delay) => None
+            },
+        }
     }
 
     pub async fn delay_with_event_handler<F, R>(&mut self, duration: Duration, mut closure: F)

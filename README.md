@@ -21,6 +21,7 @@ So, I decided to write my own `status_command` generator, and what better langua
   * Network interface + status (IP addresses, wifi ssid and quality, etc)
   * Network usage (active monitoring for upload/download)
   * Arbitrary scripts
+  * Kerberos status
   * Dunst monitor
     * checks if `dunst` has been paused or not, like a "do not disturb" indicator
 * ipc control
@@ -31,7 +32,3 @@ So, I decided to write my own `status_command` generator, and what better langua
 ## Usage
 
 Probably don't use this yet... I'm still hacking on it, but you can have a look around?
-
-## To Do
-
-* [ ] kerberos item

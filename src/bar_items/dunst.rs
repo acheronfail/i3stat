@@ -42,7 +42,7 @@ impl BarItem for Dunst {
                     let paused = change.get().await?;
                     let _ = ctx.update_item(Dunst::item(&ctx.theme, paused)).await;
                 },
-                Some(_) = ctx.wait_for_event() => {
+                Some(_) = ctx.wait_for_event(None) => {
                     let paused = dunst_proxy.paused().await?;
                     let _ = ctx.update_item(Dunst::item(&ctx.theme, paused)).await;
                 }
