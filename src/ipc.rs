@@ -4,6 +4,7 @@ use std::error::Error;
 use std::io::ErrorKind;
 use std::path::PathBuf;
 
+use futures_util::future::join_all;
 use indexmap::IndexMap;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::Value;
@@ -26,6 +27,7 @@ pub enum IpcBarEvent {
 #[serde(rename_all = "snake_case")]
 pub enum IpcMessage {
     Info,
+    RefreshAll,
     BarEvent {
         instance: String,
         event: IpcBarEvent,
@@ -117,6 +119,16 @@ async fn handle_ipc_client(
                     IpcMessage::Info => {
                         send_ipc_response(&stream, &IpcReply::Info(dispatcher.instance_mapping()))
                             .await?;
+                    }
+                    IpcMessage::RefreshAll => {
+                        join_all(
+                            dispatcher
+                                .iter()
+                                .map(|(idx, _)| dispatcher.send_bar_event(*idx, BarEvent::Signal)),
+                        )
+                        .await
+                        .into_iter()
+                        .collect::<Result<Vec<_>, _>>()?;
                     }
                     IpcMessage::BarEvent { instance, event } => {
                         // NOTE: special considerations here for `instance`: if it's a number, then it maps to the item at the index

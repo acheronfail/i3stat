@@ -19,11 +19,13 @@ struct Cli {
     socket: Option<PathBuf>,
 }
 
-// TODO: refresh all
 #[derive(Debug, Subcommand)]
 enum CliCommand {
-    /// Returns information about the currently running bar
+    /// Returns information about the currently running bar.
     Info,
+    /// Sends a signal to all events to trigger a refresh. Note that some items completely ignore all
+    /// events, and thus won't receive this refresh events.
+    RefreshAll,
     /// Send a click event to a bar item
     Click {
         /// The target bar item: can be an index or the name of the item
@@ -146,6 +148,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let msg = match args.cmd {
         CliCommand::Info => IpcMessage::Info,
+        CliCommand::RefreshAll => IpcMessage::RefreshAll,
         CliCommand::Click {
             target,
             button,

@@ -6,7 +6,7 @@ use hex_color::HexColor;
 use serde_derive::{Deserialize, Serialize};
 use sysinfo::{CpuExt, CpuRefreshKind, SystemExt};
 
-use crate::context::{BarItem, Context};
+use crate::context::{BarEvent, BarItem, Context};
 use crate::exec::exec;
 use crate::format::{float, FloatFormat};
 use crate::i3::I3Item;
@@ -55,8 +55,10 @@ impl BarItem for Cpu {
             }
 
             ctx.update_item(item).await?;
-            ctx.delay_with_event_handler(self.interval, |_| async {
-                exec("systemmonitor").await;
+            ctx.delay_with_event_handler(self.interval, |event| async move {
+                if let BarEvent::Click(_) = event {
+                    exec("systemmonitor").await;
+                }
             })
             .await;
         }
