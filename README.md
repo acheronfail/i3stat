@@ -29,6 +29,20 @@ So, I decided to write my own `status_command` generator, and what better langua
   * custom events for some integrations (e.g., controlling PulseAudio, etc)
   * refresh items
 
+## Install
+
+With Rust (via cargo):
+
+```sh
+cargo install istat
+```
+
+Via the AUR (Arch Linux):
+
+```sh
+paru -S istat
+```
+
 ## Usage
 
 Probably don't use this yet... I'm still hacking on it, but you can have a look around?
