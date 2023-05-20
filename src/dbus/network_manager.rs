@@ -140,7 +140,7 @@ macro_rules! impl_object_vec {
         paste::paste! {
             impl<'a> [<$parent Proxy>]<'a> {
                 pub async fn [<convert_ $child:snake>](&self, paths: Vec<OwnedObjectPath>) -> zbus::Result<Vec<[<$child Proxy>]>> {
-                    let list = futures_util::future::join_all(paths.into_iter().map(|p| async {
+                    let list = futures::future::join_all(paths.into_iter().map(|p| async {
                         Ok::<_, zbus::Error>(
                             <[<$child Proxy>]>::builder(self.connection())
                                 .path(p)?

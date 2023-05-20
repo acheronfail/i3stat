@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use async_trait::async_trait;
-use futures_util::StreamExt;
+use futures::StreamExt;
 use serde_derive::{Deserialize, Serialize};
 
 use crate::context::{BarItem, Context};

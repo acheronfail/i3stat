@@ -4,8 +4,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use futures::future;
-use futures_util::try_join;
+use futures::{future, try_join};
 use hex_color::HexColor;
 use serde_derive::{Deserialize, Serialize};
 use tokio::fs::{self, read_to_string};

@@ -4,7 +4,7 @@ use std::error::Error;
 use std::io::ErrorKind;
 use std::path::PathBuf;
 
-use futures_util::future::join_all;
+use futures::future::join_all;
 use indexmap::IndexMap;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::Value;

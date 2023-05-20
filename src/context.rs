@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use clap::builder::StyledStr;
-use futures_core::Future;
+use futures::Future;
 use serde_json::Value;
 use sysinfo::{System, SystemExt};
 use tokio::sync::mpsc::error::{SendError, TryRecvError};
