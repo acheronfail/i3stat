@@ -10,9 +10,9 @@ use hex_color::HexColor;
 use serde_derive::{Deserialize, Serialize};
 use tokio::fs::{self, read_to_string};
 
-use crate::context::{BarItem, Context};
+use crate::context::{BarEvent, BarItem, Context};
 use crate::format::fraction;
-use crate::i3::{I3Item, I3Markup};
+use crate::i3::{I3Button, I3Item, I3Markup};
 use crate::theme::Theme;
 
 enum BatState {
@@ -79,8 +79,6 @@ impl Bat {
         Ok((charge_now as f32) / (charge_full as f32) * 100.0)
     }
 
-    // TODO: potentially use this at some stage?
-    #[allow(unused)]
     async fn current_watts(&self) -> Result<f64, Box<dyn Error>> {
         let (current_pico, voltage_pico) = try_join!(
             self.read_usize("current_now"),
@@ -89,9 +87,12 @@ impl Bat {
         Ok((current_pico as f64) * (voltage_pico as f64) / 1_000_000_000_000.0)
     }
 
-    async fn format(&self, theme: &Theme) -> Result<(String, String), Box<dyn Error>> {
+    async fn format(
+        &self,
+        theme: &Theme,
+        show_watts: bool,
+    ) -> Result<(String, String, Option<HexColor>), Box<dyn Error>> {
         let (charge, state) = future::join(self.get_charge(), self.get_state()).await;
-        let name = self.name()?;
         let charge = charge?;
         let state = state?;
 
@@ -104,15 +105,18 @@ impl Bat {
             76..=u32::MAX => (icon.unwrap_or(" "), fg.or(Some(theme.success))),
         };
 
-        let name = if name == "BAT0" { icon } else { name.as_str() };
-        let fg = fg
-            .map(|c| format!(r#" foreground="{}""#, c))
-            .unwrap_or("".into());
-
-        Ok((
-            format!("<span{}>{} {:.0}%</span>", fg, name, charge),
-            format!("<span{}>{:.0}%</span>", fg, charge),
-        ))
+        if show_watts {
+            let watts = self.current_watts().await?;
+            Ok((format!("{:.2} W", watts), format!("{:.0}", watts), fg))
+        } else {
+            let name = self.name()?;
+            let name = if name == "BAT0" { icon } else { name.as_str() };
+            Ok((
+                format!("{} {:.0}%", name, charge),
+                format!("{:.0}%", charge),
+                fg,
+            ))
+        }
     }
 
     async fn find_all() -> Result<Vec<Bat>, Box<dyn Error>> {
@@ -143,33 +147,47 @@ pub struct Battery {
 #[async_trait(?Send)]
 impl BarItem for Battery {
     // TODO: investigate waiting on bat/status FD for state changes?
-    // TODO: watts?
     async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
         let batteries = match self.batteries {
             Some(inner) => inner,
             None => Bat::find_all().await?,
         };
 
+        let mut show_watts = false;
         let mut idx = 0;
         let len = batteries.len();
         loop {
             if len > 0 {
                 idx = idx % len;
 
-                let (full, short) = &batteries[idx].format(&ctx.theme).await?;
+                let (full, short, fg) = batteries[idx].format(&ctx.theme, show_watts).await?;
                 let full = format!("{}{}", full, fraction(&ctx.theme, idx + 1, len));
 
-                let item = I3Item::new(full)
+                let mut item = I3Item::new(full)
                     .short_text(short)
                     .name("bat")
                     .markup(I3Markup::Pango);
+
+                if let Some(color) = fg {
+                    item = item.color(color);
+                }
 
                 ctx.update_item(item).await?;
             }
 
             // cycle though batteries
-            ctx.delay_with_event_handler(self.interval, |event| {
+            let delay = if show_watts {
+                Duration::from_secs(2)
+            } else {
+                self.interval
+            };
+            ctx.delay_with_event_handler(delay, |event| {
                 Context::paginate(&event, len, &mut idx);
+                if let BarEvent::Click(click) = event {
+                    if click.button == I3Button::Middle {
+                        show_watts = !show_watts;
+                    }
+                }
                 async {}
             })
             .await;
