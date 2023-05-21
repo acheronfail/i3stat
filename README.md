@@ -17,7 +17,11 @@ So, I decided to write my own `status_command` generator, and what better langua
   * custom events for some integrations (e.g., controlling PulseAudio, etc)
 * many different bar items (continue reading for screenshots)
 
-Each bar item is configurable, see [the sample config](./sample_config.toml) for options. Here's a short demo with some screenshots:
+Each bar item is configurable, see [the sample config](./sample_config.toml) for options.
+
+Here's a short demo with some screenshots:
+
+![](./.github/assets/full.png)
 
 **battery:** percentage, charging, etc. Supports multiple batteries.
 
