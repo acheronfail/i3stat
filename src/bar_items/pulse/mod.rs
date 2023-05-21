@@ -193,7 +193,9 @@ macro_rules! impl_pa_methods {
                             None => {
                                 let obj = info.into();
                                 if matches!(obj, Port { .. }) {
-                                    let _ = self.tx.send(obj.notify_new(stringify!($name)));
+                                    if !obj.name.contains("auto_null") {
+                                        let _ = self.tx.send(obj.notify_new(stringify!($name)));
+                                    }
                                 }
 
                                 items.push(obj);
