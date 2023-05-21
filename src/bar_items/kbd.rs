@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use serde_derive::{Deserialize, Serialize};
@@ -11,7 +12,9 @@ use crate::theme::Theme;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Kbd {
-    pub show: Option<Vec<Keys>>,
+    show: Option<Vec<Keys>>,
+    #[serde(with = "crate::human_time::option")]
+    interval: Option<Duration>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, EnumIter, PartialEq, Eq)]
@@ -96,7 +99,7 @@ impl BarItem for Kbd {
 
             // wait for a signal and then refresh
             loop {
-                if let Some(BarEvent::Signal) = ctx.wait_for_event(None).await {
+                if let Some(BarEvent::Signal) = ctx.wait_for_event(self.interval).await {
                     continue 'outer;
                 }
             }
