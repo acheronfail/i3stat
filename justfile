@@ -25,10 +25,10 @@ debug: install
   sleep 1
   env -u I3SOCK DISPLAY=:1.0 i3-with-shmlog --config ./scripts/i3.conf
 
-publish:
+# update the AUR package
+aur:
   #!/usr/bin/env bash
   set -ex
-  cargo publish
   version=$(grep -m1 'version' ./Cargo.toml | cut -d' ' -f3)
   pushd aur
   sed --regexp-extended --in-place -E "0,/pkgver=.+$/{s/(pkgver=)(.+$)/\1${version}/}" ./PKGBUILD
