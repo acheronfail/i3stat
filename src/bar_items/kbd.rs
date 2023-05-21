@@ -13,7 +13,7 @@ use crate::theme::Theme;
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Kbd {
     show: Option<Vec<Keys>>,
-    #[serde(with = "crate::human_time::option")]
+    #[serde(default, with = "crate::human_time::option")]
     interval: Option<Duration>,
 }
 
