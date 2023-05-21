@@ -10,7 +10,7 @@ use istat::i3::{I3Button, I3ClickEvent, I3Modifier};
 use istat::ipc::{get_socket_path, IpcBarEvent, IpcMessage, IpcReply};
 
 #[derive(Debug, Parser)]
-#[clap(color = ColorChoice::Always)]
+#[clap(name = "istat-ipc", color = ColorChoice::Always)]
 struct Cli {
     #[command(subcommand)]
     cmd: CliCommand,
@@ -202,4 +202,21 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
 
     Ok(())
+}
+
+#[cfg(test)]
+#[path = "../src/test_utils.rs"]
+mod test_utils;
+
+#[cfg(test)]
+mod tests {
+    use clap::CommandFactory;
+
+    use super::test_utils::generate_manpage;
+    use super::*;
+
+    #[test]
+    fn manpage() {
+        generate_manpage(Cli::command());
+    }
 }

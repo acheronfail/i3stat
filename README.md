@@ -35,6 +35,7 @@ With Rust (via cargo):
 
 ```sh
 cargo install istat
+# Make sure to look at the `sample_config.toml` file for configuration options
 ```
 
 Via the AUR (Arch Linux):

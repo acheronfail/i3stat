@@ -11,3 +11,6 @@ pub mod i3;
 pub mod ipc;
 pub mod signals;
 pub mod theme;
+
+#[cfg(test)]
+pub mod test_utils;

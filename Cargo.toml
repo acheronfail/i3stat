@@ -1,6 +1,6 @@
 [package]
 name = "istat"
-version = "0.1.2"
+version = "0.1.4"
 edition = "2021"
 description = "A lightweight and batteries-included status_command for i3 and sway"
 license = "GPL-3.0-only"
@@ -51,3 +51,7 @@ strum = { version = "0.24.1", features = ["derive"] }
 sysinfo = { version = "0.28.4", default-features = false }
 tokio = { version = "1.27.0", features = ["full"] }
 zbus = { version = "3.13.1", default-features = false, features = ["tokio"] }
+
+[dev-dependencies]
+clap_mangen = "0.2.11"
+clap = { version = "4.2.7", features = ["derive"] }
