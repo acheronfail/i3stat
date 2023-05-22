@@ -25,80 +25,80 @@ Here's a short demo with some screenshots:
 
 **battery:** percentage, charging, etc. Supports multiple batteries.
 
-![](./.github/assets/battery_1.png)
-![](./.github/assets/battery_2.png)
-![](./.github/assets/battery_3.png)
-![](./.github/assets/battery_4.png)
-![](./.github/assets/battery_5.png)
+<div style="text-align:center;"><img src="./.github/assets/battery_1.png" width="200" /></div>
+<div style="text-align:center;"><img src="./.github/assets/battery_2.png" width="200" /></div>
+<div style="text-align:center;"><img src="./.github/assets/battery_3.png" width="200" /></div>
+<div style="text-align:center;"><img src="./.github/assets/battery_4.png" width="200" /></div>
+<div style="text-align:center;"><img src="./.github/assets/battery_5.png" width="200" /></div>
 
 **cpu:** usage expressed as a percentage
 
-![](./.github/assets/cpu_1.png)
-![](./.github/assets/cpu_2.png)
-![](./.github/assets/cpu_3.png)
-![](./.github/assets/cpu_4.png)
-![](./.github/assets/cpu_5.png)
+<div style="text-align:center;"><img src="./.github/assets/cpu_1.png" width="200" /></div>
+<div style="text-align:center;"><img src="./.github/assets/cpu_2.png" width="200" /></div>
+<div style="text-align:center;"><img src="./.github/assets/cpu_3.png" width="200" /></div>
+<div style="text-align:center;"><img src="./.github/assets/cpu_4.png" width="200" /></div>
+<div style="text-align:center;"><img src="./.github/assets/cpu_5.png" width="200" /></div>
 
 **disk:** usage, shows free disk space
 
-![](./.github/assets/disk_1.png)
-![](./.github/assets/disk_2.png)
+<div style="text-align:center;"><img src="./.github/assets/disk_1.png" width="200" /></div>
+<div style="text-align:center;"><img src="./.github/assets/disk_2.png" width="200" /></div>
 
 **dunst:** displays "do not disturb" status (if it's paused or not)
 
-![](./.github/assets/dunst_1.png)
+<div style="text-align:center;"><img src="./.github/assets/dunst_1.png" width="200" /></div>
 
 **kbd:** displays CapsLock/Numlock/etc states
 
-![](./.github/assets/kbd_1.png)
-![](./.github/assets/kbd_2.png)
+<div style="text-align:center;"><img src="./.github/assets/kbd_1.png" width="200" /></div>
+<div style="text-align:center;"><img src="./.github/assets/kbd_2.png" width="200" /></div>
 
 **krb:** checks if a valid kerberos token exists (like `klist -s`)
 
-![](./.github/assets/krb_1.png)
-![](./.github/assets/krb_2.png)
+<div style="text-align:center;"><img src="./.github/assets/krb_1.png" width="200" /></div>
+<div style="text-align:center;"><img src="./.github/assets/krb_2.png" width="200" /></div>
 
 **mem:** display free memory as bytes or as a percentage
 
-![](./.github/assets/mem_1.png)
-![](./.github/assets/mem_2.png)
-![](./.github/assets/mem_3.png)
-![](./.github/assets/mem_4.png)
+<div style="text-align:center;"><img src="./.github/assets/mem_1.png" width="200" /></div>
+<div style="text-align:center;"><img src="./.github/assets/mem_2.png" width="200" /></div>
+<div style="text-align:center;"><img src="./.github/assets/mem_3.png" width="200" /></div>
+<div style="text-align:center;"><img src="./.github/assets/mem_4.png" width="200" /></div>
 
 **net_speed:** upload and download statistics
 
-![](./.github/assets/net_speed_1.png)
-![](./.github/assets/net_speed_2.png)
-![](./.github/assets/net_speed_3.png)
-![](./.github/assets/net_speed_4.png)
-![](./.github/assets/net_speed_5.png)
+<div style="text-align:center;"><img src="./.github/assets/net_speed_1.png" width="200" /></div>
+<div style="text-align:center;"><img src="./.github/assets/net_speed_2.png" width="200" /></div>
+<div style="text-align:center;"><img src="./.github/assets/net_speed_3.png" width="200" /></div>
+<div style="text-align:center;"><img src="./.github/assets/net_speed_4.png" width="200" /></div>
+<div style="text-align:center;"><img src="./.github/assets/net_speed_5.png" width="200" /></div>
 
 **nic:** network interface status - connection state and ip addresses
 
-![](./.github/assets/nic_1.png)
-![](./.github/assets/nic_2.png)
-![](./.github/assets/nic_3.png)
+<div style="text-align:center;"><img src="./.github/assets/nic_1.png" width="200" /></div>
+<div style="text-align:center;"><img src="./.github/assets/nic_2.png" width="200" /></div>
+<div style="text-align:center;"><img src="./.github/assets/nic_3.png" width="200" /></div>
 
 **pulse:** input/output volume status, control and connected speaker type
 
-![](./.github/assets/pulse_1.png)
-![](./.github/assets/pulse_2.png)
-![](./.github/assets/pulse_3.png)
-![](./.github/assets/pulse_4.png)
+<div style="text-align:center;"><img src="./.github/assets/pulse_1.png" width="200" /></div>
+<div style="text-align:center;"><img src="./.github/assets/pulse_2.png" width="200" /></div>
+<div style="text-align:center;"><img src="./.github/assets/pulse_3.png" width="200" /></div>
+<div style="text-align:center;"><img src="./.github/assets/pulse_4.png" width="200" /></div>
 
 **script:** run arbitrary scripts and show their output
 
-![](./.github/assets/script_1.png)
+<div style="text-align:center;"><img src="./.github/assets/script_1.png" width="200" /></div>
 
 **sensors:** temperature sensors
 
-![](./.github/assets/sensors_1.png)
-![](./.github/assets/sensors_2.png)
-![](./.github/assets/sensors_3.png)
+<div style="text-align:center;"><img src="./.github/assets/sensors_1.png" width="200" /></div>
+<div style="text-align:center;"><img src="./.github/assets/sensors_2.png" width="200" /></div>
+<div style="text-align:center;"><img src="./.github/assets/sensors_3.png" width="200" /></div>
 
 **time:** displays the current date and/or time
 
-![](./.github/assets/time_1.png)
+<div style="text-align:center;"><img src="./.github/assets/time_1.png" width="200" /></div>
 
 
 ## Install
