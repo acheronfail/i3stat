@@ -21,7 +21,7 @@ ipc *args: _build
 install:
   cargo install --offline --debug --path .
   mkdir -p ~/.config/istat/
-  cp ./sample_config.toml ~/.config/istat/config.toml
+  cp --no-clobber ./sample_config.toml ~/.config/istat/config.toml || true
   i3-msg restart
 
 # start a nested X server with i3 and istat
