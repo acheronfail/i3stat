@@ -2,7 +2,8 @@ use std::error::Error;
 
 use async_trait::async_trait;
 use hex_color::HexColor;
-use serde_derive::{Deserialize, Serialize};
+use serde::Serialize;
+use serde_derive::Deserialize;
 
 use crate::context::{BarItem, Context};
 
@@ -32,11 +33,25 @@ impl I3Markup {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
 #[serde(untagged, rename_all = "lowercase")]
 pub enum I3MinWidth {
     Pixels(usize),
+    StringCount(usize),
     String(String),
+}
+
+impl Serialize for I3MinWidth {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            I3MinWidth::Pixels(n) => serializer.serialize_u64(*n as u64),
+            I3MinWidth::StringCount(n) => serializer.serialize_str(&"x".repeat(*n)),
+            I3MinWidth::String(s) => serializer.serialize_str(&s),
+        }
+    }
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]

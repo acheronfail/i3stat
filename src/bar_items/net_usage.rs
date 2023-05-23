@@ -77,11 +77,14 @@ impl BarItem for NetUsage {
 
         let min = self.minimum.map_or(bytesize::KIB, |b| b.as_u64());
         let text = |bytes, as_bits| {
-            if bytes > min {
-                format_bytes(bytes, false, as_bits)
-            } else {
-                "-".into()
-            }
+            format!(
+                "{:>8}",
+                if bytes > min {
+                    format_bytes(bytes, false, as_bits)
+                } else {
+                    "-".into()
+                }
+            )
         };
 
         let div_as_u64 = |u, f| (u as f64 / f) as u64;
