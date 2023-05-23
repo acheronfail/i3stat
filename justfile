@@ -25,6 +25,25 @@ debug: install
   sleep 1
   env -u I3SOCK DISPLAY=:1.0 i3-with-shmlog --config ./scripts/i3.conf
 
+test-publish:
+  #!/usr/bin/env bash
+  set -ex
+  aur_target="./aur/target"
+  rm -rf "$aur_target"
+
+  cargo test
+  cargo publish --dry-run --allow-dirty --target-dir "$aur_target"
+
+  pushd aur
+  source PKGBUILD
+  cp "$(find . -name '*.crate')" "${source%%::*}"
+  makepkg --cleanbuild --force --skipinteg --skipchecksums
+  popd
+
+publish: test-publish
+  cargo publish
+  just aur
+
 # update the AUR package
 aur:
   #!/usr/bin/env bash
