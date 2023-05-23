@@ -19,8 +19,8 @@ pub struct Theme {
     pub good: HexColor,
     #[serde(default = "Theme::default_special")]
     pub special: HexColor,
-    #[serde(default = "Theme::default_complete")]
-    pub complete: HexColor,
+    #[serde(default = "Theme::default_accent")]
+    pub accent: HexColor,
 }
 
 impl Default for Theme {
@@ -34,7 +34,7 @@ impl Default for Theme {
             warning: Self::default_warning(),
             good: Self::default_good(),
             special: Self::default_special(),
-            complete: Self::default_complete(),
+            accent: Self::default_accent(),
         }
     }
 }
@@ -52,7 +52,7 @@ impl Theme {
         HexColor::rgb(76, 86, 106)
     }
 
-    const fn default_complete() -> HexColor {
+    const fn default_accent() -> HexColor {
         HexColor::rgb(143, 188, 187)
     }
 

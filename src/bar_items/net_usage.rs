@@ -6,10 +6,10 @@ use bytesize::ByteSize;
 use hex_color::HexColor;
 use serde_derive::{Deserialize, Serialize};
 use sysinfo::{NetworkExt, NetworksExt, SystemExt};
-use tokio::time::{sleep, Instant};
+use tokio::time::Instant;
 
-use crate::context::{BarItem, Context};
-use crate::i3::{I3Item, I3Markup};
+use crate::context::{BarEvent, BarItem, Context};
+use crate::i3::{I3Button, I3Item, I3Markup};
 use crate::theme::Theme;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -55,22 +55,30 @@ impl NetUsage {
     }
 }
 
+fn format_bytes(bytes: u64, si: bool, as_bits: bool) -> String {
+    let mut s = ByteSize(if as_bits { bytes * 8 } else { bytes }).to_string_as(si);
+    if as_bits {
+        s.pop();
+        format!("{}bits", s)
+    } else {
+        s
+    }
+}
+
 #[async_trait(?Send)]
 impl BarItem for NetUsage {
     async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
-        // this item doesn't receive any input, so close the receiver
-        ctx.raw_event_rx().close();
-
+        let theme = ctx.theme.clone();
         let fg = |bytes| {
-            self.get_color(&ctx.theme, bytes)
+            self.get_color(&theme, bytes)
                 .map(|c| format!(r#" foreground="{}""#, c))
                 .unwrap_or("".into())
         };
 
         let min = self.minimum.map_or(bytesize::KIB, |b| b.as_u64());
-        let text = |bytes| {
+        let text = |bytes, as_bits| {
             if bytes > min {
-                ByteSize(bytes).to_string_as(true)
+                format_bytes(bytes, false, as_bits)
             } else {
                 "-".into()
             }
@@ -78,6 +86,7 @@ impl BarItem for NetUsage {
 
         let div_as_u64 = |u, f| (u as f64 / f) as u64;
         let mut last_check = Instant::now();
+        let mut as_bits = false;
         loop {
             let (down, up) = {
                 let mut state = ctx.state.borrow_mut();
@@ -100,21 +109,25 @@ impl BarItem for NetUsage {
             };
 
             ctx.update_item(
-                // TODO: click to cycle between bits and bytes
-                // https://github.com/hyunsik/bytesize/issues/30
                 I3Item::new(format!(
                     "<span{}>{}↓</span> <span{}>{}↑</span>",
                     fg(down),
-                    text(down),
+                    text(down, as_bits),
                     fg(up),
-                    text(up)
+                    text(up, as_bits)
                 ))
                 .markup(I3Markup::Pango),
             )
             .await?;
 
-            // this item sleeps rather than waiting for input, since that would affect the calculation interval
-            sleep(self.interval).await;
+            // swap between bits and bytes on click
+            if let Some(event) = ctx.wait_for_event(Some(self.interval)).await {
+                if let BarEvent::Click(click) = event {
+                    if click.button == I3Button::Left {
+                        as_bits = !as_bits;
+                    }
+                }
+            }
         }
     }
 }

@@ -56,7 +56,7 @@ impl Interface {
 
     fn format_wireless(&self, i: WirelessInfo, theme: &Theme) -> (String, Option<HexColor>) {
         let fg = match i.wi_quality {
-            100..=u8::MAX => theme.complete,
+            100..=u8::MAX => theme.good,
             80..=99 => theme.good,
             60..=79 => theme.warning,
             40..=59 => theme.danger,
@@ -70,7 +70,7 @@ impl Interface {
     }
 
     fn format_normal(&self, theme: &Theme) -> (String, Option<HexColor>) {
-        (format!("({})", self.addr), Some(theme.complete))
+        (format!("({})", self.addr), Some(theme.good))
     }
 
     fn format(&mut self, theme: &Theme) -> (String, String) {

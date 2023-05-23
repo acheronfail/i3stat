@@ -26,7 +26,7 @@ impl BatState {
     fn get_color(&self, theme: &Theme) -> (Option<&str>, Option<HexColor>) {
         match self {
             Self::Full => (None, Some(theme.special)),
-            Self::Charging => (Some("󰚥"), Some(theme.complete)),
+            Self::Charging => (Some("󰚥"), Some(theme.accent)),
             _ => (None, None),
         }
     }

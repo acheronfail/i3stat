@@ -23,7 +23,7 @@ impl Krb {
 
     async fn item(&self, theme: &Theme) -> Result<I3Item, Box<dyn Error>> {
         Ok(I3Item::new("K").color(if self.get_state().await? {
-            theme.complete
+            theme.good
         } else {
             theme.error
         }))
