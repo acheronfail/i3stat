@@ -33,7 +33,7 @@ impl NetUsage {
             .unwrap_or(u64::MAX);
 
         if (0..=end).contains(&bytes) {
-            return Some(theme.dark4);
+            return Some(theme.dim);
         }
 
         // NOTE: since we have 5 thresholds, and windows of 2, there will only be 4 windows

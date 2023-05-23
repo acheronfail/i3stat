@@ -362,7 +362,7 @@ impl PulseState {
         };
 
         let sink_fg = if default_sink.mute {
-            format!(r#" foreground="{}""#, self.theme.dark4)
+            format!(r#" foreground="{}""#, self.theme.dim)
         } else {
             "".into()
         };
@@ -380,9 +380,9 @@ impl PulseState {
             r#"{} <span foreground="{}">[{}{}%]</span>"#,
             sink_text,
             if default_source.mute {
-                self.theme.dark4
+                self.theme.dim
             } else {
-                self.theme.light1
+                self.theme.fg
             },
             default_source.port_symbol().unwrap_or(""),
             default_source.volume_pct(),

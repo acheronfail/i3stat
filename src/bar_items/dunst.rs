@@ -16,7 +16,7 @@ pub struct Dunst {}
 impl Dunst {
     fn item(theme: &Theme, paused: bool) -> I3Item {
         I3Item::new(if paused { "   " } else { "" })
-            .color(theme.dark1)
+            .color(theme.bg)
             .background_color(theme.warning)
     }
 }

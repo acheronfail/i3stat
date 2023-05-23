@@ -58,6 +58,7 @@ pub struct Context {
 
 impl Context {
     pub fn new(
+        theme: Theme,
         state: Rc<RefCell<SharedState>>,
         tx_item: mpsc::Sender<(I3Item, usize)>,
         tx_event: mpsc::Sender<BarEvent>,
@@ -66,7 +67,7 @@ impl Context {
     ) -> Context {
         Context {
             state,
-            theme: Theme::NORD,
+            theme,
             last_item: RefCell::default(),
             tx_item,
             tx_event,

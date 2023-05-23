@@ -76,7 +76,7 @@ impl Keys {
         let is_on = self.is_on().await?;
         Ok(format!(
             r#"<span foreground="{}">{}</span>"#,
-            if is_on { theme.success } else { theme.error },
+            if is_on { theme.complete } else { theme.error },
             self.symbol()
         ))
     }

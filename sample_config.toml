@@ -3,6 +3,27 @@
 # be found.
 # socket = "/custom/socket/path/here"
 
+# Theme customisation
+# All of these are optional, and will default to the values documented here.
+[theme]
+# should be the same as i3's bar.colors.background setting
+bg = "#2e3440"
+# should be the same as i3's bar.colors.statusline setting
+fg = "#d8dee9"
+# used to indicate inactive or disabled states
+dim = "#4c566a"
+# indicates a warning state
+warning = "#ebcb8b"
+# indicates a danger state, more urgent than warning
+danger = "#d08770"
+# indicates a error state, more urgent than danger
+error = "#bf616a"
+# indicates a good state
+good = "#a3be8c"
+# indicates a special state
+special = "#b48ead"
+# indicates a complete state
+complete = "#8fbcbb"
 
 ## The list of bar items. Ordered left to right in the bar itself.
 #

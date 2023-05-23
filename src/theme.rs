@@ -1,42 +1,78 @@
 use hex_color::HexColor;
+use serde_derive::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Theme {
-    pub dark1: HexColor,
-    pub dark2: HexColor,
-    pub dark3: HexColor,
-    pub dark4: HexColor,
-    pub light1: HexColor,
-    pub light2: HexColor,
-    pub light3: HexColor,
-    pub accent1: HexColor,
-    pub accent2: HexColor,
-    pub accent3: HexColor,
-    pub accent4: HexColor,
+    #[serde(default = "Theme::default_bg")]
+    pub bg: HexColor,
+    #[serde(default = "Theme::default_fg")]
+    pub fg: HexColor,
+    #[serde(default = "Theme::default_dim")]
+    pub dim: HexColor,
+    #[serde(default = "Theme::default_error")]
     pub error: HexColor,
+    #[serde(default = "Theme::default_danger")]
     pub danger: HexColor,
+    #[serde(default = "Theme::default_warning")]
     pub warning: HexColor,
-    pub success: HexColor,
+    #[serde(default = "Theme::default_good")]
+    pub good: HexColor,
+    #[serde(default = "Theme::default_special")]
     pub special: HexColor,
+    #[serde(default = "Theme::default_complete")]
+    pub complete: HexColor,
+}
+
+impl Default for Theme {
+    fn default() -> Self {
+        Self {
+            bg: Self::default_bg(),
+            fg: Self::default_fg(),
+            dim: Self::default_dim(),
+            error: Self::default_error(),
+            danger: Self::default_danger(),
+            warning: Self::default_warning(),
+            good: Self::default_good(),
+            special: Self::default_special(),
+            complete: Self::default_complete(),
+        }
+    }
 }
 
 impl Theme {
-    pub const NORD: Theme = Theme {
-        dark1: HexColor::rgb(46, 52, 64),
-        dark2: HexColor::rgb(59, 66, 82),
-        dark3: HexColor::rgb(67, 76, 94),
-        dark4: HexColor::rgb(76, 86, 106),
-        light1: HexColor::rgb(216, 222, 233),
-        light2: HexColor::rgb(229, 233, 240),
-        light3: HexColor::rgb(236, 239, 244),
-        accent1: HexColor::rgb(143, 188, 187),
-        accent2: HexColor::rgb(136, 192, 208),
-        accent3: HexColor::rgb(129, 161, 193),
-        accent4: HexColor::rgb(94, 129, 172),
-        error: HexColor::rgb(191, 97, 106),
-        danger: HexColor::rgb(208, 135, 112),
-        warning: HexColor::rgb(235, 203, 139),
-        success: HexColor::rgb(163, 190, 140),
-        special: HexColor::rgb(180, 142, 173),
-    };
+    const fn default_bg() -> HexColor {
+        HexColor::rgb(46, 52, 64)
+    }
+
+    const fn default_fg() -> HexColor {
+        HexColor::rgb(216, 222, 233)
+    }
+
+    const fn default_dim() -> HexColor {
+        HexColor::rgb(76, 86, 106)
+    }
+
+    const fn default_complete() -> HexColor {
+        HexColor::rgb(143, 188, 187)
+    }
+
+    const fn default_error() -> HexColor {
+        HexColor::rgb(191, 97, 106)
+    }
+
+    const fn default_danger() -> HexColor {
+        HexColor::rgb(208, 135, 112)
+    }
+
+    const fn default_warning() -> HexColor {
+        HexColor::rgb(235, 203, 139)
+    }
+
+    const fn default_good() -> HexColor {
+        HexColor::rgb(163, 190, 140)
+    }
+
+    const fn default_special() -> HexColor {
+        HexColor::rgb(180, 142, 173)
+    }
 }

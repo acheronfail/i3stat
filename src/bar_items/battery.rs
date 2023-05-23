@@ -26,7 +26,7 @@ impl BatState {
     fn get_color(&self, theme: &Theme) -> (Option<&str>, Option<HexColor>) {
         match self {
             Self::Full => (None, Some(theme.special)),
-            Self::Charging => (Some("󰚥"), Some(theme.accent1)),
+            Self::Charging => (Some("󰚥"), Some(theme.complete)),
             _ => (None, None),
         }
     }
@@ -101,7 +101,7 @@ impl Bat {
             16..=25 => (icon.unwrap_or(" "), fg.or(Some(theme.danger))),
             26..=50 => (icon.unwrap_or(" "), fg.or(Some(theme.warning))),
             51..=75 => (icon.unwrap_or(" "), fg.or(None)),
-            76..=u32::MAX => (icon.unwrap_or(" "), fg.or(Some(theme.success))),
+            76..=u32::MAX => (icon.unwrap_or(" "), fg.or(Some(theme.good))),
         };
 
         if show_watts {

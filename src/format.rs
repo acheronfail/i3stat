@@ -10,7 +10,7 @@ pub fn fraction(theme: &Theme, num: usize, den: usize) -> String {
 
     format!(
         r#" <span foreground="{}"><sup>{}</sup>/<sub>{}</sub></span>"#,
-        theme.dark4, num, den
+        theme.dim, num, den
     )
 }
 

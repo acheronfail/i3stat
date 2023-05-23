@@ -8,12 +8,16 @@ use strum::EnumIter;
 
 use crate::bar_items::*;
 use crate::context::BarItem;
+use crate::theme::Theme;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AppConfig {
     /// Path to the socket to use for ipc. Useful when having multiple bars to separate their sockets.
     /// The CLI option takes precedence over this.
     pub socket: Option<PathBuf>,
+    /// Specify the colours of the theme
+    #[serde(default)]
+    pub theme: Theme,
     /// List of the items for the bar - ordered left to right.
     pub items: Vec<Item>,
 }

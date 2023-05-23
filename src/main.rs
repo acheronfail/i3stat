@@ -72,7 +72,14 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
         let (event_tx, event_rx) = mpsc::channel(32);
         bar_txs.push(event_tx.clone());
 
-        let ctx = Context::new(state.clone(), item_tx.clone(), event_tx, event_rx, idx);
+        let ctx = Context::new(
+            config.theme.clone(),
+            state.clone(),
+            item_tx.clone(),
+            event_tx,
+            event_rx,
+            idx,
+        );
         let bar = bar.clone();
         tokio::task::spawn_local(async move {
             let theme = ctx.theme.clone();
@@ -88,7 +95,7 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
                     log::error!("item[{}] exited with error: {}", idx, e);
                     // replace with an error item
                     bar.borrow_mut()[idx] = I3Item::new("ERROR")
-                        .color(theme.dark1)
+                        .color(theme.bg)
                         .background_color(theme.error);
                 }
             }
