@@ -30,9 +30,9 @@ pub struct Mem {
 impl Mem {
     fn get_color(theme: &Theme, used_pct: f64) -> Option<HexColor> {
         match used_pct as u64 {
-            80..=100 => Some(theme.error),
-            60..=79 => Some(theme.danger),
-            40..=59 => Some(theme.warning),
+            80..=100 => Some(theme.red),
+            60..=79 => Some(theme.orange),
+            40..=59 => Some(theme.yellow),
             _ => None,
         }
     }

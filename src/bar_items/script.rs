@@ -89,7 +89,7 @@ impl BarItem for Script {
                     Ok(item) => item,
                     Err(e) => {
                         log::error!("failed to parse script json output: {}", e);
-                        I3Item::new("ERROR").background_color(ctx.theme.error)
+                        I3Item::new("ERROR").background_color(ctx.theme.red)
                     }
                 },
             };

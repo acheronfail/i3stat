@@ -9,18 +9,18 @@ pub struct Theme {
     pub fg: HexColor,
     #[serde(default = "Theme::default_dim")]
     pub dim: HexColor,
-    #[serde(default = "Theme::default_error")]
-    pub error: HexColor,
-    #[serde(default = "Theme::default_danger")]
-    pub danger: HexColor,
-    #[serde(default = "Theme::default_warning")]
-    pub warning: HexColor,
-    #[serde(default = "Theme::default_good")]
-    pub good: HexColor,
-    #[serde(default = "Theme::default_special")]
-    pub special: HexColor,
-    #[serde(default = "Theme::default_accent")]
-    pub accent: HexColor,
+    #[serde(default = "Theme::default_red")]
+    pub red: HexColor,
+    #[serde(default = "Theme::default_orange")]
+    pub orange: HexColor,
+    #[serde(default = "Theme::default_yellow")]
+    pub yellow: HexColor,
+    #[serde(default = "Theme::default_green")]
+    pub green: HexColor,
+    #[serde(default = "Theme::default_purple")]
+    pub purple: HexColor,
+    #[serde(default = "Theme::default_blue")]
+    pub blue: HexColor,
 }
 
 impl Default for Theme {
@@ -29,12 +29,12 @@ impl Default for Theme {
             bg: Self::default_bg(),
             fg: Self::default_fg(),
             dim: Self::default_dim(),
-            error: Self::default_error(),
-            danger: Self::default_danger(),
-            warning: Self::default_warning(),
-            good: Self::default_good(),
-            special: Self::default_special(),
-            accent: Self::default_accent(),
+            red: Self::default_red(),
+            orange: Self::default_orange(),
+            yellow: Self::default_yellow(),
+            green: Self::default_green(),
+            purple: Self::default_purple(),
+            blue: Self::default_blue(),
         }
     }
 }
@@ -52,27 +52,27 @@ impl Theme {
         HexColor::rgb(76, 86, 106)
     }
 
-    const fn default_accent() -> HexColor {
+    const fn default_blue() -> HexColor {
         HexColor::rgb(143, 188, 187)
     }
 
-    const fn default_error() -> HexColor {
+    const fn default_red() -> HexColor {
         HexColor::rgb(191, 97, 106)
     }
 
-    const fn default_danger() -> HexColor {
+    const fn default_orange() -> HexColor {
         HexColor::rgb(208, 135, 112)
     }
 
-    const fn default_warning() -> HexColor {
+    const fn default_yellow() -> HexColor {
         HexColor::rgb(235, 203, 139)
     }
 
-    const fn default_good() -> HexColor {
+    const fn default_green() -> HexColor {
         HexColor::rgb(163, 190, 140)
     }
 
-    const fn default_special() -> HexColor {
+    const fn default_purple() -> HexColor {
         HexColor::rgb(180, 142, 173)
     }
 }

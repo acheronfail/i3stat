@@ -25,8 +25,8 @@ enum BatState {
 impl BatState {
     fn get_color(&self, theme: &Theme) -> (Option<&str>, Option<HexColor>) {
         match self {
-            Self::Full => (None, Some(theme.special)),
-            Self::Charging => (Some("󰚥"), Some(theme.accent)),
+            Self::Full => (None, Some(theme.purple)),
+            Self::Charging => (Some("󰚥"), Some(theme.blue)),
             _ => (None, None),
         }
     }
@@ -97,11 +97,11 @@ impl Bat {
 
         let (icon, fg) = state.get_color(theme);
         let (icon, fg) = match charge as u32 {
-            0..=15 => (icon.unwrap_or(" "), fg.or(Some(theme.error))),
-            16..=25 => (icon.unwrap_or(" "), fg.or(Some(theme.danger))),
-            26..=50 => (icon.unwrap_or(" "), fg.or(Some(theme.warning))),
+            0..=15 => (icon.unwrap_or(" "), fg.or(Some(theme.red))),
+            16..=25 => (icon.unwrap_or(" "), fg.or(Some(theme.orange))),
+            26..=50 => (icon.unwrap_or(" "), fg.or(Some(theme.yellow))),
             51..=75 => (icon.unwrap_or(" "), fg.or(None)),
-            76..=u32::MAX => (icon.unwrap_or(" "), fg.or(Some(theme.good))),
+            76..=u32::MAX => (icon.unwrap_or(" "), fg.or(Some(theme.green))),
         };
 
         if show_watts {

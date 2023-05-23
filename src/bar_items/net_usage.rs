@@ -40,9 +40,9 @@ impl NetUsage {
         // so we only need to map it to 4 colours here
         let threshold_colors = &[
             None,
-            Some(theme.warning),
-            Some(theme.danger),
-            Some(theme.error),
+            Some(theme.yellow),
+            Some(theme.orange),
+            Some(theme.red),
         ];
         for (idx, w) in self.thresholds.windows(2).enumerate() {
             if (w[0].as_u64()..w[1].as_u64()).contains(&bytes) {
@@ -51,7 +51,7 @@ impl NetUsage {
         }
 
         // it was above any of the thresholds listed
-        Some(theme.special)
+        Some(theme.purple)
     }
 }
 

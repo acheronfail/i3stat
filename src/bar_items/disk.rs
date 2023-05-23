@@ -36,9 +36,9 @@ impl DiskStats {
     fn get_color(&self, theme: &Theme) -> Option<HexColor> {
         let pct = (self.available_bytes as f64 / self.total_bytes as f64) * 100.0;
         match pct as u32 {
-            0..=10 => Some(theme.error),
-            11..=20 => Some(theme.danger),
-            21..=30 => Some(theme.warning),
+            0..=10 => Some(theme.red),
+            11..=20 => Some(theme.orange),
+            21..=30 => Some(theme.yellow),
             _ => None,
         }
     }

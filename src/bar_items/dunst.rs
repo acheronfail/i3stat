@@ -17,7 +17,7 @@ impl Dunst {
     fn item(theme: &Theme, paused: bool) -> I3Item {
         I3Item::new(if paused { "   " } else { "" })
             .color(theme.bg)
-            .background_color(theme.warning)
+            .background_color(theme.yellow)
     }
 }
 

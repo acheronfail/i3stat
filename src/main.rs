@@ -96,7 +96,7 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
                     // replace with an error item
                     bar.borrow_mut()[idx] = I3Item::new("ERROR")
                         .color(theme.bg)
-                        .background_color(theme.error);
+                        .background_color(theme.red);
                 }
             }
         });

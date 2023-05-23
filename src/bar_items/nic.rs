@@ -56,11 +56,11 @@ impl Interface {
 
     fn format_wireless(&self, i: WirelessInfo, theme: &Theme) -> (String, Option<HexColor>) {
         let fg = match i.wi_quality {
-            100..=u8::MAX => theme.good,
-            80..=99 => theme.good,
-            60..=79 => theme.warning,
-            40..=59 => theme.danger,
-            _ => theme.error,
+            100..=u8::MAX => theme.green,
+            80..=99 => theme.green,
+            60..=79 => theme.yellow,
+            40..=59 => theme.orange,
+            _ => theme.red,
         };
 
         (
@@ -70,7 +70,7 @@ impl Interface {
     }
 
     fn format_normal(&self, theme: &Theme) -> (String, Option<HexColor>) {
-        (format!("({})", self.addr), Some(theme.good))
+        (format!("({})", self.addr), Some(theme.green))
     }
 
     fn format(&mut self, theme: &Theme) -> (String, String) {
@@ -166,7 +166,7 @@ impl BarItem for Nic {
 
             // no networks active
             if interfaces.is_empty() {
-                ctx.update_item(I3Item::new("disconnected").color(ctx.theme.error))
+                ctx.update_item(I3Item::new("disconnected").color(ctx.theme.red))
                     .await?;
 
                 idx = 0;

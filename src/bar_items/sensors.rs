@@ -25,10 +25,10 @@ impl Sensors {
     fn get_icon(theme: &Theme, temp: u32) -> (&'static str, Option<HexColor>) {
         match temp {
             0..=59 => ("", None),
-            60..=69 => ("", Some(theme.warning)),
-            70..=79 => ("", Some(theme.warning)),
-            80..=89 => ("", Some(theme.danger)),
-            90..=u32::MAX => ("", Some(theme.error)),
+            60..=69 => ("", Some(theme.yellow)),
+            70..=79 => ("", Some(theme.yellow)),
+            80..=89 => ("", Some(theme.orange)),
+            90..=u32::MAX => ("", Some(theme.red)),
         }
     }
 }

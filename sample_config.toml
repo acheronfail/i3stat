@@ -12,18 +12,18 @@ bg = "#2e3440"
 fg = "#d8dee9"
 # used to indicate inactive or disabled states
 dim = "#4c566a"
-# indicates a warning state
-warning = "#ebcb8b"
-# indicates a danger state, more urgent than warning
-danger = "#d08770"
-# indicates a error state, more urgent than danger
-error = "#bf616a"
-# indicates a good state
-good = "#a3be8c"
-# indicates a special state
-special = "#b48ead"
-# indicates a complete state
-complete = "#8fbcbb"
+# usually indicates a warning state
+yellow = "#ebcb8b"
+# be more warned than yellow
+orange = "#d08770"
+# it's red - everybody panic
+red = "#bf616a"
+# ahh green... green is good
+green = "#a3be8c"
+# usually indicates special states
+purple = "#b48ead"
+# also like purple, something special, not exactly anything specific
+blue = "#8fbcbb"
 
 ## The list of bar items. Ordered left to right in the bar itself.
 #
