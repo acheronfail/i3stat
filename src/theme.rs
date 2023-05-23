@@ -2,6 +2,18 @@ use hex_color::HexColor;
 use serde_derive::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ColorPair {
+    pub fg: HexColor,
+    pub bg: HexColor,
+}
+
+impl ColorPair {
+    pub const fn new(fg: HexColor, bg: HexColor) -> ColorPair {
+        ColorPair { fg, bg }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Theme {
     #[serde(default = "Theme::default_bg")]
     pub bg: HexColor,
@@ -21,6 +33,10 @@ pub struct Theme {
     pub purple: HexColor,
     #[serde(default = "Theme::default_blue")]
     pub blue: HexColor,
+    #[serde(default = "Theme::default_powerline")]
+    pub powerline: Vec<ColorPair>,
+    #[serde(default)]
+    pub powerline_enable: bool,
 }
 
 impl Default for Theme {
@@ -35,11 +51,20 @@ impl Default for Theme {
             green: Self::default_green(),
             purple: Self::default_purple(),
             blue: Self::default_blue(),
+            powerline: Self::default_powerline(),
+            powerline_enable: false,
         }
     }
 }
 
 impl Theme {
+    const DEFAULT_POWERLINE: &[ColorPair] = &[
+        ColorPair::new(HexColor::rgb(216, 222, 233), HexColor::rgb(59, 66, 82)),
+        ColorPair::new(HexColor::rgb(229, 233, 240), HexColor::rgb(67, 76, 94)),
+        ColorPair::new(HexColor::rgb(236, 239, 244), HexColor::rgb(76, 86, 106)),
+        ColorPair::new(HexColor::rgb(229, 233, 240), HexColor::rgb(67, 76, 94)),
+    ];
+
     const fn default_bg() -> HexColor {
         HexColor::rgb(46, 52, 64)
     }
@@ -74,5 +99,9 @@ impl Theme {
 
     const fn default_purple() -> HexColor {
         HexColor::rgb(180, 142, 173)
+    }
+
+    fn default_powerline() -> Vec<ColorPair> {
+        Self::DEFAULT_POWERLINE.to_vec()
     }
 }

@@ -7,8 +7,9 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use clap::Parser;
+use hex_color::HexColor;
 use istat::cli::Cli;
-use istat::config::{self, Item};
+use istat::config::{self, AppConfig};
 use istat::context::{Context, SharedState};
 use istat::dispatcher::Dispatcher;
 use istat::i3::header::I3BarHeader;
@@ -111,7 +112,7 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
     );
 
     // setup listener for handling item updates and printing the bar to STDOUT
-    handle_item_updates(config.items.clone(), item_rx, bar);
+    handle_item_updates(config, item_rx, bar);
 
     // handle incoming signals
     let signal_handle = handle_signals(args.socket.clone(), dispatcher.clone())?;
@@ -128,16 +129,19 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
 }
 
 // task to manage updating the bar and printing it as JSON
-fn handle_item_updates(items: Vec<Item>, mut rx: Receiver<(I3Item, usize)>, bar: Bar) {
-    let item_names = items
-        .into_iter()
+fn handle_item_updates(config: AppConfig, mut rx: Receiver<(I3Item, usize)>, bar: Bar) {
+    let item_names = config
+        .items
+        .iter()
         .map(|item| match item.common.name {
-            Some(name) => name,
+            Some(ref name) => name.to_string(),
             None => item.tag().into(),
         })
         .collect::<Vec<_>>();
 
     tokio::task::spawn_local(async move {
+        let adjuster = make_color_adjuster(&config.theme.bg, &config.theme.dim);
+
         while let Some((i3_item, idx)) = rx.recv().await {
             let mut bar = bar.borrow_mut();
             bar[idx] = i3_item
@@ -146,8 +150,14 @@ fn handle_item_updates(items: Vec<Item>, mut rx: Receiver<(I3Item, usize)>, bar:
                 // always override the bar item's `instance`, since we track that ourselves
                 .instance(idx.to_string());
 
+            let bar_json = if config.theme.powerline_enable {
+                serde_json::to_string(&create_powerline(&*bar, &config, &adjuster))
+            } else {
+                serde_json::to_string(&*bar)
+            };
+
             // print bar to STDOUT for i3
-            match serde_json::to_string(&*bar) {
+            match bar_json {
                 Ok(json) => println!("{},", json),
                 Err(e) => {
                     log::error!("failed to serialise bar to json: {}", e);
@@ -158,4 +168,73 @@ fn handle_item_updates(items: Vec<Item>, mut rx: Receiver<(I3Item, usize)>, bar:
             }
         }
     });
+}
+
+fn create_powerline<F>(bar: &[I3Item], config: &AppConfig, adjuster: F) -> Vec<I3Item>
+where
+    F: Fn(&HexColor) -> HexColor,
+{
+    let len = config.theme.powerline.len();
+    let mut powerline_bar = vec![];
+    for i in 0..bar.len() {
+        let item = &bar[i];
+        if item.full_text.is_empty() {
+            continue;
+        }
+
+        let instance = i.to_string();
+        #[cfg(debug_assertions)]
+        assert_eq!(item.get_instance().unwrap(), &instance);
+
+        let c1 = &config.theme.powerline[i % len];
+        let c2 = &config.theme.powerline[(i + 1) % len];
+
+        // create the powerline separator
+        let mut sep_item = I3Item::new("")
+            .instance(instance)
+            .separator(false)
+            .separator_block_width_px(0)
+            .color(c2.bg);
+
+        // the first separator doesn't blend with any other item
+        if i > 0 {
+            sep_item = sep_item.background_color(c1.bg);
+        }
+
+        // replace `config.theme.dim` so it's easy to see
+        let adjusted_dim = adjuster(&c2.bg);
+
+        powerline_bar.push(sep_item);
+        powerline_bar.push(
+            item.clone()
+                .full_text(format!(
+                    " {} ",
+                    // replace `config.theme.dim` use in pango spans
+                    item.full_text
+                        .replace(&config.theme.dim.to_string(), &adjusted_dim.to_string())
+                ))
+                .separator(false)
+                .separator_block_width_px(0)
+                .color(match item.get_color() {
+                    Some(color) if color == &config.theme.dim => adjusted_dim,
+                    Some(color) => *color,
+                    _ => c2.fg,
+                })
+                .background_color(c2.bg),
+        );
+    }
+    powerline_bar
+}
+
+fn make_color_adjuster(bg: &HexColor, fg: &HexColor) -> impl Fn(&HexColor) -> HexColor {
+    let r = fg.r.abs_diff(bg.r);
+    let g = fg.g.abs_diff(bg.g);
+    let b = fg.b.abs_diff(bg.b);
+    move |c| {
+        HexColor::rgb(
+            r.saturating_add(c.r),
+            g.saturating_add(c.g),
+            b.saturating_add(c.b),
+        )
+    }
 }

@@ -6,6 +6,7 @@ description = "A lightweight and batteries-included status_command for i3 and sw
 license = "GPL-3.0-only"
 homepage = "https://github.com/acheronfail/istat"
 repository = "https://github.com/acheronfail/istat"
+keywords = ["i3", "sway", "status_command", "istat", "status"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

@@ -56,7 +56,7 @@ impl Serialize for I3MinWidth {
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct I3Item {
-    full_text: String,
+    pub full_text: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     short_text: Option<String>,
 
@@ -100,6 +100,48 @@ pub struct I3Item {
     markup: Option<I3Markup>,
 }
 
+macro_rules! impl_get_set {
+    ($(#[$outer:meta])* ($name:ident, String)) => {
+        paste::paste! {
+            $(#[$outer])*
+            pub fn $name(mut self, $name: impl AsRef<str>) -> Self {
+                self.$name = $name.as_ref().into();
+                self
+            }
+
+            pub fn [<get_ $name>](&self) -> &String {
+                &self.$name
+            }
+        }
+    };
+    ($(#[$outer:meta])* ($name:ident, Option<String>)) => {
+        paste::paste! {
+            $(#[$outer])*
+            pub fn $name(mut self, $name: impl AsRef<str>) -> Self {
+                self.$name = Some($name.as_ref().into());
+                self
+            }
+
+            pub fn [<get_ $name>](&self) -> Option<&String> {
+                self.$name.as_ref()
+            }
+        }
+    };
+    ($(#[$outer:meta])* ($name:ident, $ty:ty)) => {
+        paste::paste! {
+            $(#[$outer])*
+            pub fn $name(mut self, $name: $ty) -> Self {
+                self.$name = Some($name);
+                self
+            }
+
+            pub fn [<get_ $name>](&self) -> Option<&$ty> {
+                self.$name.as_ref()
+            }
+        }
+    };
+}
+
 impl I3Item {
     pub fn new(full_text: impl AsRef<str>) -> I3Item {
         I3Item {
@@ -127,89 +169,32 @@ impl I3Item {
         I3Item::new("")
     }
 
-    pub fn short_text(mut self, short_text: impl AsRef<str>) -> Self {
-        self.short_text = Some(short_text.as_ref().into());
-        self
-    }
+    impl_get_set! (
+        /// Set the name of the item. NOTE: setting this from within an item implementation will
+        /// have no effect, since istat manages this property itself from config.
+        (name, Option<String>)
+    );
+    impl_get_set!(
+        /// Set the instance of the item. NOTE: setting this from within an item implementation ill
+        /// have no effect, since istat manages this property itself from config.
+        (instance, Option<String>)
+    );
 
-    pub fn color(mut self, color: HexColor) -> Self {
-        self.color = Some(color);
-        self
-    }
-
-    pub fn background_color(mut self, background_color: HexColor) -> Self {
-        self.background_color = Some(background_color);
-        self
-    }
-
-    pub fn border_color(mut self, border_color: HexColor) -> Self {
-        self.border_color = Some(border_color);
-        self
-    }
-
-    pub fn border_top_px(mut self, border_top_px: usize) -> Self {
-        self.border_top_px = Some(border_top_px);
-        self
-    }
-
-    pub fn border_right_px(mut self, border_right_px: usize) -> Self {
-        self.border_right_px = Some(border_right_px);
-        self
-    }
-
-    pub fn border_bottom_px(mut self, border_bottom_px: usize) -> Self {
-        self.border_bottom_px = Some(border_bottom_px);
-        self
-    }
-
-    pub fn border_left_px(mut self, border_left_px: usize) -> Self {
-        self.border_left_px = Some(border_left_px);
-        self
-    }
-
-    pub fn min_width(mut self, min_width: I3MinWidth) -> Self {
-        self.min_width = Some(min_width);
-        self
-    }
-
-    pub fn align(mut self, align: I3Align) -> Self {
-        self.align = Some(align);
-        self
-    }
-
-    /// The name of the item. NOTE: setting this from within an item will have no effect, since
-    /// istat manages this property itself from config.
-    pub fn name(mut self, name: impl AsRef<str>) -> Self {
-        self.name = Some(name.as_ref().into());
-        self
-    }
-
-    /// The instance of the item. NOTE: setting this from within an item will have no effect, since
-    /// istat manages this property itself from config.
-    pub fn instance(mut self, instance: impl AsRef<str>) -> Self {
-        self.instance = Some(instance.as_ref().into());
-        self
-    }
-
-    pub fn urgent(mut self, urgent: bool) -> Self {
-        self.urgent = Some(urgent);
-        self
-    }
-
-    pub fn separator(mut self, separator: bool) -> Self {
-        self.separator = Some(separator);
-        self
-    }
-
-    pub fn separator_block_width_px(mut self, separator_block_width_px: usize) -> Self {
-        self.separator_block_width_px = Some(separator_block_width_px);
-        self
-    }
-
-    pub fn markup(mut self, markup: I3Markup) -> Self {
-        self.markup = Some(markup);
-        self
-    }
+    impl_get_set!((full_text, String));
+    impl_get_set!((short_text, Option<String>));
+    impl_get_set!((color, HexColor));
+    impl_get_set!((background_color, HexColor));
+    impl_get_set!((border_color, HexColor));
+    impl_get_set!((border_top_px, usize));
+    impl_get_set!((border_right_px, usize));
+    impl_get_set!((border_bottom_px, usize));
+    impl_get_set!((border_left_px, usize));
+    impl_get_set!((min_width, I3MinWidth));
+    impl_get_set!((align, I3Align));
+    impl_get_set!((urgent, bool));
+    impl_get_set!((separator, bool));
+    impl_get_set!((separator_block_width_px, usize));
+    impl_get_set!((markup, I3Markup));
 }
 
 #[async_trait(?Send)]

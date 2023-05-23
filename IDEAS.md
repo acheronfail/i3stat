@@ -6,4 +6,7 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 ## Features
 
 * conditionally disable bar items
-* configurable separators
+
+## Bugs
+
+* properly center nerd font icons... some seem longer than a single character

@@ -24,6 +24,15 @@ green = "#a3be8c"
 purple = "#b48ead"
 # also like purple, something special, not exactly anything specific
 blue = "#8fbcbb"
+# if enabled, then item separators are removed and a "powerline"-like style is used
+powerline_enable = false
+# the colors that are cycled through for each powerline item - at least two must be present
+powerline = [
+  { fg = "#d8dee9", bg = "#3b4252" },
+  { fg = "#e5e9f0", bg = "#434c5e" },
+  { fg = "#eceff4", bg = "#4c566a" },
+  { fg = "#e5e9f0", bg = "#434c5e" },
+]
 
 ## The list of bar items. Ordered left to right in the bar itself.
 #
@@ -60,18 +69,18 @@ minimum = "1 kiB"
 thresholds = ["1kiB", "1MiB", "10MiB", "25MiB", "100MiB"]
 
 [[items]]
+# Kerberos item - simply calls `klist` and displays the result
+type = "krb"
+# How often this item should refresh
+interval = "2m"
+
+[[items]]
 # "Network Interfaces" item, provides an interactive list of interfaces and ip addresses, as well as
 # WiFi signal strength and SSIDs if found. Supports updating itself automatically on network changes
 # (via NetworkManager).
 type = "nic"
 # Optionally pass an `interval` to force updates (useful if you don't use NetworkManager)
 # interval = "60s"
-
-[[items]]
-# Kerberos item - simply calls `klist` and displays the result
-type = "krb"
-# How often this item should refresh
-interval = "2m"
 
 [[items]]
 # Disk usage item - provides an interactive list of disks and their free space.
@@ -127,15 +136,6 @@ max_volume = 120
 notify = "all"
 
 [[items]]
-# Display information about a battery
-type = "battery"
-# How often this item should refresh
-interval = "10s"
-# Optionally specificy a list of particular batteries to show. If not provided, it will attempt to
-# discover all the batteries on the system.
-# batteries = ["/sys/class/power_supply/BAT0"]
-
-[[items]]
 # Show information about CapsLock/NumLock/ScrollLock.
 type = "kbd"
 # Which keys to show, available options are: caps_lock, num_lock or scroll_lock
@@ -145,6 +145,15 @@ show = ["caps_lock", "num_lock"]
 # For example: `bindsym --release Caps_Lock exec pkill -RTMIN+4 istat`.
 # See: COMMON OPTIONS
 signal = 4
+
+[[items]]
+# Display information about a battery
+type = "battery"
+# How often this item should refresh
+interval = "10s"
+# Optionally specificy a list of particular batteries to show. If not provided, it will attempt to
+# discover all the batteries on the system.
+# batteries = ["/sys/class/power_supply/BAT0"]
 
 [[items]]
 # Display the current date or time

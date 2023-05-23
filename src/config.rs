@@ -116,6 +116,7 @@ pub async fn read(config_path: Option<PathBuf>) -> Result<AppConfig, Box<dyn Err
 
     // config validation
     {
+        // check no duplicate names
         for (i, a) in c.items.iter().enumerate().rev() {
             for (j, b) in c.items.iter().enumerate() {
                 if i == j {
@@ -132,6 +133,11 @@ pub async fn read(config_path: Option<PathBuf>) -> Result<AppConfig, Box<dyn Err
                     }
                 }
             }
+        }
+
+        // check no empty powerline config
+        if c.theme.powerline.len() <= 1 {
+            return Err("theme.powerline must contain at least two values".into());
         }
     }
 
