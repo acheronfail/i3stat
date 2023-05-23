@@ -16,6 +16,7 @@ So, I decided to write my own `status_command` generator, and what better langua
     - [Interacting with `istat`](#interacting-with-istat)
       - [Signals](#signals)
       - [Custom IPC events](#custom-ipc-events)
+  - [Development](#development)
 
 
 ## Features
@@ -173,3 +174,7 @@ istat-ipc custom pulse volume-up   source
 # mute or unmute the output
 istat-ipc custom pulse mute-toggle sink
 ```
+
+## Development
+
+See the [justfile](./justfile)!

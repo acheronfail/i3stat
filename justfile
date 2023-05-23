@@ -1,30 +1,36 @@
-log := "RUST_LOG=istat=trace"
-
-default:
+_default:
   just --list
 
+# setup repository and install dev dependencies
 setup:
   cd ./scripts/run && yarn
 
-build:
+# build the crate
+_build:
   cargo lbuild --quiet
 
-dev *args: build
-  cd ./scripts/run && {{log}} yarn start {{args}}
+# run `istat` in the terminal and interact with it
+dev *args: _build
+  cd ./scripts/run && RUST_LOG=istat=trace yarn start {{args}}
 
-ipc *args: build
+# send an ipc event to the running debug version of istat (either `just dev` or `just debug`)
+ipc *args: _build
   cargo lrun --quiet --bin istat-ipc -- --socket /tmp/istat-socket.dev {{args}}
 
+# install locally, copy sample configuration and restart i3
 install:
   cargo install --offline --debug --path .
   mkdir -p ~/.config/istat/
   cp ./sample_config.toml ~/.config/istat/config.toml
+  i3-msg restart
 
+# start a nested X server with i3 and istat
 debug: install
   Xephyr -ac -br -reset -terminate -screen 3800x200 :1 &
   sleep 1
   env -u I3SOCK DISPLAY=:1.0 i3-with-shmlog --config ./scripts/i3.conf
 
+# test, test package and test AUR with package
 test-publish:
   #!/usr/bin/env bash
   set -ex
@@ -40,6 +46,7 @@ test-publish:
   makepkg --cleanbuild --force --skipinteg --skipchecksums
   popd
 
+# publish the create and update AUR package
 publish: test-publish
   cargo publish
   just aur
