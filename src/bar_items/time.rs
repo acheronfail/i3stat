@@ -7,7 +7,7 @@ use serde_derive::{Deserialize, Serialize};
 
 use crate::context::{BarEvent, BarItem, Context};
 use crate::exec::exec;
-use crate::i3::{I3Button, I3Item};
+use crate::i3::{I3Button, I3Item, I3Markup};
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Time {
@@ -22,8 +22,9 @@ impl BarItem for Time {
     async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
         loop {
             let now = Local::now();
-            let item = I3Item::new(format!("󰥔  {}", now.format(&self.format_long)))
-                .short_text(now.format(&self.format_short).to_string());
+            let item = I3Item::new(format!("󰥔 {}", now.format(&self.format_long)))
+                .short_text(now.format(&self.format_short).to_string())
+                .markup(I3Markup::Pango);
 
             ctx.update_item(item).await?;
 

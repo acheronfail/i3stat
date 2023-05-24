@@ -25,7 +25,7 @@ use zbus::Connection;
 use crate::context::{BarEvent, BarItem, Context};
 use crate::dbus::notifications::NotificationsProxy;
 use crate::exec::exec;
-use crate::i3::{I3Button, I3Item, I3Modifier};
+use crate::i3::{I3Button, I3Item, I3Markup, I3Modifier};
 use crate::theme::Theme;
 
 #[derive(Debug, Copy, Clone, ValueEnum)]
@@ -361,36 +361,35 @@ impl PulseState {
             }
         };
 
-        let sink_fg = if default_sink.mute {
-            format!(r#" foreground="{}""#, self.theme.dim)
-        } else {
-            "".into()
-        };
-
         let sink_text = format!(
-            "<span{}>{}{}%</span>",
-            sink_fg,
+            r#"<span foreground="{}">{} {}%</span>"#,
+            if default_sink.mute {
+                self.theme.dim
+            } else {
+                self.theme.fg
+            },
             default_sink
                 .port_symbol()
-                .unwrap_or_else(|| if default_sink.mute { " " } else { " " }),
+                .unwrap_or_else(|| if default_sink.mute { "" } else { "" }),
             default_sink.volume_pct(),
         );
 
-        let full = format!(
-            r#"{} <span foreground="{}">[{}{}%]</span>"#,
-            sink_text,
+        let source_text = format!(
+            r#"<span foreground="{}">[{} {}%]</span>"#,
             if default_source.mute {
                 self.theme.dim
             } else {
                 self.theme.fg
             },
             default_source.port_symbol().unwrap_or(""),
-            default_source.volume_pct(),
+            default_source.volume_pct()
         );
+
+        let full = format!(r#"{} {}"#, sink_text, source_text);
 
         let item = I3Item::new(full)
             .short_text(sink_text)
-            .markup(crate::i3::I3Markup::Pango);
+            .markup(I3Markup::Pango);
 
         let _ = self.tx.send(Command::UpdateItem(item));
     }

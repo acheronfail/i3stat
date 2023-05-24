@@ -97,11 +97,11 @@ impl Bat {
 
         let (icon, fg) = state.get_color(theme);
         let (icon, fg) = match charge as u32 {
-            0..=15 => (icon.unwrap_or(" "), fg.or(Some(theme.red))),
-            16..=25 => (icon.unwrap_or(" "), fg.or(Some(theme.orange))),
-            26..=50 => (icon.unwrap_or(" "), fg.or(Some(theme.yellow))),
-            51..=75 => (icon.unwrap_or(" "), fg.or(None)),
-            76..=u32::MAX => (icon.unwrap_or(" "), fg.or(Some(theme.green))),
+            0..=15 => (icon.unwrap_or(""), fg.or(Some(theme.red))),
+            16..=25 => (icon.unwrap_or(""), fg.or(Some(theme.orange))),
+            26..=50 => (icon.unwrap_or(""), fg.or(Some(theme.yellow))),
+            51..=75 => (icon.unwrap_or(""), fg.or(None)),
+            76..=u32::MAX => (icon.unwrap_or(""), fg.or(Some(theme.green))),
         };
 
         if show_watts {
@@ -109,9 +109,13 @@ impl Bat {
             Ok((format!("{:.2} W", watts), format!("{:.0}", watts), fg))
         } else {
             let name = self.name()?;
-            let name = if name == "BAT0" { icon } else { name.as_str() };
+            let name = if name == "BAT0" {
+                icon
+            } else {
+                name.as_str().into()
+            };
             Ok((
-                format!("{} {:.0}%", name, charge),
+                format!("{}  {:.0}%", name, charge),
                 format!("{:.0}%", charge),
                 fg,
             ))

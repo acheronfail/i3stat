@@ -9,7 +9,7 @@ use tokio::time::sleep;
 
 use crate::context::{BarItem, Context};
 use crate::format::{float, FloatFormat};
-use crate::i3::I3Item;
+use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -67,8 +67,9 @@ impl BarItem for Sensors {
 
             let (icon, color) = Self::get_icon(&ctx.theme, temp as u32);
             let temp = float(temp, &self.float_fmt);
-            let mut item =
-                I3Item::new(format!("{} {}°C", icon, temp)).short_text(format!("{}C", temp));
+            let mut item = I3Item::new(format!("{} {}°C", icon, temp))
+                .short_text(format!("{}C", temp))
+                .markup(I3Markup::Pango);
 
             if let Some(color) = color {
                 item = item.color(color);

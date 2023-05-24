@@ -43,7 +43,7 @@ impl DiskStats {
         }
     }
 
-    fn format(&self) -> (String, String) {
+    fn format(&self, _: &Theme) -> (String, String) {
         (
             format!(
                 "󰋊 {} {}",
@@ -71,7 +71,7 @@ impl BarItem for Disk {
                 idx = idx % len;
 
                 let disk = &stats[idx];
-                let (full, short) = disk.format();
+                let (full, short) = disk.format(&ctx.theme);
                 let full = format!("{}{}", full, fraction(&ctx.theme, idx + 1, len));
 
                 let mut item = I3Item::new(full).short_text(short).markup(I3Markup::Pango);

@@ -9,7 +9,7 @@ use sysinfo::{CpuExt, CpuRefreshKind, SystemExt};
 use crate::context::{BarEvent, BarItem, Context};
 use crate::exec::exec;
 use crate::format::{float, FloatFormat};
-use crate::i3::I3Item;
+use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -21,7 +21,7 @@ pub struct Cpu {
 }
 
 impl Cpu {
-    fn get_full_text(&self, pct: f32) -> String {
+    fn get_full_text(&self, _: &Theme, pct: f32) -> String {
         format!(" {}%", float(pct, &self.float_fmt))
     }
 
@@ -49,7 +49,7 @@ impl BarItem for Cpu {
                 state.sys.global_cpu_info().cpu_usage()
             };
 
-            let mut item = I3Item::new(self.get_full_text(pct));
+            let mut item = I3Item::new(self.get_full_text(&ctx.theme, pct)).markup(I3Markup::Pango);
             if let Some(fg) = self.get_color(&ctx.theme, pct) {
                 item = item.color(fg);
             }

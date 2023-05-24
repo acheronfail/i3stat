@@ -8,6 +8,7 @@ use strum::EnumIter;
 
 use crate::bar_items::*;
 use crate::context::BarItem;
+use crate::i3::I3Item;
 use crate::theme::Theme;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -31,6 +32,7 @@ pub struct Common {
 #[derive(Debug, Serialize, Deserialize, Clone, EnumIter)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum ItemInner {
+    Raw(I3Item),
     Battery(Battery),
     Cpu(Cpu),
     Disk(Disk),
@@ -52,6 +54,7 @@ impl ItemInner {
     // See: https://github.com/serde-rs/serde/issues/2455
     pub fn tag(&self) -> &'static str {
         match self {
+            ItemInner::Raw(_) => "raw",
             ItemInner::Battery(_) => "battery",
             ItemInner::Cpu(_) => "cpu",
             ItemInner::Disk(_) => "disk",
@@ -80,6 +83,7 @@ pub struct Item {
 impl Item {
     pub fn to_bar_item(&self) -> Box<dyn BarItem> {
         match &self.inner {
+            ItemInner::Raw(inner) => Box::new(inner.clone()),
             ItemInner::Battery(inner) => Box::new(inner.clone()),
             ItemInner::Cpu(inner) => Box::new(inner.clone()),
             ItemInner::Disk(inner) => Box::new(inner.clone()),

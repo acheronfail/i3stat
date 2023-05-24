@@ -8,8 +8,10 @@ pub fn fraction(theme: &Theme, num: usize, den: usize) -> String {
         return "".into();
     }
 
+    // NOTE: need the `line_height` hack so it doesn't change the vertical alignment of other text
+    // inside this block
     format!(
-        r#" <span foreground="{}"><sup>{}</sup>/<sub>{}</sub></span>"#,
+        r#" <span line_height="1024" foreground="{}"><sup>{}</sup>/<sub>{}</sub></span>"#,
         theme.dim, num, den
     )
 }

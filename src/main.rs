@@ -14,7 +14,7 @@ use istat::context::{Context, SharedState};
 use istat::dispatcher::Dispatcher;
 use istat::i3::header::I3BarHeader;
 use istat::i3::ipc::handle_click_events;
-use istat::i3::I3Item;
+use istat::i3::{I3Item, I3Markup};
 use istat::ipc::handle_ipc_events;
 use istat::signals::handle_signals;
 use tokio::sync::mpsc::{self, Receiver};
@@ -150,10 +150,9 @@ fn handle_item_updates(config: AppConfig, mut rx: Receiver<(I3Item, usize)>, bar
                 // always override the bar item's `instance`, since we track that ourselves
                 .instance(idx.to_string());
 
-            let bar_json = if config.theme.powerline_enable {
-                serde_json::to_string(&create_powerline(&*bar, &config, &adjuster))
-            } else {
-                serde_json::to_string(&*bar)
+            let bar_json = match config.theme.powerline_enable {
+                true => serde_json::to_string(&create_powerline(&*bar, &config, &adjuster)),
+                false => serde_json::to_string(&*bar),
             };
 
             // print bar to STDOUT for i3
@@ -190,9 +189,10 @@ where
         let c2 = &config.theme.powerline[(i + 1) % len];
 
         // create the powerline separator
-        let mut sep_item = I3Item::new("")
+        let mut sep_item = I3Item::new(config.theme.powerline_separator.to_span())
             .instance(instance)
             .separator(false)
+            .markup(I3Markup::Pango)
             .separator_block_width_px(0)
             .color(c2.bg);
 
@@ -226,6 +226,8 @@ where
     powerline_bar
 }
 
+/// HACK: this assumes that RGB colours scale linearly - I don't know if they do or not.
+/// Used in to render the powerline bar and make sure that dim text is visible.
 fn make_color_adjuster(bg: &HexColor, fg: &HexColor) -> impl Fn(&HexColor) -> HexColor {
     let r = fg.r.abs_diff(bg.r);
     let g = fg.g.abs_diff(bg.g);

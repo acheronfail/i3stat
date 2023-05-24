@@ -6,7 +6,21 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 ## Features
 
 * conditionally disable bar items
+* modify config via ipc
+  * e.g., be able to toggle powerline on/off
 
 ## Bugs
 
-* properly center nerd font icons... some seem longer than a single character
+* ...
+
+## Tips
+
+### Nerd Fonts
+
+Nerd Font icons come in two variants. If the font was called "A", the the variants are:
+
+* "A Nerd Font"
+* "A Nerd Font Mono"
+
+The one with the "Mono" suffix has all the icons 'squashed' into a single monospace character's width.
+This is a compatibility for programs that don't support double-width characters, but does make some of the icons appear too small.

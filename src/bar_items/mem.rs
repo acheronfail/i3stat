@@ -10,7 +10,7 @@ use sysinfo::SystemExt;
 
 use crate::context::{BarEvent, BarItem, Context};
 use crate::format::{float, FloatFormat};
-use crate::i3::{I3Button, I3Item};
+use crate::i3::{I3Button, I3Item, I3Markup};
 use crate::theme::Theme;
 
 #[derive(Debug, PartialEq, EnumIter)]
@@ -61,7 +61,7 @@ impl BarItem for Mem {
                 MemDisplay::Percentage => format!("{}%", float(used_pct, &self.float_fmt)),
             };
 
-            let mut item = I3Item::new(format!(" {}", s));
+            let mut item = I3Item::new(format!(" {}", s)).markup(I3Markup::Pango);
             if let Some(fg) = Self::get_color(&ctx.theme, used_pct) {
                 item = item.color(fg);
             }

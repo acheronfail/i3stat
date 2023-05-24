@@ -5,9 +5,9 @@ use futures::StreamExt;
 use serde_derive::{Deserialize, Serialize};
 
 use crate::context::{BarItem, Context};
-use crate::dbus::dbus_connection;
 use crate::dbus::dunst::DunstProxy;
-use crate::i3::I3Item;
+use crate::dbus::{dbus_connection, BusType};
+use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -15,9 +15,14 @@ pub struct Dunst {}
 
 impl Dunst {
     fn item(theme: &Theme, paused: bool) -> I3Item {
-        I3Item::new(if paused { "   " } else { "" })
-            .color(theme.bg)
-            .background_color(theme.yellow)
+        if paused {
+            I3Item::new("  ")
+                .markup(I3Markup::Pango)
+                .color(theme.bg)
+                .background_color(theme.yellow)
+        } else {
+            I3Item::empty()
+        }
     }
 }
 
@@ -28,7 +33,7 @@ impl BarItem for Dunst {
         ctx.raw_event_rx().close();
 
         // get initial state
-        let connection = dbus_connection(crate::dbus::BusType::Session).await?;
+        let connection = dbus_connection(BusType::Session).await?;
         let dunst_proxy = DunstProxy::new(&connection).await?;
         let _ = ctx
             .update_item(Dunst::item(&ctx.theme, dunst_proxy.paused().await?))
