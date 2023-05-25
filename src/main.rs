@@ -133,10 +133,7 @@ fn handle_item_updates(config: AppConfig, mut rx: Receiver<(I3Item, usize)>, bar
     let item_names = config
         .items
         .iter()
-        .map(|item| match item.common.name {
-            Some(ref name) => name.to_string(),
-            None => item.tag().into(),
-        })
+        .map(|item| item.name().to_owned())
         .collect::<Vec<_>>();
 
     tokio::task::spawn_local(async move {

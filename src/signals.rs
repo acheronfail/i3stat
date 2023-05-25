@@ -40,7 +40,7 @@ pub fn handle_signals(
                 sig,
                 translated_sig,
                 idx,
-                item.tag()
+                item.name()
             );
             sig_to_indices
                 .entry(translated_sig)

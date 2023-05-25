@@ -1,3 +1,4 @@
+use std::cell::OnceCell;
 use std::error::Error;
 use std::path::PathBuf;
 
@@ -38,24 +39,23 @@ impl AppConfig {
             .or_else(|| dirs::config_dir().map(|d| d.join("istat/config")))
             .ok_or_else(|| "failed to find config dir")?;
 
-        // TODO: document this order in help text
-        let mut c = Figment::new()
+        let mut cfg = Figment::new()
             .merge(Toml::file(path.with_extension("toml")))
             .merge(Yaml::file(path.with_extension("yaml")))
             .merge(Json::file(path.with_extension("json")))
             .extract::<AppConfig>()?;
 
         // set socket path
-        c.socket = Some(match args.socket {
+        cfg.socket = Some(match args.socket {
             Some(socket_path) => socket_path,
-            None => get_socket_path(c.socket.as_ref())?,
+            None => get_socket_path(cfg.socket.as_ref())?,
         });
 
         // config validation
         {
             // check no duplicate names
-            for (i, a) in c.items.iter().enumerate().rev() {
-                for (j, b) in c.items.iter().enumerate() {
+            for (i, a) in cfg.items.iter().enumerate().rev() {
+                for (j, b) in cfg.items.iter().enumerate() {
                     if i == j {
                         continue;
                     }
@@ -73,12 +73,12 @@ impl AppConfig {
             }
 
             // check no empty powerline config
-            if c.theme.powerline.len() <= 1 {
+            if cfg.theme.powerline.len() <= 1 {
                 return Err("theme.powerline must contain at least two values".into());
             }
         }
 
-        Ok(c)
+        Ok(cfg)
     }
 }
 
@@ -137,6 +137,10 @@ pub struct Item {
     pub common: Common,
     #[serde(flatten)]
     inner: ItemInner,
+
+    /// A runtime only cache for this item's name
+    #[serde(skip)]
+    name: OnceCell<String>,
 }
 
 impl Item {
@@ -159,8 +163,11 @@ impl Item {
         }
     }
 
-    pub fn tag(&self) -> &'static str {
-        self.inner.tag()
+    pub fn name(&self) -> &String {
+        self.name.get_or_init(|| match self.common.name {
+            Some(ref name) => name.to_string(),
+            None => self.inner.tag().into(),
+        })
     }
 }
 

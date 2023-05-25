@@ -25,23 +25,11 @@ impl Dispatcher {
         self.inner.iter()
     }
 
-    pub fn get(&self, idx: usize) -> Option<&InnerItem> {
-        self.inner.get(&idx)
-    }
-
     pub fn instance_mapping(&self) -> IndexMap<usize, String> {
         let mut mapping = self
             .inner
             .iter()
-            .map(|(idx, (_, item))| {
-                (
-                    *idx,
-                    item.common
-                        .name
-                        .as_ref()
-                        .map_or_else(|| item.tag().into(), |n| n.to_string()),
-                )
-            })
+            .map(|(idx, (_, item))| (*idx, item.name().into()))
             .collect::<IndexMap<usize, String>>();
 
         mapping.sort_keys();
