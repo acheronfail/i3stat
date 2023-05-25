@@ -272,13 +272,15 @@ function handleInput(input: string) {
 }
 
 let instances: { name: string; id: string }[] = [];
+const sep = chalk.gray('|');
 function formatLine(line: string) {
   const items: Record<string, any>[] = JSON.parse(line.slice(0, -1));
-  instances = items.map((i) => ({ name: i.name, id: i.instance }));
+  // TODO: this assumes that an item without a name is a separator, probably should make this clearer somehow
+  instances = items.filter(i => i.name).map((i) => ({ name: i.name, id: i.instance }));
   const getText = (item: Record<string, any>) => item[`${display}_text`] || item.full_text;
 
   let result: string[] = [];
-  for (const item of items) {
+  for (const [i, item] of items.entries()) {
     if (filter.length && !filter.includes(item.instance)) {
       continue;
     }
@@ -293,8 +295,10 @@ function formatLine(line: string) {
       continue;
     }
 
+    const hasSeparator = !('separator' in item) || item.separator;
     if (item.markup !== 'pango') {
       result.push(c(item.color, item.background)(text));
+      if (hasSeparator) result.push(sep);
       continue;
     }
 
@@ -322,9 +326,11 @@ function formatLine(line: string) {
 
     // TODO: border? what does that even do
     result.push(c(item.color, item.background)(root.textContent));
+
+    if (hasSeparator && i < items.length - 1) result.push(sep);
   }
 
-  return result.join(chalk.gray('|'));
+  return result.join('');
 }
 
 function replaceWithMap(s: string, map: Record<string, string>) {

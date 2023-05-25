@@ -90,6 +90,10 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
             match fut.await {
                 Ok(()) => {
                     log::info!("item[{}] finished running", idx);
+                    // NOTE: we have to await this empty future like this so any remaining item updates are flushed
+                    // and processed in `handle_item_updates()` before we set it for the last time here
+                    // TODO: `(async {}).await` doesn't work - is that a no-op in Rust's futures?
+                    let _ = tokio::spawn(async {}).await;
                     // replace with an empty item
                     bar.borrow_mut()[idx] = I3Item::empty();
                 }

@@ -8,6 +8,7 @@ use clap::builder::PossibleValue;
 use clap::{ColorChoice, Parser, Subcommand, ValueEnum};
 use istat::i3::{I3Button, I3ClickEvent, I3Modifier};
 use istat::ipc::{get_socket_path, IpcBarEvent, IpcMessage, IpcReply};
+use serde_json::Value;
 
 #[derive(Debug, Parser)]
 #[clap(name = "istat-ipc", color = ColorChoice::Always)]
@@ -27,7 +28,28 @@ enum CliCommand {
     /// events, and thus won't receive this refresh events.
     RefreshAll,
     /// Returns the current configuration.
-    GetConfig,
+    GetConfig {
+        /// JSON Pointer for the config https://datatracker.ietf.org/doc/html/rfc6901
+        /// If not provided, the entire config will be returned.
+        pointer: Option<String>,
+    },
+    /// Returns the current theme.
+    GetTheme {
+        /// JSON Pointer for the theme https://datatracker.ietf.org/doc/html/rfc6901
+        /// If not provided, the entire theme will be returned.
+        pointer: Option<String>,
+    },
+    /// Update the theme at runtime, some examples:
+    ///
+    /// `istat-ipc set-theme "/powerline_enable" true`
+    /// `istat-ipc set-theme "/powerline_separator/value" "$(printf "\xee\x82\xbe")"`
+    /// `istat-ipc set-theme "" "{new theme as json...}"`
+    SetTheme {
+        /// JSON Pointer for the theme https://datatracker.ietf.org/doc/html/rfc6901
+        pointer: String,
+        /// New value to set
+        json_value: String,
+    },
     /// Send a click event to a bar item.
     Click {
         /// The target bar item: can be an index or the name of the item.
@@ -129,7 +151,11 @@ fn send_message(
     msg: IpcMessage,
 ) -> Result<IpcReply, Box<dyn Error>> {
     let mut stream = UnixStream::connect(socket_path.as_ref())?;
-    if let Err(e) = stream.write_all(&serde_json::to_vec(&msg)?) {
+
+    let msg = serde_json::to_vec(&msg)?;
+    let mut payload = (msg.len() as u64).to_le_bytes().to_vec();
+    payload.extend(msg);
+    if let Err(e) = stream.write_all(&payload) {
         return Err(format!("Error writing to socket: {}", e).into());
     }
 
@@ -144,14 +170,94 @@ fn send_message(
     Ok(serde_json::from_slice(&buf[..n])?)
 }
 
+fn send_and_print_response(
+    socket_path: impl AsRef<OsStr>,
+    msg: IpcMessage,
+) -> Result<(), Box<dyn Error>> {
+    let resp = match send_message(&socket_path, msg) {
+        Ok(resp) => resp,
+        Err(e) => return Err(format!("failed to read ipc response: {}", e).into()),
+    };
+
+    println!(
+        "{}",
+        match resp {
+            IpcReply::Help(help) => help,
+            IpcReply::CustomResponse(value) => value.to_string(),
+            x => serde_json::to_string(&x)?,
+        }
+    );
+
+    Ok(())
+}
+
+fn get_json_response(socket_path: &PathBuf, msg: IpcMessage) -> Result<Value, Box<dyn Error>> {
+    Ok(match send_message(socket_path, msg)? {
+        IpcReply::CustomResponse(json) => json,
+        _ => unreachable!(),
+    })
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Cli::parse();
     let socket_path = get_socket_path(args.socket.as_ref())?;
 
-    let msg = match args.cmd {
-        CliCommand::Info => IpcMessage::Info,
-        CliCommand::RefreshAll => IpcMessage::RefreshAll,
-        CliCommand::GetConfig => IpcMessage::GetConfig,
+    match args.cmd {
+        CliCommand::Info => send_and_print_response(&socket_path, IpcMessage::Info)?,
+        CliCommand::RefreshAll => send_and_print_response(&socket_path, IpcMessage::RefreshAll)?,
+        CliCommand::GetConfig { pointer: None } => {
+            send_and_print_response(&socket_path, IpcMessage::GetConfig)?
+        }
+        CliCommand::GetTheme { pointer: None } => {
+            send_and_print_response(&socket_path, IpcMessage::GetTheme)?
+        }
+        CliCommand::GetConfig {
+            pointer: Some(pointer),
+        } => {
+            let config = get_json_response(&socket_path, IpcMessage::GetConfig)?;
+            match config.pointer(&pointer) {
+                Some(value) => println!("{}", value),
+                None => return Err(format!("No value found at: {}", pointer).into()),
+            }
+        }
+        CliCommand::GetTheme {
+            pointer: Some(pointer),
+        } => {
+            let theme = get_json_response(&socket_path, IpcMessage::GetTheme)?;
+            match theme.pointer(&pointer) {
+                Some(value) => println!("{}", value),
+                None => return Err(format!("No value found at: {}", pointer).into()),
+            }
+        }
+        CliCommand::SetTheme {
+            pointer,
+            json_value,
+        } => {
+            let mut theme = get_json_response(&socket_path, IpcMessage::GetTheme)?;
+            match theme.pointer_mut(&pointer) {
+                Some(value) => {
+                    let trimmed = json_value.trim();
+                    let new_value = match serde_json::from_str::<Value>(&trimmed) {
+                        // passed a direct JSON value
+                        Ok(value) => Ok(value),
+                        // assume string if it doesn't definitely look like some JSON value
+                        Err(_) if !trimmed.starts_with(&['[', '{', '\'', '"']) => {
+                            Ok(Value::String(trimmed.into()))
+                        }
+                        // pass through any other error
+                        err => err,
+                    }?;
+
+                    // update the current config - note that this may not be correct, for example if
+                    // the user passed a string where a boolean was expected
+                    *value = new_value;
+
+                    // send config back via IPC
+                    send_and_print_response(&socket_path, IpcMessage::SetTheme(theme))?;
+                }
+                None => return Err(format!("No value found at: {}", pointer).into()),
+            }
+        }
         CliCommand::Click {
             target,
             button,
@@ -179,30 +285,29 @@ fn main() -> Result<(), Box<dyn Error>> {
             height.map(|height| click.height = height);
 
             let event = IpcBarEvent::Click(click);
+            send_and_print_response(
+                &socket_path,
+                IpcMessage::BarEvent {
+                    instance: target,
+                    event,
+                },
+            )?;
+        }
+        CliCommand::Signal { target } => send_and_print_response(
+            &socket_path,
             IpcMessage::BarEvent {
                 instance: target,
-                event,
-            }
-        }
-        CliCommand::Signal { target } => IpcMessage::BarEvent {
-            instance: target,
-            event: IpcBarEvent::Signal,
-        },
-        CliCommand::Custom { target, args } => IpcMessage::BarEvent {
-            instance: target,
-            event: IpcBarEvent::Custom(args),
-        },
-    };
-
-    let resp = send_message(&socket_path, msg)?;
-    println!(
-        "{}",
-        match resp {
-            IpcReply::Help(help) => help,
-            IpcReply::CustomResponse(value) => value.to_string(),
-            x => serde_json::to_string(&x)?,
-        }
-    );
+                event: IpcBarEvent::Signal,
+            },
+        )?,
+        CliCommand::Custom { target, args } => send_and_print_response(
+            &socket_path,
+            IpcMessage::BarEvent {
+                instance: target,
+                event: IpcBarEvent::Custom(args),
+            },
+        )?,
+    }
 
     Ok(())
 }

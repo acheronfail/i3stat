@@ -1,3 +1,6 @@
+# TODO: check that this doesn't break anything else
+set positional-arguments
+
 _default:
   just --list
 
@@ -20,7 +23,8 @@ dev *args: _build
 
 # send an ipc event to the running debug version of istat (either `just dev` or `just debug`)
 ipc *args: _build
-  cargo lrun --quiet --bin istat-ipc -- --socket /tmp/istat-socket.dev {{args}}
+  echo
+  cargo lrun --quiet --bin istat-ipc -- --socket /tmp/istat-socket.dev "$@"
 
 # install locally, copy sample configuration and restart i3
 install:

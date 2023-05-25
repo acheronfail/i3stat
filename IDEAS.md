@@ -6,8 +6,6 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 ## Features
 
 * conditionally disable bar items
-* modify config via ipc
-  * e.g., be able to toggle powerline on/off
 
 ## Bugs
 

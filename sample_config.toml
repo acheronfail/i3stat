@@ -26,7 +26,7 @@ purple = "#b48ead"
 blue = "#8fbcbb"
 
 # if enabled, then item separators are removed and a "powerline"-like style is used
-powerline_enable = true
+powerline_enable = false
 
 # you can customise the powerline separator symbol here
 # the `scale` field is optional and can be used as a workaround for font icon size inconsistencies
@@ -147,7 +147,7 @@ max_volume = 120
 #   new_source_sink notifications when new sources/sinks are added
 #   defaults_change notifications when the default source/sink changes
 #   all             all notifications
-notify = "all"
+notify = "none"
 
 [[items]]
 # Show information about CapsLock/NumLock/ScrollLock.
