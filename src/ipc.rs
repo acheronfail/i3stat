@@ -208,8 +208,8 @@ async fn handle_ipc_request(
         IpcMessage::RefreshAll => {
             join_all(
                 dispatcher
-                    .iter()
-                    .map(|(idx, _)| dispatcher.send_bar_event(*idx, BarEvent::Signal)),
+                    .enumerate()
+                    .map(|(idx, _)| dispatcher.send_bar_event(idx, BarEvent::Signal)),
             )
             .await
             .into_iter()

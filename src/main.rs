@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::convert::Infallible;
 use std::error::Error;
 use std::process;
@@ -109,13 +108,7 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
         });
     }
 
-    let dispatcher = Dispatcher::new(
-        bar_txs
-            .into_iter()
-            .enumerate()
-            .map(|(idx, tx)| (idx, tx))
-            .collect::<HashMap<usize, _>>(),
-    );
+    let dispatcher = Dispatcher::new(bar_txs);
 
     // setup listener for handling item updates and printing the bar to STDOUT
     handle_item_updates(config.clone(), item_rx, bar);
@@ -235,7 +228,7 @@ where
 }
 
 /// HACK: this assumes that RGB colours scale linearly - I don't know if they do or not.
-/// Used in to render the powerline bar and make sure that dim text is visible.
+/// Used to render the powerline bar and make sure that dim text is visible.
 fn make_color_adjuster(bg: &HexColor, fg: &HexColor) -> impl Fn(&HexColor) -> HexColor {
     let r = fg.r.abs_diff(bg.r);
     let g = fg.g.abs_diff(bg.g);
