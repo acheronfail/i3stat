@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use figment::providers::{Format, Json, Toml, Yaml};
 use figment::Figment;
+use indexmap::IndexMap;
 use serde_derive::{Deserialize, Serialize};
 use strum::EnumIter;
 
@@ -30,6 +31,18 @@ impl AppConfig {
     pub fn socket(&self) -> PathBuf {
         // SAFETY: when creating instances of `AppConfig` this option is always filled
         self.socket.clone().unwrap()
+    }
+
+    pub fn item_name_map(&self) -> IndexMap<usize, String> {
+        let mut map = self
+            .items
+            .iter()
+            .enumerate()
+            .map(|(idx, item)| (idx, item.name().to_owned()))
+            .collect::<IndexMap<usize, String>>();
+
+        map.sort_keys();
+        map
     }
 
     pub async fn read(args: Cli) -> Result<AppConfig, Box<dyn Error>> {

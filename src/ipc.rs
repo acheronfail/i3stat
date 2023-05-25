@@ -87,8 +87,9 @@ pub async fn handle_ipc_events(
         match listener.accept().await {
             Ok((stream, _)) => {
                 let bar_txs = dispatcher.clone();
+                let config = config.clone(); // TODO: is this heavy?
                 tokio::task::spawn_local(async move {
-                    match handle_ipc_client(stream, bar_txs).await {
+                    match handle_ipc_client(stream, &config, bar_txs).await {
                         Ok(_) => {}
                         Err(e) => log::error!("ipc error: {}", e),
                     }
@@ -103,6 +104,7 @@ pub async fn handle_ipc_events(
 
 async fn handle_ipc_client(
     stream: UnixStream,
+    config: &AppConfig,
     dispatcher: Dispatcher,
 ) -> Result<(), Box<dyn Error>> {
     // TODO: upper limit? error if too big? how to handle that? add len in ipc protocol?
@@ -118,8 +120,7 @@ async fn handle_ipc_client(
                 // log::trace!("ipc message: {}", msg);
                 match msg {
                     IpcMessage::Info => {
-                        send_ipc_response(&stream, &IpcReply::Info(dispatcher.instance_mapping()))
-                            .await?;
+                        send_ipc_response(&stream, &IpcReply::Info(config.item_name_map())).await?;
                     }
                     IpcMessage::RefreshAll => {
                         join_all(
@@ -137,28 +138,30 @@ async fn handle_ipc_client(
                         let instance = match instance.parse::<usize>() {
                             // ipc message contained an index
                             Ok(idx) => idx,
-                            Err(e) => match dispatcher.iter().find_map(|(idx, (_, item))| {
-                                if instance == *item.name() {
-                                    Some(idx)
-                                } else {
-                                    None
+                            Err(e) => {
+                                match config.item_name_map().into_iter().find_map(|(idx, name)| {
+                                    if instance == name {
+                                        Some(idx)
+                                    } else {
+                                        None
+                                    }
+                                }) {
+                                    // ipc message contained a tag
+                                    Some(idx) => idx,
+                                    // error
+                                    None => {
+                                        let err =
+                                            format!("failed to parse ipc instance property: {}", e);
+                                        log::warn!("{}", err);
+                                        send_ipc_response(
+                                            &stream,
+                                            &IpcReply::Result(IpcResult::Failure(err)),
+                                        )
+                                        .await?;
+                                        break;
+                                    }
                                 }
-                            }) {
-                                // ipc message contained a tag
-                                Some(idx) => *idx,
-                                // error
-                                None => {
-                                    let err =
-                                        format!("failed to parse ipc instance property: {}", e);
-                                    log::warn!("{}", err);
-                                    send_ipc_response(
-                                        &stream,
-                                        &IpcReply::Result(IpcResult::Failure(err)),
-                                    )
-                                    .await?;
-                                    break;
-                                }
-                            },
+                            }
                         };
 
                         let (event, rx) = match event {

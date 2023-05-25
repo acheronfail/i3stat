@@ -107,7 +107,7 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
         bar_txs
             .into_iter()
             .enumerate()
-            .map(|(idx, tx)| (idx, (tx, config.items[idx].clone())))
+            .map(|(idx, tx)| (idx, tx))
             .collect::<HashMap<usize, _>>(),
     );
 
@@ -115,7 +115,7 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
     handle_item_updates(config.clone(), item_rx, bar);
 
     // handle incoming signals
-    let signal_handle = handle_signals(config.socket(), dispatcher.clone())?;
+    let signal_handle = handle_signals(&config, dispatcher.clone())?;
 
     // handle our inputs: i3's IPC and our own IPC
     let err = tokio::select! {

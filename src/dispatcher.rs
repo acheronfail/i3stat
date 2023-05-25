@@ -1,44 +1,29 @@
-use std::collections::hash_map::{IntoIter, Iter};
+use std::collections::hash_map::Iter;
 use std::collections::HashMap;
 use std::error::Error;
 
-use indexmap::IndexMap;
 use tokio::sync::mpsc::error::SendError;
 use tokio::sync::mpsc::Sender;
 
-use crate::config::Item;
 use crate::context::BarEvent;
-
-type InnerItem = (Sender<BarEvent>, Item);
 
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
-    inner: HashMap<usize, InnerItem>,
+    inner: HashMap<usize, Sender<BarEvent>>,
 }
 
 impl Dispatcher {
-    pub fn new(inner: HashMap<usize, InnerItem>) -> Dispatcher {
+    pub fn new(inner: HashMap<usize, Sender<BarEvent>>) -> Dispatcher {
         Dispatcher { inner }
     }
 
-    pub fn iter(&self) -> Iter<usize, InnerItem> {
+    pub fn iter(&self) -> Iter<usize, Sender<BarEvent>> {
         self.inner.iter()
-    }
-
-    pub fn instance_mapping(&self) -> IndexMap<usize, String> {
-        let mut mapping = self
-            .inner
-            .iter()
-            .map(|(idx, (_, item))| (*idx, item.name().into()))
-            .collect::<IndexMap<usize, String>>();
-
-        mapping.sort_keys();
-        mapping
     }
 
     pub async fn send_bar_event(&self, idx: usize, ev: BarEvent) -> Result<(), Box<dyn Error>> {
         match self.inner.get(&idx) {
-            Some((tx, _)) => {
+            Some(tx) => {
                 // if the channel fills up (the bar never reads click events), since this is a bounded channel
                 // sending the event would block forever, so just drop the event
                 if tx.capacity() == 0 {
@@ -61,15 +46,5 @@ impl Dispatcher {
             }
             None => Err(format!("no item found with index: {}", idx).into()),
         }
-    }
-}
-
-impl IntoIterator for Dispatcher {
-    type Item = (usize, InnerItem);
-
-    type IntoIter = IntoIter<usize, InnerItem>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.inner.into_iter()
     }
 }

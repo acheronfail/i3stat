@@ -90,6 +90,21 @@ impl Port {
             what: r#type.into(),
         }
     }
+
+    fn format(&self, what: Object, theme: &Theme) -> String {
+        format!(
+            r#"<span foreground="{}">{} {}%</span>"#,
+            if self.mute { theme.dim } else { theme.fg },
+            self.port_symbol()
+                .unwrap_or_else(|| match (what, self.mute) {
+                    (Object::Sink, false) => "",
+                    (Object::Sink, true) => "",
+                    (Object::Source, false) => "󰍬",
+                    (Object::Source, true) => "󰍭",
+                }),
+            self.volume_pct(),
+        )
+    }
 }
 
 macro_rules! impl_port_from {
@@ -361,33 +376,10 @@ impl PulseState {
             }
         };
 
-        let sink_text = format!(
-            r#"<span foreground="{}">{} {}%</span>"#,
-            if default_sink.mute {
-                self.theme.dim
-            } else {
-                self.theme.fg
-            },
-            default_sink
-                .port_symbol()
-                .unwrap_or_else(|| if default_sink.mute { "" } else { "" }),
-            default_sink.volume_pct(),
-        );
+        let sink_text = default_sink.format(Object::Sink, &self.theme);
+        let source_text = default_source.format(Object::Source, &self.theme);
 
-        let source_text = format!(
-            r#"<span foreground="{}">[{} {}%]</span>"#,
-            if default_source.mute {
-                self.theme.dim
-            } else {
-                self.theme.fg
-            },
-            default_source.port_symbol().unwrap_or(""),
-            default_source.volume_pct()
-        );
-
-        let full = format!(r#"{} {}"#, sink_text, source_text);
-
-        let item = I3Item::new(full)
+        let item = I3Item::new(format!(r#"{} {}"#, sink_text, source_text))
             .short_text(sink_text)
             .markup(I3Markup::Pango);
 
