@@ -9,7 +9,7 @@ use std::time::Duration;
 use clap::Parser;
 use hex_color::HexColor;
 use istat::cli::Cli;
-use istat::config::{self, AppConfig};
+use istat::config::AppConfig;
 use istat::context::{Context, SharedState};
 use istat::dispatcher::Dispatcher;
 use istat::i3::header::I3BarHeader;
@@ -51,7 +51,7 @@ fn start_runtime() -> Result<Infallible, Box<dyn Error>> {
 type Bar = Rc<RefCell<Vec<I3Item>>>;
 
 async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
-    let config = config::read(args.config).await?;
+    let config = AppConfig::read(args).await?;
 
     println!("{}", serde_json::to_string(&I3BarHeader::default())?);
     println!("[");
@@ -112,14 +112,14 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
     );
 
     // setup listener for handling item updates and printing the bar to STDOUT
-    handle_item_updates(config, item_rx, bar);
+    handle_item_updates(config.clone(), item_rx, bar);
 
     // handle incoming signals
-    let signal_handle = handle_signals(args.socket.clone(), dispatcher.clone())?;
+    let signal_handle = handle_signals(config.socket(), dispatcher.clone())?;
 
     // handle our inputs: i3's IPC and our own IPC
     let err = tokio::select! {
-        err = handle_ipc_events(args.socket.clone(), dispatcher.clone()) => err,
+        err = handle_ipc_events(&config, dispatcher.clone()) => err,
         err = handle_click_events(dispatcher.clone()) => err,
     };
 

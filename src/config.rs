@@ -7,20 +7,79 @@ use serde_derive::{Deserialize, Serialize};
 use strum::EnumIter;
 
 use crate::bar_items::*;
+use crate::cli::Cli;
 use crate::context::BarItem;
 use crate::i3::I3Item;
+use crate::ipc::get_socket_path;
 use crate::theme::Theme;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     /// Path to the socket to use for ipc. Useful when having multiple bars to separate their sockets.
     /// The CLI option takes precedence over this.
-    pub socket: Option<PathBuf>,
+    socket: Option<PathBuf>,
     /// Specify the colours of the theme
     #[serde(default)]
     pub theme: Theme,
     /// List of the items for the bar - ordered left to right.
     pub items: Vec<Item>,
+}
+
+impl AppConfig {
+    pub fn socket(&self) -> PathBuf {
+        // SAFETY: when creating instances of `AppConfig` this option is always filled
+        self.socket.clone().unwrap()
+    }
+
+    pub async fn read(args: Cli) -> Result<AppConfig, Box<dyn Error>> {
+        let path = args
+            .config
+            .map(|p| p.with_extension(""))
+            .or_else(|| dirs::config_dir().map(|d| d.join("istat/config")))
+            .ok_or_else(|| "failed to find config dir")?;
+
+        // TODO: document this order in help text
+        let mut c = Figment::new()
+            .merge(Toml::file(path.with_extension("toml")))
+            .merge(Yaml::file(path.with_extension("yaml")))
+            .merge(Json::file(path.with_extension("json")))
+            .extract::<AppConfig>()?;
+
+        // set socket path
+        c.socket = Some(match args.socket {
+            Some(socket_path) => socket_path,
+            None => get_socket_path(c.socket.as_ref())?,
+        });
+
+        // config validation
+        {
+            // check no duplicate names
+            for (i, a) in c.items.iter().enumerate().rev() {
+                for (j, b) in c.items.iter().enumerate() {
+                    if i == j {
+                        continue;
+                    }
+
+                    if let (Some(a), Some(b)) = (&a.common.name, &b.common.name) {
+                        if a == b {
+                            return Err(format!(
+                                    "item names must be unique, item[{}] and item[{}] share the same name: {}",
+                                    i, j, a
+                                )
+                                .into());
+                        }
+                    }
+                }
+            }
+
+            // check no empty powerline config
+            if c.theme.powerline.len() <= 1 {
+                return Err("theme.powerline must contain at least two values".into());
+            }
+        }
+
+        Ok(c)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,49 +162,6 @@ impl Item {
     pub fn tag(&self) -> &'static str {
         self.inner.tag()
     }
-}
-
-pub async fn read(config_path: Option<PathBuf>) -> Result<AppConfig, Box<dyn Error>> {
-    let path = config_path
-        .map(|p| p.with_extension(""))
-        .or_else(|| dirs::config_dir().map(|d| d.join("istat/config")))
-        .ok_or_else(|| "failed to find config dir")?;
-
-    // TODO: document this order in help text
-    let c = Figment::new()
-        .merge(Toml::file(path.with_extension("toml")))
-        .merge(Yaml::file(path.with_extension("yaml")))
-        .merge(Json::file(path.with_extension("json")))
-        .extract::<AppConfig>()?;
-
-    // config validation
-    {
-        // check no duplicate names
-        for (i, a) in c.items.iter().enumerate().rev() {
-            for (j, b) in c.items.iter().enumerate() {
-                if i == j {
-                    continue;
-                }
-
-                if let (Some(a), Some(b)) = (&a.common.name, &b.common.name) {
-                    if a == b {
-                        return Err(format!(
-                                "item names must be unique, item[{}] and item[{}] share the same name: {}",
-                                i, j, a
-                            )
-                            .into());
-                    }
-                }
-            }
-        }
-
-        // check no empty powerline config
-        if c.theme.powerline.len() <= 1 {
-            return Err("theme.powerline must contain at least two values".into());
-        }
-    }
-
-    Ok(c)
 }
 
 #[cfg(test)]

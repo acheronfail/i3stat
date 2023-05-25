@@ -11,6 +11,7 @@ use serde_json::Value;
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::oneshot;
 
+use crate::config::AppConfig;
 use crate::context::{BarEvent, CustomResponse};
 use crate::dispatcher::Dispatcher;
 use crate::i3::I3ClickEvent;
@@ -51,7 +52,7 @@ pub enum IpcResult {
     Failure(String),
 }
 
-pub fn get_socket_path(socket_path: Option<PathBuf>) -> Result<PathBuf, Box<dyn Error>> {
+pub fn get_socket_path(socket_path: Option<&PathBuf>) -> Result<PathBuf, Box<dyn Error>> {
     socket_path.map_or_else(
         || {
             let i3_socket = PathBuf::from(env::var("I3SOCK")?);
@@ -64,15 +65,15 @@ pub fn get_socket_path(socket_path: Option<PathBuf>) -> Result<PathBuf, Box<dyn 
 
             Ok(my_socket)
         },
-        |p| Ok(p),
+        |p| Ok(p.clone()),
     )
 }
 
 pub async fn handle_ipc_events(
-    socket_path: Option<PathBuf>,
+    config: &AppConfig,
     dispatcher: Dispatcher,
 ) -> Result<Infallible, Box<dyn Error>> {
-    let socket_path = get_socket_path(socket_path)?;
+    let socket_path = config.socket();
 
     // try to remove socket if one exists
     match tokio::fs::remove_file(&socket_path).await {

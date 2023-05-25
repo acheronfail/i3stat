@@ -144,7 +144,7 @@ fn send_message(
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Cli::parse();
-    let socket_path = get_socket_path(args.socket)?;
+    let socket_path = get_socket_path(args.socket.as_ref())?;
 
     let msg = match args.cmd {
         CliCommand::Info => IpcMessage::Info,
