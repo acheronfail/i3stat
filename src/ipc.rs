@@ -1,8 +1,10 @@
+use std::cell::RefCell;
 use std::convert::Infallible;
 use std::env;
 use std::error::Error;
 use std::io::ErrorKind;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 use futures::future::join_all;
 use indexmap::IndexMap;
@@ -29,6 +31,7 @@ pub enum IpcBarEvent {
 pub enum IpcMessage {
     Info,
     RefreshAll,
+    GetConfig,
     BarEvent {
         instance: String,
         event: IpcBarEvent,
@@ -70,10 +73,10 @@ pub fn get_socket_path(socket_path: Option<&PathBuf>) -> Result<PathBuf, Box<dyn
 }
 
 pub async fn handle_ipc_events(
-    config: &AppConfig,
+    config: Rc<RefCell<AppConfig>>,
     dispatcher: Dispatcher,
 ) -> Result<Infallible, Box<dyn Error>> {
-    let socket_path = config.socket();
+    let socket_path = config.borrow().socket();
 
     // try to remove socket if one exists
     match tokio::fs::remove_file(&socket_path).await {
@@ -87,9 +90,9 @@ pub async fn handle_ipc_events(
         match listener.accept().await {
             Ok((stream, _)) => {
                 let bar_txs = dispatcher.clone();
-                let config = config.clone(); // TODO: is this heavy?
+                let config = config.clone();
                 tokio::task::spawn_local(async move {
-                    match handle_ipc_client(stream, &config, bar_txs).await {
+                    match handle_ipc_client(stream, config, bar_txs).await {
                         Ok(_) => {}
                         Err(e) => log::error!("ipc error: {}", e),
                     }
@@ -104,7 +107,7 @@ pub async fn handle_ipc_events(
 
 async fn handle_ipc_client(
     stream: UnixStream,
-    config: &AppConfig,
+    config: Rc<RefCell<AppConfig>>,
     dispatcher: Dispatcher,
 ) -> Result<(), Box<dyn Error>> {
     // TODO: upper limit? error if too big? how to handle that? add len in ipc protocol?
@@ -120,7 +123,18 @@ async fn handle_ipc_client(
                 // log::trace!("ipc message: {}", msg);
                 match msg {
                     IpcMessage::Info => {
-                        send_ipc_response(&stream, &IpcReply::Info(config.item_name_map())).await?;
+                        send_ipc_response(
+                            &stream,
+                            &IpcReply::Info(config.borrow().item_name_map()),
+                        )
+                        .await?;
+                    }
+                    IpcMessage::GetConfig => {
+                        send_ipc_response(
+                            &stream,
+                            &IpcReply::CustomResponse(serde_json::to_value(&*config.borrow())?),
+                        )
+                        .await?;
                     }
                     IpcMessage::RefreshAll => {
                         join_all(
@@ -139,13 +153,15 @@ async fn handle_ipc_client(
                             // ipc message contained an index
                             Ok(idx) => idx,
                             Err(e) => {
-                                match config.item_name_map().into_iter().find_map(|(idx, name)| {
-                                    if instance == name {
-                                        Some(idx)
-                                    } else {
-                                        None
-                                    }
-                                }) {
+                                match config.borrow().item_name_map().into_iter().find_map(
+                                    |(idx, name)| {
+                                        if instance == name {
+                                            Some(idx)
+                                        } else {
+                                            None
+                                        }
+                                    },
+                                ) {
                                     // ipc message contained a tag
                                     Some(idx) => idx,
                                     // error

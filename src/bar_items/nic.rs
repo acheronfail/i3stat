@@ -166,7 +166,7 @@ impl BarItem for Nic {
 
             // no networks active
             if interfaces.is_empty() {
-                ctx.update_item(I3Item::new("disconnected").color(ctx.theme.red))
+                ctx.update_item(I3Item::new("disconnected").color(ctx.theme().red))
                     .await?;
 
                 idx = 0;
@@ -179,8 +179,9 @@ impl BarItem for Nic {
             let len = interfaces.len();
             idx = idx % len;
 
-            let (full, short) = interfaces[idx].format(&ctx.theme);
-            let full = format!(r#"{}{}"#, full, fraction(&ctx.theme, idx + 1, len));
+            let theme = ctx.theme();
+            let (full, short) = interfaces[idx].format(&theme);
+            let full = format!(r#"{}{}"#, full, fraction(&theme, idx + 1, len));
 
             let item = I3Item::new(full).short_text(short).markup(I3Markup::Pango);
             ctx.update_item(item).await?;

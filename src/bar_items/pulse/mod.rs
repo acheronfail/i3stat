@@ -126,9 +126,8 @@ macro_rules! impl_port_from {
 impl_port_from!(SinkInfo<'a>);
 impl_port_from!(SourceInfo<'a>);
 
-#[derive(Debug)]
 enum Command {
-    UpdateItem(I3Item),
+    UpdateItem(Box<dyn FnOnce(&Theme) -> I3Item>),
     NotifyVolume {
         name: String,
         volume: u32,
@@ -184,7 +183,6 @@ pub struct Pulse {
 
 pub struct PulseState {
     tx: UnboundedSender<Command>,
-    theme: Theme,
     increment: u32,
     max_volume: Option<u32>,
 
@@ -376,14 +374,14 @@ impl PulseState {
             }
         };
 
-        let sink_text = default_sink.format(Object::Sink, &self.theme);
-        let source_text = default_source.format(Object::Source, &self.theme);
+        let _ = self.tx.send(Command::UpdateItem(Box::new(move |theme| {
+            let sink_text = default_sink.format(Object::Sink, theme);
+            let source_text = default_source.format(Object::Source, theme);
 
-        let item = I3Item::new(format!(r#"{} {}"#, sink_text, source_text))
-            .short_text(sink_text)
-            .markup(I3Markup::Pango);
-
-        let _ = self.tx.send(Command::UpdateItem(item));
+            I3Item::new(format!(r#"{} {}"#, sink_text, source_text))
+                .short_text(sink_text)
+                .markup(I3Markup::Pango)
+        })));
     }
 
     fn subscribe_cb(
@@ -507,7 +505,6 @@ impl BarItem for Pulse {
         let (tx, mut rx) = mpsc::unbounded_channel();
         let inner = Rc::new(PulseState {
             tx,
-            theme: ctx.theme.clone(),
             increment: self.increment.unwrap_or(2),
             max_volume: self.max_volume,
 
@@ -599,8 +596,8 @@ impl BarItem for Pulse {
 
                 // whenever we want to refresh our item, an event it send on this channel
                 Some(cmd) = rx.recv() => match cmd {
-                    Command::UpdateItem(item) => {
-                        ctx.update_item(item).await?;
+                    Command::UpdateItem(cb) => {
+                        ctx.update_item(cb(&ctx.theme())).await?;
                     }
                     Command::NotifyVolume { name, volume, mute } => {
                         if self.notify.should_notify(NotificationSetting::VolumeMute) {

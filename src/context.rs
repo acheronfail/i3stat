@@ -12,6 +12,7 @@ use tokio::sync::mpsc::error::{SendError, TryRecvError};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::sleep;
 
+use crate::config::AppConfig;
 use crate::i3::bar_item::I3Item;
 use crate::i3::{I3Button, I3ClickEvent};
 use crate::theme::Theme;
@@ -46,8 +47,8 @@ impl SharedState {
 }
 
 pub struct Context {
+    config: Rc<RefCell<AppConfig>>,
     pub state: Rc<RefCell<SharedState>>,
-    pub theme: Theme,
     // Used as an internal cache to prevent sending the same item multiple times
     last_item: RefCell<I3Item>,
     tx_item: mpsc::Sender<(I3Item, usize)>,
@@ -58,7 +59,7 @@ pub struct Context {
 
 impl Context {
     pub fn new(
-        theme: Theme,
+        config: Rc<RefCell<AppConfig>>,
         state: Rc<RefCell<SharedState>>,
         tx_item: mpsc::Sender<(I3Item, usize)>,
         tx_event: mpsc::Sender<BarEvent>,
@@ -66,14 +67,20 @@ impl Context {
         index: usize,
     ) -> Context {
         Context {
+            config,
             state,
-            theme,
             last_item: RefCell::default(),
             tx_item,
             tx_event,
             rx_event,
             index,
         }
+    }
+
+    /// Get the current theme configuration. Exposed as a getter because the theme may change at
+    /// runtime via IPC.
+    pub fn theme(&self) -> Theme {
+        self.config.borrow().theme.clone()
     }
 
     pub async fn update_item(&self, item: I3Item) -> Result<(), SendError<(I3Item, usize)>> {

@@ -14,7 +14,7 @@ use istat::ipc::{get_socket_path, IpcBarEvent, IpcMessage, IpcReply};
 struct Cli {
     #[command(subcommand)]
     cmd: CliCommand,
-    /// Path to the socket to use for ipc
+    /// Path to the socket to use for ipc.
     #[clap(long)]
     socket: Option<PathBuf>,
 }
@@ -26,13 +26,15 @@ enum CliCommand {
     /// Sends a signal to all events to trigger a refresh. Note that some items completely ignore all
     /// events, and thus won't receive this refresh events.
     RefreshAll,
-    /// Send a click event to a bar item
+    /// Returns the current configuration.
+    GetConfig,
+    /// Send a click event to a bar item.
     Click {
-        /// The target bar item: can be an index or the name of the item
+        /// The target bar item: can be an index or the name of the item.
         target: String,
-        /// The mouse button to send
+        /// The mouse button to send.
         button: Button,
-        /// A list of modifiers (pass multiple times) emulated in the click event
+        /// A list of modifiers (pass multiple times) emulated in the click event.
         #[clap(long, short)]
         modifiers: Vec<Modifier>,
         #[clap(long, short)]
@@ -149,6 +151,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let msg = match args.cmd {
         CliCommand::Info => IpcMessage::Info,
         CliCommand::RefreshAll => IpcMessage::RefreshAll,
+        CliCommand::GetConfig => IpcMessage::GetConfig,
         CliCommand::Click {
             target,
             button,

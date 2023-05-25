@@ -163,8 +163,9 @@ impl BarItem for Battery {
             if len > 0 {
                 idx = idx % len;
 
-                let (full, short, fg) = batteries[idx].format(&ctx.theme, show_watts).await?;
-                let full = format!("{}{}", full, fraction(&ctx.theme, idx + 1, len));
+                let theme = ctx.theme();
+                let (full, short, fg) = batteries[idx].format(&theme, show_watts).await?;
+                let full = format!("{}{}", full, fraction(&theme, idx + 1, len));
 
                 let mut item = I3Item::new(full).short_text(short).markup(I3Markup::Pango);
 

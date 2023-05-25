@@ -68,8 +68,7 @@ fn format_bytes(bytes: u64, si: bool, as_bits: bool) -> String {
 #[async_trait(?Send)]
 impl BarItem for NetUsage {
     async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
-        let theme = ctx.theme.clone();
-        let fg = |bytes| {
+        let fg = |bytes: u64, theme: &Theme| {
             self.get_color(&theme, bytes)
                 .map(|c| format!(r#" foreground="{}""#, c))
                 .unwrap_or("".into())
@@ -111,12 +110,13 @@ impl BarItem for NetUsage {
                 (div_as_u64(down, elapsed), div_as_u64(up, elapsed))
             };
 
+            let theme = ctx.theme();
             ctx.update_item(
                 I3Item::new(format!(
                     "<span{}>{}↓</span> <span{}>{}↑</span>",
-                    fg(down),
+                    fg(down, &theme),
                     text(down, as_bits),
-                    fg(up),
+                    fg(up, &theme),
                     text(up, as_bits)
                 ))
                 .markup(I3Markup::Pango),

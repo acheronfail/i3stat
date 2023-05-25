@@ -62,7 +62,7 @@ impl BarItem for Mem {
             };
 
             let mut item = I3Item::new(format!(" {}", s)).markup(I3Markup::Pango);
-            if let Some(fg) = Self::get_color(&ctx.theme, used_pct) {
+            if let Some(fg) = Self::get_color(&ctx.theme(), used_pct) {
                 item = item.color(fg);
             }
 

@@ -65,7 +65,7 @@ impl BarItem for Sensors {
                 }
             };
 
-            let (icon, color) = Self::get_icon(&ctx.theme, temp as u32);
+            let (icon, color) = Self::get_icon(&ctx.theme(), temp as u32);
             let temp = float(temp, &self.float_fmt);
             let mut item = I3Item::new(format!("{} {}°C", icon, temp))
                 .short_text(format!("{}C", temp))

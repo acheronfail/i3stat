@@ -17,6 +17,7 @@ use istat::i3::ipc::handle_click_events;
 use istat::i3::{I3Item, I3Markup};
 use istat::ipc::handle_ipc_events;
 use istat::signals::handle_signals;
+use istat::theme::Theme;
 use tokio::sync::mpsc::{self, Receiver};
 
 fn main() {
@@ -51,12 +52,12 @@ fn start_runtime() -> Result<Infallible, Box<dyn Error>> {
 type Bar = Rc<RefCell<Vec<I3Item>>>;
 
 async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
-    let config = AppConfig::read(args).await?;
+    let config = Rc::new(RefCell::new(AppConfig::read(args).await?));
 
     println!("{}", serde_json::to_string(&I3BarHeader::default())?);
     println!("[");
 
-    let item_count = config.items.len();
+    let item_count = config.borrow().items.len();
 
     // shared context
     let state = SharedState::new();
@@ -67,14 +68,14 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
 
     // for each BarItem, spawn a new task to manage it
     let (item_tx, item_rx) = mpsc::channel(item_count + 1);
-    for (idx, item) in config.items.iter().enumerate() {
+    for (idx, item) in config.borrow().items.iter().enumerate() {
         let bar_item = item.to_bar_item();
 
         let (event_tx, event_rx) = mpsc::channel(32);
         bar_txs.push(event_tx.clone());
 
         let ctx = Context::new(
-            config.theme.clone(),
+            config.clone(),
             state.clone(),
             item_tx.clone(),
             event_tx,
@@ -82,8 +83,8 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
             idx,
         );
         let bar = bar.clone();
+        let config = config.clone();
         tokio::task::spawn_local(async move {
-            let theme = ctx.theme.clone();
             let fut = bar_item.start(ctx);
             // since this item has terminated, remove its entry from the bar
             match fut.await {
@@ -95,6 +96,7 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
                 Err(e) => {
                     log::error!("item[{}] exited with error: {}", idx, e);
                     // replace with an error item
+                    let theme = config.borrow().theme.clone();
                     bar.borrow_mut()[idx] = I3Item::new("ERROR")
                         .color(theme.bg)
                         .background_color(theme.red);
@@ -115,11 +117,11 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
     handle_item_updates(config.clone(), item_rx, bar);
 
     // handle incoming signals
-    let signal_handle = handle_signals(&config, dispatcher.clone())?;
+    let signal_handle = handle_signals(config.clone(), dispatcher.clone())?;
 
     // handle our inputs: i3's IPC and our own IPC
     let err = tokio::select! {
-        err = handle_ipc_events(&config, dispatcher.clone()) => err,
+        err = handle_ipc_events(config.clone(), dispatcher.clone()) => err,
         err = handle_click_events(dispatcher.clone()) => err,
     };
 
@@ -129,17 +131,16 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
 }
 
 // task to manage updating the bar and printing it as JSON
-fn handle_item_updates(config: AppConfig, mut rx: Receiver<(I3Item, usize)>, bar: Bar) {
-    let item_names = config
-        .items
-        .iter()
-        .map(|item| item.name().to_owned())
-        .collect::<Vec<_>>();
+fn handle_item_updates(
+    config: Rc<RefCell<AppConfig>>,
+    mut rx: Receiver<(I3Item, usize)>,
+    bar: Bar,
+) {
+    let item_names = config.borrow().item_name_map();
 
     tokio::task::spawn_local(async move {
-        let adjuster = make_color_adjuster(&config.theme.bg, &config.theme.dim);
-
         while let Some((i3_item, idx)) = rx.recv().await {
+            // update the bar
             let mut bar = bar.borrow_mut();
             bar[idx] = i3_item
                 // the name of the item
@@ -147,8 +148,14 @@ fn handle_item_updates(config: AppConfig, mut rx: Receiver<(I3Item, usize)>, bar
                 // always override the bar item's `instance`, since we track that ourselves
                 .instance(idx.to_string());
 
-            let bar_json = match config.theme.powerline_enable {
-                true => serde_json::to_string(&create_powerline(&*bar, &config, &adjuster)),
+            // serialise to JSON
+            let theme = config.borrow().theme.clone();
+            let bar_json = match theme.powerline_enable {
+                true => serde_json::to_string(&create_powerline(
+                    &*bar,
+                    &theme,
+                    &make_color_adjuster(&theme.bg, &theme.dim),
+                )),
                 false => serde_json::to_string(&*bar),
             };
 
@@ -166,11 +173,11 @@ fn handle_item_updates(config: AppConfig, mut rx: Receiver<(I3Item, usize)>, bar
     });
 }
 
-fn create_powerline<F>(bar: &[I3Item], config: &AppConfig, adjuster: F) -> Vec<I3Item>
+fn create_powerline<F>(bar: &[I3Item], theme: &Theme, adjuster: F) -> Vec<I3Item>
 where
     F: Fn(&HexColor) -> HexColor,
 {
-    let len = config.theme.powerline.len();
+    let len = theme.powerline.len();
     let mut powerline_bar = vec![];
     for i in 0..bar.len() {
         let item = &bar[i];
@@ -182,11 +189,11 @@ where
         #[cfg(debug_assertions)]
         assert_eq!(item.get_instance().unwrap(), &instance);
 
-        let c1 = &config.theme.powerline[i % len];
-        let c2 = &config.theme.powerline[(i + 1) % len];
+        let c1 = &theme.powerline[i % len];
+        let c2 = &theme.powerline[(i + 1) % len];
 
         // create the powerline separator
-        let mut sep_item = I3Item::new(config.theme.powerline_separator.to_span())
+        let mut sep_item = I3Item::new(theme.powerline_separator.to_span())
             .instance(instance)
             .separator(false)
             .markup(I3Markup::Pango)
@@ -208,12 +215,12 @@ where
                     " {} ",
                     // replace `config.theme.dim` use in pango spans
                     item.full_text
-                        .replace(&config.theme.dim.to_string(), &adjusted_dim.to_string())
+                        .replace(&theme.dim.to_string(), &adjusted_dim.to_string())
                 ))
                 .separator(false)
                 .separator_block_width_px(0)
                 .color(match item.get_color() {
-                    Some(color) if color == &config.theme.dim => adjusted_dim,
+                    Some(color) if color == &theme.dim => adjusted_dim,
                     Some(color) => *color,
                     _ => c2.fg,
                 })

@@ -88,7 +88,8 @@ impl BarItem for Kbd {
         let keys = self.show.clone().unwrap_or_else(|| Keys::iter().collect());
 
         'outer: loop {
-            let text = futures::future::join_all(keys.iter().map(|k| k.format(&ctx.theme)))
+            let theme = ctx.theme();
+            let text = futures::future::join_all(keys.iter().map(|k| k.format(&theme)))
                 .await
                 .into_iter()
                 .collect::<Result<Vec<_>, _>>()?

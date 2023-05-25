@@ -49,8 +49,9 @@ impl BarItem for Cpu {
                 state.sys.global_cpu_info().cpu_usage()
             };
 
-            let mut item = I3Item::new(self.get_full_text(&ctx.theme, pct)).markup(I3Markup::Pango);
-            if let Some(fg) = self.get_color(&ctx.theme, pct) {
+            let theme = ctx.theme();
+            let mut item = I3Item::new(self.get_full_text(&theme, pct)).markup(I3Markup::Pango);
+            if let Some(fg) = self.get_color(&theme, pct) {
                 item = item.color(fg);
             }
 
