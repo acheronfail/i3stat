@@ -75,6 +75,7 @@ impl Interface {
 
     fn format(&mut self, theme: &Theme) -> (String, String) {
         // TODO: contribute AsRef upstream to https://github.com/psibi/iwlib-rs
+        // See: https://github.com/psibi/iwlib-rs/pull/2
         let name = self.name.clone();
 
         // check if this is a wireless network

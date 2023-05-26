@@ -1,4 +1,3 @@
-# TODO: check that this doesn't break anything else
 set positional-arguments
 
 _default:
