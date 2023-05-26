@@ -213,7 +213,13 @@ async fn handle_ipc_request(
             )
             .await
             .into_iter()
-            .collect::<Result<Vec<_>, _>>()?;
+            .for_each(|r| {
+                if let Err(e) = r {
+                    log::warn!("{}", e);
+                }
+            });
+
+            send_ipc_response(&stream, &IpcReply::Result(IpcResult::Success(None))).await?;
         }
         IpcMessage::BarEvent { instance, event } => {
             // NOTE: special considerations here for `instance`: if it's a number, then it maps to the item at the index
