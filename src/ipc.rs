@@ -107,9 +107,7 @@ pub async fn handle_ipc_events(
                     }
                 });
             }
-            Err(e) => {
-                todo!("{}", e);
-            }
+            Err(e) => return Err(format!("failed to setup ipc connection: {}", e).into()),
         }
     }
 }
@@ -119,12 +117,10 @@ async fn handle_ipc_client(
     config: Rc<RefCell<AppConfig>>,
     dispatcher: Dispatcher,
 ) -> Result<(), Box<dyn Error>> {
-    // TODO: upper limit? error if too big? how to handle that? add len in ipc protocol?
+    // first read the length header of the IPC message
     let mut buf = [0; IPC_LEN];
     loop {
         stream.readable().await?;
-
-        // there may be false positives readiness events
         match stream.try_read(&mut buf) {
             Ok(0) => break,
             Ok(IPC_LEN) => {
@@ -132,7 +128,14 @@ async fn handle_ipc_client(
                 handle_ipc_request(&stream, config, dispatcher, len as usize).await?;
                 break;
             }
-            Ok(_) => todo!("err on partial read of len"),
+            Ok(n) => {
+                return Err(format!(
+                    "failed reading ipc header, read {} bytes, expected {}",
+                    n, IPC_LEN
+                )
+                .into())
+            }
+            // there may be false positives readiness events
             Err(ref e) if e.kind() == ErrorKind::WouldBlock => continue,
             Err(e) => return Err(e.into()),
         }
@@ -166,6 +169,7 @@ async fn handle_ipc_request(
                     break;
                 }
             }
+            // there may be false positives readiness events
             Err(ref e) if e.kind() == ErrorKind::WouldBlock => continue,
             Err(e) => return Err(e.into()),
         }
