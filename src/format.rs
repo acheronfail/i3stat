@@ -20,8 +20,7 @@ pub fn fraction(theme: &Theme, num: usize, den: usize) -> String {
 pub struct FloatFormat {
     pad: Option<char>,
     pad_count: Option<usize>,
-    #[serde(default)]
-    precision: usize,
+    precision: Option<usize>,
 }
 
 fn num_digits<F: Float>(n: F) -> usize {
@@ -37,10 +36,15 @@ fn num_digits<F: Float>(n: F) -> usize {
 pub fn float<F: Float>(n: F, fmt: &FloatFormat) -> String {
     // SAFETY: the input type is constrained to a float, and all f32's fit into an f64
     let n = n.to_f64().unwrap();
+    if matches!((fmt.pad, fmt.pad_count, fmt.precision), (None, None, None)) {
+        return format!("{:3.0}", n);
+    }
+
+    let precision = fmt.precision.unwrap_or(0);
     let pad_count = fmt.pad_count.unwrap_or_else(|| {
-        if fmt.precision > 0 {
+        if precision > 0 {
             // three digits (e.g., 100%) + decimal separator + precision
-            3 + 1 + fmt.precision
+            3 + 1 + precision
         } else {
             // three digits (e.g., 100%) only
             3
@@ -60,10 +64,5 @@ pub fn float<F: Float>(n: F, fmt: &FloatFormat) -> String {
         })
         .unwrap_or("".into());
 
-    format!(
-        "{}{:.precision$}",
-        padding,
-        n,
-        precision = fmt.precision as usize,
-    )
+    format!("{}{:.precision$}", padding, n, precision = precision,)
 }

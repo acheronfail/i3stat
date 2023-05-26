@@ -13,8 +13,10 @@ use crate::format::{float, FloatFormat};
 use crate::i3::{I3Button, I3Item, I3Markup};
 use crate::theme::Theme;
 
-#[derive(Debug, PartialEq, EnumIter)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, EnumIter)]
+#[serde(rename_all = "snake_case")]
 pub enum MemDisplay {
+    #[default]
     Bytes,
     Percentage,
 }
@@ -25,6 +27,8 @@ pub struct Mem {
     interval: Duration,
     #[serde(flatten)]
     float_fmt: FloatFormat,
+    #[serde(default)]
+    display: MemDisplay,
 }
 
 impl Mem {
@@ -45,6 +49,10 @@ impl BarItem for Mem {
         let mut display_iter = MemDisplay::iter().cycle();
         // SAFETY: this is an endless iterator through the enum, so it should never be empty
         let display = &mut display_iter.next().unwrap();
+        while *display != self.display {
+            *display = display_iter.next().unwrap();
+        }
+
         loop {
             let (available, total) = {
                 let mut state = ctx.state.borrow_mut();

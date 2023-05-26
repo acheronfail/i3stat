@@ -107,9 +107,7 @@ interval = "60s"
 type = "cpu"
 # How often this item should refresh
 interval = "2s"
-# See: FLOAT FORMAT OPTIONS
-pad = ' '
-pad_count = 2
+# Also includes FLOAT FORMAT OPTIONS
 
 [[items]]
 # Display the temperature of a given component.
@@ -121,13 +119,20 @@ interval = "5s"
 # The name of the component to display temperature for.
 # The `istat-sensors` command is provided and outputs a list of components that can be used.
 label = "coretemp Package id 0"
+# See: FLOAT FORMAT OPTIONS
+pad = ' '
+pad_count = 2
 
 [[items]]
 # Display information about the system's memory usage
 type = "mem"
 # How often this item should refresh
 interval = "10s"
-# Also includes FLOAT FORMAT OPTIONS
+# Optionally set the display mode, one of:
+#   bytes:      display free memory as a byte size (default)
+#   percentage: display used memory as a percentage
+display = "bytes"
+# Also includes FLOAT FORMAT OPTIONS for when displaying as a percentage
 
 [[items]]
 # Display infomation about the current sink (sound output) and source (sound input). This is a very

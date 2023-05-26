@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /// <reference path="./node_modules/@types/node/index.d.ts" />
 
-import { ExecaChildProcess, execa, $ } from 'execa';
+import { execa, $ } from 'execa';
 import { parse, HTMLElement } from 'node-html-parser';
 import chalk from 'chalk';
 import stripAnsi from 'strip-ansi';
