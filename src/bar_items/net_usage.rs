@@ -18,6 +18,8 @@ pub struct NetUsage {
     interval: Duration,
     minimum: Option<ByteSize>,
     thresholds: Vec<ByteSize>,
+    #[serde(default)]
+    ignored_interfaces: Vec<String>,
 }
 
 impl NetUsage {
@@ -99,8 +101,12 @@ impl BarItem for NetUsage {
                 networks.refresh_networks_list();
 
                 // this returns the number of bytes since the last refresh
-                let (down, up) = networks.iter().fold((0, 0), |(d, u), (_, net)| {
-                    (d + net.received(), u + net.transmitted())
+                let (down, up) = networks.iter().fold((0, 0), |(d, u), (interface, net)| {
+                    if self.ignored_interfaces.contains(&interface) {
+                        (d, u)
+                    } else {
+                        (d + net.received(), u + net.transmitted())
+                    }
                 });
 
                 // so we check how long it's been since the last refresh, and adjust accordingly

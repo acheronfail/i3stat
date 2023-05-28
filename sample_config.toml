@@ -74,6 +74,8 @@ minimum = "1 kiB"
 #   4th..5th: theme.error
 #   5th..MAX: theme.special
 thresholds = ["1kiB", "1MiB", "10MiB", "25MiB", "100MiB"]
+# Optionally provide a list of interface names to ignore when calculating usage
+# ignored_interfaces = ["vpn0"]
 
 [[items]]
 # Kerberos item - simply calls `klist` and displays the result
