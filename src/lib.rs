@@ -9,6 +9,7 @@ pub mod format;
 pub mod human_time;
 pub mod i3;
 pub mod ipc;
+pub mod net;
 pub mod signals;
 pub mod theme;
 
