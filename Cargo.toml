@@ -56,3 +56,11 @@ zbus = { version = "3.13.1", default-features = false, features = ["tokio"] }
 [dev-dependencies]
 clap_mangen = "0.2.11"
 clap = { version = "4.2.7", features = ["derive"] }
+
+[profile.release]
+# Reducing binary size. Read the git commit with this change for detailed savings.
+# See: https://github.com/johnthagen/min-sized-rust
+strip = true
+lto = true
+codegen-units = 1
+panic = "abort"
