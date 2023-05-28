@@ -80,7 +80,7 @@ impl BarItem for NetUsage {
         let text = |bytes, as_bits| {
             format!(
                 "{:>8}",
-                if bytes > min {
+                if bytes >= min {
                     format_bytes(bytes, false, as_bits)
                 } else {
                     "-".into()
