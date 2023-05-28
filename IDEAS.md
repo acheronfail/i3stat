@@ -6,6 +6,8 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 ## Features
 
 * conditionally disable bar items
+* a bin PKGBUILD for the AUR (would need to setup CI first)
+* script to generate and resize screenshots for the readme
 
 ## Bugs
 
