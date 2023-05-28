@@ -16,7 +16,7 @@ pub struct Dunst {}
 impl Dunst {
     fn item(theme: &Theme, paused: bool) -> I3Item {
         if paused {
-            I3Item::new("  ")
+            I3Item::new("   ")
                 .markup(I3Markup::Pango)
                 .color(theme.bg)
                 .background_color(theme.yellow)
