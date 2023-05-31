@@ -145,6 +145,8 @@ pub struct Battery {
     #[serde(with = "crate::human_time")]
     interval: Duration,
     batteries: Option<Vec<Bat>>,
+    // TODO: option to send warning notifications on certain percentage(s)
+    // TODO: option to run command(s) at certain percentage(s)
 }
 
 #[async_trait(?Send)]

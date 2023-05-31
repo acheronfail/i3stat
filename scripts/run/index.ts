@@ -4,6 +4,7 @@
 import { execa, $ } from 'execa';
 import { parse, HTMLElement } from 'node-html-parser';
 import chalk from 'chalk';
+import { createConnection } from 'net';
 import stripAnsi from 'strip-ansi';
 import cssColors from 'css-color-names';
 import { subscript, superscript } from './consts';
@@ -20,6 +21,7 @@ const BACKSP = '\x7f';
 const RETURN = '\r';
 const UP_ARR = '\x1B[A';
 const DN_ARR = '\x1B[B';
+const SOCKET_PATH = '/tmp/istat-socket.dev';
 
 let prev_commands: string[] = [];
 let prev_command_idx = 0;
@@ -31,7 +33,7 @@ let _input = '';
 // spawn, pipe stdout/err and write initial stdin
 process.chdir('../..');
 const { sigrtmin, sigrtmax } = JSON.parse((await $`./target/debug/istat-signals`).stdout);
-const child = execa(`./target/debug/istat`, ['--config=./sample_config.toml', '--socket=/tmp/istat-socket.dev']);
+const child = execa(`./target/debug/istat`, ['--config=./sample_config.toml', `--socket=${SOCKET_PATH}`]);
 if (!child.stdin) throw new Error("Child's STDIN was not setup correctly!");
 if (!child.stdout) throw new Error("Child's STDOUT was not setup correctly!");
 if (!child.stderr) throw new Error("Child's STDERR was not setup correctly!");
@@ -138,6 +140,7 @@ Usage:
   [d]isplay [full|short|json]       change display, or empty to rotate between them
   [p]ause                           toggles pausing output
   [r]epeat                          repeats last command
+  [R]efresh                         refreshes all items
   [s]ignal <instance> <signal>      sends a realtime signal
   [h]elp or ?                       show this text
   [q]uit                            exits
@@ -159,8 +162,25 @@ function handleInput(input: string) {
     input = prev_commands[prev_commands.length - 1];
   }
 
+  if (input.startsWith('R')) {
+    const match = /R(?:efresh)?/.exec(input);
+    if (!match) return displayHelp();
+
+    const socket = createConnection(SOCKET_PATH);
+    socket.once('connect', () => {
+      const message = Buffer.from('"refresh_all"');
+      const header = Buffer.alloc(8);
+      header.writeBigUInt64LE(BigInt(message.length));
+      const payload = Buffer.concat([header, message]);
+      socket.write(payload);
+      socket.on('data', (data) => {
+        process.stdout.write(c.green(`Refreshed all items. IPC response: ${data.toString()}\n`));
+      });
+    });
+  }
+
   // short
-  if (input.startsWith('d')) {
+  else if (input.startsWith('d')) {
     const match = /d(?:isplay)?(?:\s+(full|short|json))?/.exec(input);
     if (!match) return displayHelp();
 
@@ -242,7 +262,7 @@ function handleInput(input: string) {
 
   // click
   else if (input.startsWith('c')) {
-    const match = /c(?:lick)?\s+(\d)\s+(\d)(?:\s+(s))?/.exec(input);
+    const match = /c(?:lick)?\s+(\d+)\s+(\d)(?:\s+(s))?/.exec(input);
     if (!match) return displayHelp();
 
     const [, block, btn, shift] = match;
@@ -276,7 +296,7 @@ const sep = chalk.gray('|');
 function formatLine(line: string) {
   const items: Record<string, any>[] = JSON.parse(line.slice(0, -1));
   // TODO: this assumes that an item without a name is a separator, probably should make this clearer somehow
-  instances = items.filter(i => i.name).map((i) => ({ name: i.name, id: i.instance }));
+  instances = items.filter((i) => i.name).map((i) => ({ name: i.name, id: i.instance }));
   const getText = (item: Record<string, any>) => item[`${display}_text`] || item.full_text;
 
   let result: string[] = [];
