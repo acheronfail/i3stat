@@ -37,7 +37,7 @@ impl BarItem for Krb {
     async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
         loop {
             ctx.update_item(self.item(&ctx.theme()).await?).await?;
-            ctx.wait_for_event(self.interval).await;
+            dbg!(ctx.wait_for_event(self.interval).await);
         }
     }
 }

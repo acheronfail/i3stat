@@ -35,7 +35,7 @@ impl Sensors {
 
 #[async_trait(?Send)]
 impl BarItem for Sensors {
-    async fn start(self: Box<Self>, ctx: Context) -> Result<(), Box<dyn Error>> {
+    async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
         {
             ctx.state.borrow_mut().sys.refresh_components_list();
         }

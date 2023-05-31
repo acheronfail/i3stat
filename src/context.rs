@@ -8,11 +8,11 @@ use clap::builder::StyledStr;
 use futures::Future;
 use serde_json::Value;
 use sysinfo::{System, SystemExt};
-use tokio::sync::mpsc::error::{SendError, TryRecvError};
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::mpsc::error::TryRecvError;
+use tokio::sync::{mpsc, oneshot, watch};
 use tokio::time::sleep;
 
-use crate::config::AppConfig;
+use crate::config::RuntimeConfig;
 use crate::i3::bar_item::I3Item;
 use crate::i3::{I3Button, I3ClickEvent};
 use crate::theme::Theme;
@@ -27,6 +27,7 @@ pub enum CustomResponse {
 pub enum BarEvent {
     Click(I3ClickEvent),
     Signal,
+    Resume,
     Custom {
         payload: Vec<String>,
         responder: oneshot::Sender<CustomResponse>,
@@ -47,19 +48,21 @@ impl SharedState {
 }
 
 pub struct Context {
-    config: Rc<RefCell<AppConfig>>,
+    config: Rc<RefCell<RuntimeConfig>>,
     pub state: Rc<RefCell<SharedState>>,
     tx_item: mpsc::Sender<(I3Item, usize)>,
     rx_event: mpsc::Receiver<BarEvent>,
+    rx_pause: RefCell<watch::Receiver<bool>>,
     index: usize,
 }
 
 impl Context {
     pub fn new(
-        config: Rc<RefCell<AppConfig>>,
+        config: Rc<RefCell<RuntimeConfig>>,
         state: Rc<RefCell<SharedState>>,
         tx_item: mpsc::Sender<(I3Item, usize)>,
         rx_event: mpsc::Receiver<BarEvent>,
+        rx_pause: watch::Receiver<bool>,
         index: usize,
     ) -> Context {
         Context {
@@ -67,6 +70,7 @@ impl Context {
             state,
             tx_item,
             rx_event,
+            rx_pause: RefCell::new(rx_pause),
             index,
         }
     }
@@ -74,11 +78,39 @@ impl Context {
     /// Get the current theme configuration. Exposed as a getter because the theme may change at
     /// runtime via IPC.
     pub fn theme(&self) -> Theme {
-        self.config.borrow().theme.clone()
+        self.config.borrow().user.theme.clone()
     }
 
-    pub async fn update_item(&self, item: I3Item) -> Result<(), SendError<(I3Item, usize)>> {
-        self.tx_item.send((item, self.index)).await?;
+    pub async fn update_item(&mut self, item: I3Item) -> Result<(), Box<dyn Error>> {
+        // if this item has been paused
+        let mut rx_pause = self.rx_pause.borrow_mut();
+        if *rx_pause.borrow() {
+            loop {
+                // wait for the next change to the pause state
+                rx_pause.changed().await?;
+
+                // if it's unpaused break
+                if !*rx_pause.borrow() {
+                    break;
+                }
+            }
+
+            // drain any events this item received while it was paused
+            loop {
+                match self.rx_event.try_recv() {
+                    // sent to the item after being resumed
+                    Ok(BarEvent::Resume) => break,
+                    // drain any other events
+                    Ok(_) => continue,
+                    // FIXME: after filling up the channel and then attempting to resume it breaks
+                    Err(TryRecvError::Empty) => unreachable!(),
+                    Err(e) => return Err(e.into()),
+                }
+            }
+        } else {
+            self.tx_item.send((item, self.index)).await?;
+        }
+
         Ok(())
     }
 

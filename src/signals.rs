@@ -6,7 +6,7 @@ use std::rc::Rc;
 use libc::{SIGRTMAX, SIGRTMIN, SIGTERM};
 use signal_hook_tokio::{Handle, Signals};
 
-use crate::config::AppConfig;
+use crate::config::RuntimeConfig;
 use crate::context::BarEvent;
 use crate::dispatcher::Dispatcher;
 
@@ -15,7 +15,7 @@ use crate::dispatcher::Dispatcher;
 // fine as is, but if not, we may have to use `signal_hook_register` to do it ourselves.
 // See: https://docs.rs/signal-hook/latest/signal_hook/index.html#limitations
 pub fn handle_signals(
-    config: Rc<RefCell<AppConfig>>,
+    config: Rc<RefCell<RuntimeConfig>>,
     dispatcher: Dispatcher,
 ) -> Result<Handle, Box<dyn Error>> {
     let min = SIGRTMIN();
@@ -23,7 +23,7 @@ pub fn handle_signals(
     let realtime_signals = min..=max;
 
     let mut sig_to_indices: HashMap<i32, Vec<usize>> = HashMap::new();
-    for (idx, item) in config.borrow().items.iter().enumerate() {
+    for (idx, item) in config.borrow().user.items.iter().enumerate() {
         if let Some(sig) = item.common.signal {
             // signals are passed in from 0..(SIGRTMAX - SIGRTMIN)
             let translated_sig = min + sig as i32;

@@ -13,7 +13,7 @@ use serde_json::Value;
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::oneshot;
 
-use crate::config::AppConfig;
+use crate::config::RuntimeConfig;
 use crate::context::{BarEvent, CustomResponse};
 use crate::dispatcher::Dispatcher;
 use crate::i3::I3ClickEvent;
@@ -82,7 +82,7 @@ pub fn get_socket_path(socket_path: Option<&PathBuf>) -> Result<PathBuf, Box<dyn
 }
 
 pub async fn handle_ipc_events(
-    config: Rc<RefCell<AppConfig>>,
+    config: Rc<RefCell<RuntimeConfig>>,
     dispatcher: Dispatcher,
 ) -> Result<Infallible, Box<dyn Error>> {
     let socket_path = config.borrow().socket();
@@ -114,7 +114,7 @@ pub async fn handle_ipc_events(
 
 async fn handle_ipc_client(
     stream: UnixStream,
-    config: Rc<RefCell<AppConfig>>,
+    config: Rc<RefCell<RuntimeConfig>>,
     dispatcher: Dispatcher,
 ) -> Result<(), Box<dyn Error>> {
     // first read the length header of the IPC message
@@ -146,7 +146,7 @@ async fn handle_ipc_client(
 
 async fn handle_ipc_request(
     stream: &UnixStream,
-    config: Rc<RefCell<AppConfig>>,
+    config: Rc<RefCell<RuntimeConfig>>,
     dispatcher: Dispatcher,
     len: usize,
 ) -> Result<(), Box<dyn Error>> {
@@ -184,21 +184,21 @@ async fn handle_ipc_request(
         IpcMessage::GetConfig => {
             send_ipc_response(
                 &stream,
-                &IpcReply::CustomResponse(serde_json::to_value(&*config.borrow())?),
+                &IpcReply::CustomResponse(serde_json::to_value(&config.borrow().user)?),
             )
             .await?;
         }
         IpcMessage::GetTheme => {
             send_ipc_response(
                 &stream,
-                &IpcReply::CustomResponse(serde_json::to_value(&config.borrow().theme)?),
+                &IpcReply::CustomResponse(serde_json::to_value(&config.borrow().user.theme)?),
             )
             .await?;
         }
         IpcMessage::SetTheme(json) => {
             let reply = match serde_json::from_value::<Theme>(json) {
                 Ok(new) => {
-                    config.borrow_mut().theme = new;
+                    config.borrow_mut().user.theme = new;
                     IpcReply::Result(IpcResult::Success(None))
                 }
                 Err(e) => IpcReply::Result(IpcResult::Failure(e.to_string())),

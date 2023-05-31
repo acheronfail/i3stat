@@ -21,6 +21,13 @@ impl Dispatcher {
         self.inner.iter().enumerate()
     }
 
+    pub fn get(&self, idx: usize) -> Result<&Sender<BarEvent>, Box<dyn Error>> {
+        match self.inner.get(idx) {
+            Some(tx) => Ok(tx),
+            None => Err(format!("no item found with index: {}", idx).into()),
+        }
+    }
+
     pub async fn send_bar_event(&self, idx: usize, ev: BarEvent) -> Result<(), Box<dyn Error>> {
         match self.inner.get(idx) {
             Some(tx) => {
@@ -42,6 +49,7 @@ impl Dispatcher {
                     )
                     .into());
                 }
+
                 Ok(())
             }
             None => Err(format!("no item found with index: {}", idx).into()),

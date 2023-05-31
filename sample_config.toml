@@ -83,6 +83,9 @@ type = "krb"
 # How often this item should refresh
 interval = "2m"
 
+# TODO: export attributes and doc exported ones, because pango markup isn't nice
+enabled_when = ".[12].full_text | contains(\"1\")"
+
 [[items]]
 # a raw item - these are static items that don't change, and display the values here
 type = "raw"

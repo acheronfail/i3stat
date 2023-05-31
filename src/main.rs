@@ -8,8 +8,8 @@ use std::time::Duration;
 use clap::Parser;
 use hex_color::HexColor;
 use istat::cli::Cli;
-use istat::config::AppConfig;
-use istat::context::{Context, SharedState};
+use istat::config::RuntimeConfig;
+use istat::context::{BarEvent, Context, SharedState};
 use istat::dispatcher::Dispatcher;
 use istat::i3::header::I3BarHeader;
 use istat::i3::ipc::handle_click_events;
@@ -48,40 +48,40 @@ fn start_runtime() -> Result<Infallible, Box<dyn Error>> {
     result
 }
 
-type Bar = Rc<RefCell<Vec<I3Item>>>;
-
 async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
-    let config = Rc::new(RefCell::new(AppConfig::read(args).await?));
+    let config_ref = Rc::new(RefCell::new(RuntimeConfig::new(args).await?));
 
     println!("{}", serde_json::to_string(&I3BarHeader::default())?);
     println!("[");
 
-    let item_count = config.borrow().items.len();
+    let item_count = config_ref.borrow().user.items.len();
 
     // shared context
     let state = SharedState::new();
 
     // state for the bar (moved to bar_printer)
-    let bar: Bar = Rc::new(RefCell::new(vec![I3Item::empty(); item_count]));
+    let bar = Rc::new(RefCell::new(vec![I3Item::empty(); item_count]));
     let mut bar_event_txs = vec![];
 
     // for each BarItem, spawn a new task to manage it
     let (item_tx, item_rx) = mpsc::channel(item_count + 1);
-    for (idx, item) in config.borrow().items.iter().enumerate() {
+    for (idx, item) in config_ref.borrow().user.items.iter().enumerate() {
         let bar_item = item.to_bar_item();
 
         let (event_tx, event_rx) = mpsc::channel(32);
         bar_event_txs.push(event_tx);
 
+        let rx_pause = config_ref.borrow().item_meta[idx].subscribe();
         let ctx = Context::new(
-            config.clone(),
+            config_ref.clone(),
             state.clone(),
             item_tx.clone(),
             event_rx,
+            rx_pause,
             idx,
         );
         let bar = bar.clone();
-        let config = config.clone();
+        let config = config_ref.clone();
         tokio::task::spawn_local(async move {
             let fut = bar_item.start(ctx);
             // since this item has terminated, remove its entry from the bar
@@ -98,7 +98,7 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
                 Err(e) => {
                     log::error!("item[{}] exited with error: {}", idx, e);
                     // replace with an error item
-                    let theme = config.borrow().theme.clone();
+                    let theme = config.borrow().user.theme.clone();
                     bar.borrow_mut()[idx] = I3Item::new("ERROR")
                         .color(theme.bg)
                         .background_color(theme.red);
@@ -110,14 +110,14 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
     let dispatcher = Dispatcher::new(bar_event_txs);
 
     // setup listener for handling item updates and printing the bar to STDOUT
-    handle_item_updates(config.clone(), item_rx, bar);
+    handle_item_updates(config_ref.clone(), dispatcher.clone(), item_rx, bar);
 
     // handle incoming signals
-    let signal_handle = handle_signals(config.clone(), dispatcher.clone())?;
+    let signal_handle = handle_signals(config_ref.clone(), dispatcher.clone())?;
 
     // handle our inputs: i3's IPC and our own IPC
     let err = tokio::select! {
-        err = handle_ipc_events(config.clone(), dispatcher.clone()) => err,
+        err = handle_ipc_events(config_ref.clone(), dispatcher.clone()) => err,
         err = handle_click_events(dispatcher.clone()) => err,
     };
 
@@ -128,34 +128,37 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
 
 // task to manage updating the bar and printing it as JSON
 fn handle_item_updates(
-    config: Rc<RefCell<AppConfig>>,
+    config: Rc<RefCell<RuntimeConfig>>,
+    dispatcher: Dispatcher,
     mut rx: Receiver<(I3Item, usize)>,
-    bar: Bar,
+    bar: Rc<RefCell<Vec<I3Item>>>,
 ) {
     let item_names = config.borrow().item_name_map();
 
     tokio::task::spawn_local(async move {
         while let Some((i3_item, idx)) = rx.recv().await {
-            let i3_item = i3_item
-                // the name of the item
-                .name(item_names[idx].clone())
-                // always override the bar item's `instance`, since we track that ourselves
-                .instance(idx.to_string());
+            {
+                let i3_item = i3_item
+                    // the name of the item
+                    .name(item_names[idx].clone())
+                    // always override the bar item's `instance`, since we track that ourselves
+                    .instance(idx.to_string());
 
-            // don't bother doing anything if the item hasn't changed
-            let mut bar = bar.borrow_mut();
-            if bar[idx] == i3_item {
-                continue;
+                // don't bother doing anything if the item hasn't changed
+                let mut bar = bar.borrow_mut();
+                if bar[idx] == i3_item {
+                    continue;
+                }
+
+                // update item in bar
+                bar[idx] = i3_item;
             }
 
-            // update item in bar
-            bar[idx] = i3_item;
-
             // serialise to JSON
-            let theme = config.borrow().theme.clone();
+            let theme = config.borrow().user.theme.clone();
             let bar_json = match theme.powerline_enable {
                 true => serde_json::to_string(&create_powerline(
-                    &*bar,
+                    &bar.borrow(),
                     &theme,
                     &make_color_adjuster(&theme.bg, &theme.dim),
                 )),
@@ -163,15 +166,52 @@ fn handle_item_updates(
             };
 
             // print bar to STDOUT for i3
-            match bar_json {
-                Ok(json) => println!("{},", json),
+            let bar_json = match bar_json {
+                Ok(json) => {
+                    println!("{},", json);
+                    json
+                }
                 Err(e) => {
                     log::error!("failed to serialise bar to json: {}", e);
                     println!(
                         r#"[{{"full_text":"FATAL ERROR: see logs in stderr","color":"black","background":"red"}}],"#
                     );
+                    continue;
                 }
-            }
+            };
+
+            // check bar item conditions
+            tokio::task::spawn_local({
+                let bar = bar.clone();
+                let config = config.clone();
+                let dispatcher = dispatcher.clone();
+                async move {
+                    let mut config = config.borrow_mut();
+                    for (idx, item_meta) in config.item_meta.iter_mut().enumerate() {
+                        let was_paused = item_meta.is_paused();
+                        match item_meta.should_remove(&bar_json) {
+                            Ok(true) if !was_paused => {
+                                bar.borrow_mut()[idx] = I3Item::empty();
+                            }
+                            Ok(false) if was_paused => {
+                                tokio::task::spawn_local({
+                                    let tx = dispatcher.get(idx).unwrap().clone();
+                                    async move {
+                                        // reserve (or block until available) a message to let the block know it's been resumed
+                                        let permit_resume = tx.reserve().await.unwrap();
+                                        permit_resume.send(BarEvent::Resume);
+                                        // after it knows it's been resumed, send it a signal to reload
+                                        let permit_signal = tx.reserve().await.unwrap();
+                                        permit_signal.send(BarEvent::Signal);
+                                    }
+                                });
+                            }
+                            Ok(_) => continue,
+                            Err(e) => log::warn!("failed to test item condition: {}", e),
+                        }
+                    }
+                }
+            });
         }
     });
 }

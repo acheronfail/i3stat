@@ -8,6 +8,11 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 * conditionally include additional config files
   * i.e., different machines
 * conditionally disable bar items
+  * could "pause" them by making `ctx.update_item` block
+  * items can export data over the i3's bar item interface: fields starting with `_`
+  * build `enabled_when` field in `common` which can references blocks by their `name` or `idx`
+    * and it can index into the block's outputted item JSON
+    * e.g., krb: `enabled_when = "nic._interfaces.contains('vpn0')"`
 * a bin PKGBUILD for the AUR (would need to setup CI first)
 * script to generate and resize screenshots for the readme
 
