@@ -1,9 +1,11 @@
+use std::collections::HashMap;
 use std::error::Error;
 
 use async_trait::async_trait;
 use hex_color::HexColor;
 use serde::Serialize;
 use serde_derive::Deserialize;
+use serde_json::Value;
 
 use crate::context::{BarItem, Context};
 
@@ -98,6 +100,9 @@ pub struct I3Item {
 
     #[serde(skip_serializing_if = "I3Markup::is_none")]
     markup: Option<I3Markup>,
+
+    #[serde(flatten, skip_serializing_if = "HashMap::is_empty")]
+    additional_data: HashMap<String, Value>,
 }
 
 macro_rules! impl_get_set {
@@ -162,11 +167,25 @@ impl I3Item {
             separator: None,
             separator_block_width_px: None,
             markup: None,
+            additional_data: HashMap::new(),
         }
     }
 
     pub fn empty() -> I3Item {
         I3Item::new("")
+    }
+
+    pub fn with_data(mut self, key: impl AsRef<str>, value: Value) -> Self {
+        let key = key.as_ref();
+
+        // as per i3's protocol, additional fields must begin with an underscore
+        let key = match key.starts_with('_') {
+            true => key.into(),
+            false => format!("_{}", key),
+        };
+
+        self.additional_data.insert(key, value);
+        self
     }
 
     impl_get_set! (
