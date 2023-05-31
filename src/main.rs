@@ -63,7 +63,7 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
 
     // state for the bar (moved to bar_printer)
     let bar: Bar = Rc::new(RefCell::new(vec![I3Item::empty(); item_count]));
-    let mut bar_txs = vec![];
+    let mut bar_event_txs = vec![];
 
     // for each BarItem, spawn a new task to manage it
     let (item_tx, item_rx) = mpsc::channel(item_count + 1);
@@ -71,13 +71,12 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
         let bar_item = item.to_bar_item();
 
         let (event_tx, event_rx) = mpsc::channel(32);
-        bar_txs.push(event_tx.clone());
+        bar_event_txs.push(event_tx);
 
         let ctx = Context::new(
             config.clone(),
             state.clone(),
             item_tx.clone(),
-            event_tx,
             event_rx,
             idx,
         );
@@ -108,7 +107,7 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
         });
     }
 
-    let dispatcher = Dispatcher::new(bar_txs);
+    let dispatcher = Dispatcher::new(bar_event_txs);
 
     // setup listener for handling item updates and printing the bar to STDOUT
     handle_item_updates(config.clone(), item_rx, bar);
@@ -137,13 +136,20 @@ fn handle_item_updates(
 
     tokio::task::spawn_local(async move {
         while let Some((i3_item, idx)) = rx.recv().await {
-            // update the bar
-            let mut bar = bar.borrow_mut();
-            bar[idx] = i3_item
+            let i3_item = i3_item
                 // the name of the item
                 .name(item_names[idx].clone())
                 // always override the bar item's `instance`, since we track that ourselves
                 .instance(idx.to_string());
+
+            // don't bother doing anything if the item hasn't changed
+            let mut bar = bar.borrow_mut();
+            if bar[idx] == i3_item {
+                continue;
+            }
+
+            // update item in bar
+            bar[idx] = i3_item;
 
             // serialise to JSON
             let theme = config.borrow().theme.clone();

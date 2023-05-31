@@ -49,10 +49,7 @@ impl SharedState {
 pub struct Context {
     config: Rc<RefCell<AppConfig>>,
     pub state: Rc<RefCell<SharedState>>,
-    // Used as an internal cache to prevent sending the same item multiple times
-    last_item: RefCell<I3Item>,
     tx_item: mpsc::Sender<(I3Item, usize)>,
-    tx_event: mpsc::Sender<BarEvent>,
     rx_event: mpsc::Receiver<BarEvent>,
     index: usize,
 }
@@ -62,16 +59,13 @@ impl Context {
         config: Rc<RefCell<AppConfig>>,
         state: Rc<RefCell<SharedState>>,
         tx_item: mpsc::Sender<(I3Item, usize)>,
-        tx_event: mpsc::Sender<BarEvent>,
         rx_event: mpsc::Receiver<BarEvent>,
         index: usize,
     ) -> Context {
         Context {
             config,
             state,
-            last_item: RefCell::default(),
             tx_item,
-            tx_event,
             rx_event,
             index,
         }
@@ -84,13 +78,8 @@ impl Context {
     }
 
     pub async fn update_item(&self, item: I3Item) -> Result<(), SendError<(I3Item, usize)>> {
-        let mut last = self.last_item.borrow_mut();
-        if *last == item {
-            return Ok(());
-        }
-
-        *last = item.clone();
-        self.tx_item.send((item, self.index)).await
+        self.tx_item.send((item, self.index)).await?;
+        Ok(())
     }
 
     pub async fn wait_for_event(&mut self, delay: Option<Duration>) -> Option<BarEvent> {
@@ -120,10 +109,6 @@ impl Context {
             }
             _ = sleep(duration) => {}
         }
-    }
-
-    pub fn get_event_tx(&self) -> mpsc::Sender<BarEvent> {
-        self.tx_event.clone()
     }
 
     pub fn raw_event_rx(&mut self) -> &mut mpsc::Receiver<BarEvent> {
