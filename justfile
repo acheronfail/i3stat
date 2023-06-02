@@ -27,7 +27,7 @@ ipc *args: _build
 
 # install locally, copy sample configuration and restart i3
 install:
-  cargo install --offline --path .
+  cargo install --debug --offline --path .
   mkdir -p ~/.config/istat/
   -cp --no-clobber ./sample_config.toml ~/.config/istat/config.toml
   i3-msg restart

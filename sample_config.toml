@@ -95,8 +95,17 @@ short_text = "!"
 # WiFi signal strength and SSIDs if found. Supports updating itself automatically on network changes
 # (via NetworkManager).
 type = "nic"
+
 # Optionally pass an `interval` to force updates (useful if you don't use NetworkManager)
 # interval = "60s"
+
+# Optionally pass a filter. Filters are formatted as `name[:type]`, where `name` is the interface
+# name, and `type` is an optional part which is either `v4` or `v6`.
+#
+# If `name` is an empty string, then all interfaces are matched, for example:
+# - `vpn0:v4` will match ip4 addresses for the `vpn` interface
+# - `:v6`     will match all interfaces which have an ip6 address
+# filter = [":v4", "vpn0:v6"]
 
 [[items]]
 # Disk usage item - provides an interactive list of disks and their free space.

@@ -178,12 +178,13 @@ impl BarItem for Battery {
                 ctx.update_item(item).await?;
             }
 
-            // cycle though batteries
             let delay = if show_watts {
                 Duration::from_secs(2)
             } else {
                 self.interval
             };
+
+            // cycle though batteries
             ctx.delay_with_event_handler(delay, |event| {
                 Context::paginate(&event, len, &mut idx);
                 if let BarEvent::Click(click) = event {

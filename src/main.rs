@@ -95,6 +95,7 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
                     // replace with an empty item
                     bar.borrow_mut()[idx] = I3Item::empty();
                 }
+                // TODO: rather than error - attempt to restart the item?
                 Err(e) => {
                     log::error!("item[{}] exited with error: {}", idx, e);
                     // replace with an error item
