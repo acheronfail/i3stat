@@ -14,7 +14,6 @@ use crate::cell::RcCell;
 use crate::config::AppConfig;
 use crate::i3::bar_item::I3Item;
 use crate::i3::{I3Button, I3ClickEvent};
-use crate::theme::Theme;
 
 #[derive(Debug)]
 pub enum CustomResponse {
@@ -46,7 +45,7 @@ impl SharedState {
 }
 
 pub struct Context {
-    config: RcCell<AppConfig>,
+    pub config: RcCell<AppConfig>,
     pub state: RcCell<SharedState>,
     tx_item: mpsc::Sender<(I3Item, usize)>,
     rx_event: mpsc::Receiver<BarEvent>,
@@ -68,12 +67,6 @@ impl Context {
             rx_event,
             index,
         }
-    }
-
-    /// Get the current theme configuration. Exposed as a getter because the theme may change at
-    /// runtime via IPC.
-    pub fn theme(&self) -> Theme {
-        self.config.theme.clone()
     }
 
     pub async fn update_item(&self, item: I3Item) -> Result<(), SendError<(I3Item, usize)>> {

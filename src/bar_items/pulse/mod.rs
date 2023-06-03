@@ -597,7 +597,7 @@ impl BarItem for Pulse {
                 // whenever we want to refresh our item, an event it send on this channel
                 Some(cmd) = rx.recv() => match cmd {
                     Command::UpdateItem(cb) => {
-                        ctx.update_item(cb(&ctx.theme())).await?;
+                        ctx.update_item(cb(&ctx.config.theme)).await?;
                     }
                     Command::NotifyVolume { name, volume, mute } => {
                         if self.notify.should_notify(NotificationSetting::VolumeMute) {

@@ -36,7 +36,7 @@ impl BarItem for Dunst {
         let connection = dbus_connection(BusType::Session).await?;
         let dunst_proxy = DunstProxy::new(&connection).await?;
         let _ = ctx
-            .update_item(Dunst::item(&ctx.theme(), dunst_proxy.paused().await?))
+            .update_item(Dunst::item(&ctx.config.theme, dunst_proxy.paused().await?))
             .await;
 
         // listen for changes
@@ -45,11 +45,11 @@ impl BarItem for Dunst {
             tokio::select! {
                 Some(change) = stream.next() => {
                     let paused = change.get().await?;
-                    let _ = ctx.update_item(Dunst::item(&ctx.theme(), paused)).await;
+                    let _ = ctx.update_item(Dunst::item(&ctx.config.theme, paused)).await;
                 },
                 Some(_) = ctx.wait_for_event(None) => {
                     let paused = dunst_proxy.paused().await?;
-                    let _ = ctx.update_item(Dunst::item(&ctx.theme(), paused)).await;
+                    let _ = ctx.update_item(Dunst::item(&ctx.config.theme, paused)).await;
                 }
             }
         }

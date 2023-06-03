@@ -116,13 +116,12 @@ impl BarItem for NetUsage {
                 (div_as_u64(down, elapsed), div_as_u64(up, elapsed))
             };
 
-            let theme = ctx.theme();
             ctx.update_item(
                 I3Item::new(format!(
                     "<span{}>{}↓</span> <span{}>{}↑</span>",
-                    fg(down, &theme),
+                    fg(down, &ctx.config.theme),
                     text(down, as_bits),
-                    fg(up, &theme),
+                    fg(up, &ctx.config.theme),
                     text(up, as_bits)
                 ))
                 .markup(I3Markup::Pango),

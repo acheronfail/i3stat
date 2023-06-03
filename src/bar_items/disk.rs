@@ -71,13 +71,13 @@ impl BarItem for Disk {
                 idx = idx % len;
 
                 let disk = &stats[idx];
-                let theme = ctx.theme();
-                let (full, short) = disk.format(&theme);
-                let full = format!("{}{}", full, fraction(&theme, idx + 1, len));
+                let theme = &ctx.config.theme;
+                let (full, short) = disk.format(theme);
+                let full = format!("{}{}", full, fraction(theme, idx + 1, len));
 
                 let mut item = I3Item::new(full).short_text(short).markup(I3Markup::Pango);
 
-                if let Some(fg) = disk.get_color(&theme) {
+                if let Some(fg) = disk.get_color(theme) {
                     item = item.color(fg);
                 }
 
