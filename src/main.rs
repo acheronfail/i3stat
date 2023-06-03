@@ -1,12 +1,11 @@
-use std::cell::RefCell;
 use std::convert::Infallible;
 use std::error::Error;
 use std::process;
-use std::rc::Rc;
 use std::time::Duration;
 
 use clap::Parser;
 use hex_color::HexColor;
+use istat::cell::RcCell;
 use istat::cli::Cli;
 use istat::config::AppConfig;
 use istat::context::{Context, SharedState};
@@ -48,26 +47,24 @@ fn start_runtime() -> Result<Infallible, Box<dyn Error>> {
     result
 }
 
-type Bar = Rc<RefCell<Vec<I3Item>>>;
-
 async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
-    let config = Rc::new(RefCell::new(AppConfig::read(args).await?));
+    let config = RcCell::new(AppConfig::read(args).await?);
 
     println!("{}", serde_json::to_string(&I3BarHeader::default())?);
     println!("[");
 
-    let item_count = config.borrow().items.len();
+    let item_count = config.items.len();
 
     // shared context
     let state = SharedState::new();
 
     // state for the bar (moved to bar_printer)
-    let bar: Bar = Rc::new(RefCell::new(vec![I3Item::empty(); item_count]));
+    let bar = RcCell::new(vec![I3Item::empty(); item_count]);
     let mut bar_event_txs = vec![];
 
     // for each BarItem, spawn a new task to manage it
     let (item_tx, item_rx) = mpsc::channel(item_count + 1);
-    for (idx, item) in config.borrow().items.iter().enumerate() {
+    for (idx, item) in config.items.iter().enumerate() {
         let bar_item = item.to_bar_item();
 
         let (event_tx, event_rx) = mpsc::channel(32);
@@ -80,7 +77,7 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
             event_rx,
             idx,
         );
-        let bar = bar.clone();
+        let mut bar = bar.clone();
         let config = config.clone();
         tokio::task::spawn_local(async move {
             let fut = bar_item.start(ctx);
@@ -93,14 +90,14 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
                     // TODO: `(async {}).await` doesn't work - is that a no-op in Rust's futures?
                     let _ = tokio::spawn(async {}).await;
                     // replace with an empty item
-                    bar.borrow_mut()[idx] = I3Item::empty();
+                    bar[idx] = I3Item::empty();
                 }
                 // TODO: rather than error - attempt to restart the item?
                 Err(e) => {
                     log::error!("item[{}] exited with error: {}", idx, e);
                     // replace with an error item
-                    let theme = config.borrow().theme.clone();
-                    bar.borrow_mut()[idx] = I3Item::new("ERROR")
+                    let theme = config.theme.clone();
+                    bar[idx] = I3Item::new("ERROR")
                         .color(theme.bg)
                         .background_color(theme.red);
                 }
@@ -129,11 +126,11 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
 
 // task to manage updating the bar and printing it as JSON
 fn handle_item_updates(
-    config: Rc<RefCell<AppConfig>>,
+    config: RcCell<AppConfig>,
     mut rx: Receiver<(I3Item, usize)>,
-    bar: Bar,
+    mut bar: RcCell<Vec<I3Item>>,
 ) {
-    let item_names = config.borrow().item_name_map();
+    let item_names = config.item_name_map();
 
     tokio::task::spawn_local(async move {
         while let Some((i3_item, idx)) = rx.recv().await {
@@ -144,7 +141,6 @@ fn handle_item_updates(
                 .instance(idx.to_string());
 
             // don't bother doing anything if the item hasn't changed
-            let mut bar = bar.borrow_mut();
             if bar[idx] == i3_item {
                 continue;
             }
@@ -153,10 +149,10 @@ fn handle_item_updates(
             bar[idx] = i3_item;
 
             // serialise to JSON
-            let theme = config.borrow().theme.clone();
+            let theme = config.theme.clone();
             let bar_json = match theme.powerline_enable {
                 true => serde_json::to_string(&create_powerline(
-                    &*bar,
+                    &bar,
                     &theme,
                     &make_color_adjuster(&theme.bg, &theme.dim),
                 )),

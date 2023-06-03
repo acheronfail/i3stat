@@ -1,10 +1,8 @@
-use std::cell::RefCell;
 use std::convert::Infallible;
 use std::env;
 use std::error::Error;
 use std::io::ErrorKind;
 use std::path::PathBuf;
-use std::rc::Rc;
 
 use futures::future::join_all;
 use indexmap::IndexMap;
@@ -13,6 +11,7 @@ use serde_json::Value;
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::oneshot;
 
+use crate::cell::RcCell;
 use crate::config::AppConfig;
 use crate::context::{BarEvent, CustomResponse};
 use crate::dispatcher::Dispatcher;
@@ -82,10 +81,10 @@ pub fn get_socket_path(socket_path: Option<&PathBuf>) -> Result<PathBuf, Box<dyn
 }
 
 pub async fn handle_ipc_events(
-    config: Rc<RefCell<AppConfig>>,
+    config: RcCell<AppConfig>,
     dispatcher: Dispatcher,
 ) -> Result<Infallible, Box<dyn Error>> {
-    let socket_path = config.borrow().socket();
+    let socket_path = config.socket();
 
     // try to remove socket if one exists
     match tokio::fs::remove_file(&socket_path).await {
@@ -114,7 +113,7 @@ pub async fn handle_ipc_events(
 
 async fn handle_ipc_client(
     stream: UnixStream,
-    config: Rc<RefCell<AppConfig>>,
+    config: RcCell<AppConfig>,
     dispatcher: Dispatcher,
 ) -> Result<(), Box<dyn Error>> {
     // first read the length header of the IPC message
@@ -146,7 +145,7 @@ async fn handle_ipc_client(
 
 async fn handle_ipc_request(
     stream: &UnixStream,
-    config: Rc<RefCell<AppConfig>>,
+    mut config: RcCell<AppConfig>,
     dispatcher: Dispatcher,
     len: usize,
 ) -> Result<(), Box<dyn Error>> {
@@ -179,26 +178,26 @@ async fn handle_ipc_request(
     let msg = serde_json::from_slice::<IpcMessage>(&buf)?;
     match msg {
         IpcMessage::Info => {
-            send_ipc_response(&stream, &IpcReply::Info(config.borrow().item_name_map())).await?;
+            send_ipc_response(&stream, &IpcReply::Info(config.item_name_map())).await?;
         }
         IpcMessage::GetConfig => {
             send_ipc_response(
                 &stream,
-                &IpcReply::CustomResponse(serde_json::to_value(&*config.borrow())?),
+                &IpcReply::CustomResponse(serde_json::to_value(&*config)?),
             )
             .await?;
         }
         IpcMessage::GetTheme => {
             send_ipc_response(
                 &stream,
-                &IpcReply::CustomResponse(serde_json::to_value(&config.borrow().theme)?),
+                &IpcReply::CustomResponse(serde_json::to_value(&config.theme)?),
             )
             .await?;
         }
         IpcMessage::SetTheme(json) => {
             let reply = match serde_json::from_value::<Theme>(json) {
                 Ok(new) => {
-                    config.borrow_mut().theme = new;
+                    config.get_mut().theme = new;
                     IpcReply::Result(IpcResult::Success(None))
                 }
                 Err(e) => IpcReply::Result(IpcResult::Failure(e.to_string())),
@@ -228,19 +227,13 @@ async fn handle_ipc_request(
                 // ipc message contained an index
                 Ok(idx) => idx,
                 Err(e) => {
-                    match config
-                        .borrow()
-                        .item_name_map()
-                        .into_iter()
-                        .find_map(
-                            |(idx, name)| {
-                                if instance == name {
-                                    Some(idx)
-                                } else {
-                                    None
-                                }
-                            },
-                        ) {
+                    match config.item_name_map().into_iter().find_map(|(idx, name)| {
+                        if instance == name {
+                            Some(idx)
+                        } else {
+                            None
+                        }
+                    }) {
                         // ipc message contained a tag
                         Some(idx) => idx,
                         // error

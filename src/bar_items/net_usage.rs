@@ -93,7 +93,7 @@ impl BarItem for NetUsage {
         let mut as_bits = false;
         loop {
             let (down, up) = {
-                let mut state = ctx.state.borrow_mut();
+                let state = ctx.state.get_mut();
                 let networks = state.sys.networks_mut();
 
                 // NOTE: can call `networks.refresh()` instead of this to only update networks rather

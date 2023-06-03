@@ -1,4 +1,5 @@
 pub mod bar_items;
+pub mod cell;
 pub mod cli;
 pub mod config;
 pub mod context;

@@ -40,7 +40,7 @@ impl BarItem for Cpu {
     async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
         loop {
             let pct = {
-                let mut state = ctx.state.borrow_mut();
+                let state = ctx.state.get_mut();
                 // refresh cpu usage
                 state
                     .sys

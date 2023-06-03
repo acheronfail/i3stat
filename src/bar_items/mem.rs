@@ -55,7 +55,7 @@ impl BarItem for Mem {
 
         loop {
             let (available, total) = {
-                let mut state = ctx.state.borrow_mut();
+                let state = ctx.state.get_mut();
                 state.sys.refresh_memory();
                 (
                     state.sys.available_memory(),

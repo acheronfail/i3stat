@@ -1,6 +1,4 @@
-use std::cell::RefCell;
 use std::error::Error;
-use std::rc::Rc;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -12,6 +10,7 @@ use tokio::sync::mpsc::error::{SendError, TryRecvError};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::sleep;
 
+use crate::cell::RcCell;
 use crate::config::AppConfig;
 use crate::i3::bar_item::I3Item;
 use crate::i3::{I3Button, I3ClickEvent};
@@ -38,17 +37,17 @@ pub struct SharedState {
 }
 
 impl SharedState {
-    pub fn new() -> Rc<RefCell<SharedState>> {
-        Rc::new(RefCell::new(SharedState {
+    pub fn new() -> RcCell<SharedState> {
+        RcCell::new(SharedState {
             // this loads nothing, it's up to each item to load what it needs
             sys: System::new(),
-        }))
+        })
     }
 }
 
 pub struct Context {
-    config: Rc<RefCell<AppConfig>>,
-    pub state: Rc<RefCell<SharedState>>,
+    config: RcCell<AppConfig>,
+    pub state: RcCell<SharedState>,
     tx_item: mpsc::Sender<(I3Item, usize)>,
     rx_event: mpsc::Receiver<BarEvent>,
     index: usize,
@@ -56,8 +55,8 @@ pub struct Context {
 
 impl Context {
     pub fn new(
-        config: Rc<RefCell<AppConfig>>,
-        state: Rc<RefCell<SharedState>>,
+        config: RcCell<AppConfig>,
+        state: RcCell<SharedState>,
         tx_item: mpsc::Sender<(I3Item, usize)>,
         rx_event: mpsc::Receiver<BarEvent>,
         index: usize,
@@ -74,7 +73,7 @@ impl Context {
     /// Get the current theme configuration. Exposed as a getter because the theme may change at
     /// runtime via IPC.
     pub fn theme(&self) -> Theme {
-        self.config.borrow().theme.clone()
+        self.config.theme.clone()
     }
 
     pub async fn update_item(&self, item: I3Item) -> Result<(), SendError<(I3Item, usize)>> {
