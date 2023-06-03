@@ -181,7 +181,8 @@ signal = 4
 type = "battery"
 # How often this item should refresh
 interval = "10s"
-# Optionally specificy a list of particular batteries to show. If not provided, it will attempt to
+
+# Optionally specify a list of particular batteries to show. If not provided, it will attempt to
 # discover all the batteries on the system.
 # batteries = ["/sys/class/power_supply/BAT0"]
 

@@ -9,11 +9,16 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
   * i.e., different machines
 * conditionally disable bar items
 * a bin PKGBUILD for the AUR (would need to setup CI first)
-* script to generate and resize screenshots for the readme
 
 ## Bugs
 
 * ...
+
+## Improvements
+
+* script to generate and resize screenshots to easily update readme
+  * `scrot` + `convert` with `Xephyr`, etc
+* refactor `Context::paginate` into a wrapping item or something with a more well-defined API - right now it's not nice to use
 
 ## Tips
 
