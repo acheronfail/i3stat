@@ -31,3 +31,6 @@ Nerd Font icons come in two variants. If the font was called "A", the the varian
 
 The one with the "Mono" suffix has all the icons 'squashed' into a single monospace character's width.
 This is a compatibility for programs that don't support double-width characters, but does make some of the icons appear too small.
+
+Unfortunately, as far as I can tell, i3's statusbar doesn't properly support the double-width character icons.
+So, if the normal font is used, sometimes the icons appear to overlap neighbouring characters.
