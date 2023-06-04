@@ -91,18 +91,14 @@ impl Interface {
     }
 
     pub fn get_wireless_info(&mut self) -> Option<WirelessInfo> {
-        // TODO: contribute AsRef upstream to https://github.com/psibi/iwlib-rs
-        // See: https://github.com/psibi/iwlib-rs/pull/2
-        let name = self.name.clone();
-
         // check if this is a wireless network
         match self.is_wireless {
             // not a wireless interface, just return defaults
             Some(false) => None,
             // SAFETY: we've previously checked if this is a wireless network
-            Some(true) => get_wireless_info(name),
+            Some(true) => get_wireless_info(&self.name),
             // check if we're a wireless network and remember for next time
-            None => match get_wireless_info(name) {
+            None => match get_wireless_info(&self.name) {
                 Some(i) => {
                     self.is_wireless = Some(true);
                     Some(i)
