@@ -10,9 +10,9 @@ use serde_derive::{Deserialize, Serialize};
 use tokio::fs::{self, read_to_string};
 
 use crate::context::{BarEvent, BarItem, Context};
-use crate::format::fraction;
 use crate::i3::{I3Button, I3Item, I3Markup};
 use crate::theme::Theme;
+use crate::util::format::fraction;
 
 enum BatState {
     Unknown,

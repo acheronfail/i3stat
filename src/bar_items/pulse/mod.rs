@@ -24,9 +24,9 @@ use zbus::Connection;
 
 use crate::context::{BarEvent, BarItem, Context};
 use crate::dbus::notifications::NotificationsProxy;
-use crate::exec::exec;
 use crate::i3::{I3Button, I3Item, I3Markup, I3Modifier};
 use crate::theme::Theme;
+use crate::util::exec;
 
 #[derive(Debug, Copy, Clone, ValueEnum)]
 pub enum Object {

@@ -13,10 +13,10 @@ use self::filter::InterfaceFilter;
 use crate::context::{BarItem, Context};
 use crate::dbus::dbus_connection;
 use crate::dbus::network_manager::NetworkManagerProxy;
-use crate::format::fraction;
 use crate::i3::{I3Item, I3Markup};
-use crate::net::Interface;
 use crate::theme::Theme;
+use crate::util::format::fraction;
+use crate::util::net::Interface;
 
 impl Interface {
     fn format_wireless(&self, i: WirelessInfo, theme: &Theme) -> (String, Option<HexColor>) {

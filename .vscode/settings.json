@@ -1,0 +1,5 @@
+{
+  "files.exclude": {
+    "**/aur/{target,pkg,src}": true
+  }
+}

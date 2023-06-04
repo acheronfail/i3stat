@@ -7,10 +7,10 @@ use serde_derive::{Deserialize, Serialize};
 use sysinfo::{CpuExt, CpuRefreshKind, SystemExt};
 
 use crate::context::{BarEvent, BarItem, Context};
-use crate::exec::exec;
-use crate::format::{float, FloatFormat};
 use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
+use crate::util::exec;
+use crate::util::format::{float, FloatFormat};
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Cpu {

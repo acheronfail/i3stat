@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use serde::{de, Deserialize, Serialize};
 
-use crate::net::{Interface, InterfaceKind};
+use crate::util::net::{Interface, InterfaceKind};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InterfaceFilter {

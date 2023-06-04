@@ -3,6 +3,7 @@ use serde_derive::{Deserialize, Serialize};
 
 use crate::theme::Theme;
 
+/// Display a fraction (e.g., 1/2) with pango formatting.
 pub fn fraction(theme: &Theme, num: usize, den: usize) -> String {
     if den <= 1 {
         return "".into();
@@ -16,13 +17,19 @@ pub fn fraction(theme: &Theme, num: usize, den: usize) -> String {
     )
 }
 
+/// Common, re-usable options for formatting floats.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct FloatFormat {
+    /// The character to use for padding.
     pad: Option<char>,
+    /// How many characters to pad with. If unset, will pad to 3 digits before the
+    /// decimal point - useful for percentages.
     pad_count: Option<usize>,
+    /// The precision displayed when formatting the float.
     precision: Option<usize>,
 }
 
+/// Return the number of digits (before the decimal place) a given number has.
 fn num_digits<F: Float>(n: F) -> usize {
     // SAFETY: the input type is constrained to a float, and all f32's fit into an f64
     let n = n.abs().to_f64().unwrap();
@@ -33,6 +40,7 @@ fn num_digits<F: Float>(n: F) -> usize {
     }
 }
 
+/// Format a float according to the given options.
 pub fn float<F: Float>(n: F, fmt: &FloatFormat) -> String {
     // SAFETY: the input type is constrained to a float, and all f32's fit into an f64
     let n = n.to_f64().unwrap();

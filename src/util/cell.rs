@@ -1,9 +1,18 @@
-//! TODO: doc why this is okay - single-threaded context, explain its dangers, etc
-
 use std::cell::UnsafeCell;
 use std::fmt::{Debug, Display};
 use std::ops::{Deref, Index, IndexMut};
 use std::rc::Rc;
+
+/// A special cell which can be used to share multiple references to the same
+/// underlying type. The references allow mutation of the inner type. This type
+/// isn't `Send` at all - in fact, its safety is closely linked with that of a
+/// single-threaded program - though multiple mutable references may exist to
+/// it, only one may actually mutate at a time.
+///
+/// This isn't a safe type by any means: two `RcCell`'s can exist which both
+/// use `rc_cell.get_mut()` at the same time - that means two mutable references!
+///
+/// For our use case though (single-threaded context) it's convenient and safe.
 pub struct RcCell<T> {
     inner: Rc<UnsafeCell<T>>,
 }
@@ -15,10 +24,12 @@ impl<T> RcCell<T> {
         }
     }
 
+    /// Get an immutable reference to the inner type.
     pub fn get(&self) -> &T {
         unsafe { &*self.inner.get() }
     }
 
+    /// Get a mutable reference to the inner type.
     pub fn get_mut(&mut self) -> &mut T {
         unsafe { &mut *self.inner.get() }
     }
@@ -26,6 +37,7 @@ impl<T> RcCell<T> {
 
 impl<T> Deref for RcCell<T> {
     type Target = T;
+
     fn deref(&self) -> &Self::Target {
         &self.get()
     }

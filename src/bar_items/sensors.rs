@@ -8,9 +8,9 @@ use sysinfo::{ComponentExt, SystemExt};
 use tokio::time::sleep;
 
 use crate::context::{BarItem, Context};
-use crate::format::{float, FloatFormat};
 use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
+use crate::util::format::{float, FloatFormat};
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Sensors {

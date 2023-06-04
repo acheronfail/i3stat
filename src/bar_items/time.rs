@@ -6,8 +6,8 @@ use chrono::prelude::*;
 use serde_derive::{Deserialize, Serialize};
 
 use crate::context::{BarEvent, BarItem, Context};
-use crate::exec::exec;
 use crate::i3::{I3Button, I3Item, I3Markup};
+use crate::util::exec;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Time {

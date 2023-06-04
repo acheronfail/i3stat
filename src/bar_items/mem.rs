@@ -9,9 +9,9 @@ use strum::EnumIter;
 use sysinfo::SystemExt;
 
 use crate::context::{BarEvent, BarItem, Context};
-use crate::format::{float, FloatFormat};
 use crate::i3::{I3Button, I3Item, I3Markup};
 use crate::theme::Theme;
+use crate::util::format::{float, FloatFormat};
 use crate::util::EnumCycle;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, EnumIter)]

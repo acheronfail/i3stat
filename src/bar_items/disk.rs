@@ -8,9 +8,9 @@ use serde_derive::{Deserialize, Serialize};
 use sysinfo::{Disk as SysDisk, DiskExt, SystemExt};
 
 use crate::context::{BarItem, Context};
-use crate::format::fraction;
 use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
+use crate::util::format::fraction;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Disk {
