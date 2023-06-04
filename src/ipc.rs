@@ -11,12 +11,12 @@ use serde_json::Value;
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::oneshot;
 
-use crate::cell::RcCell;
 use crate::config::AppConfig;
 use crate::context::{BarEvent, CustomResponse};
 use crate::dispatcher::Dispatcher;
 use crate::i3::I3ClickEvent;
 use crate::theme::Theme;
+use crate::util::RcCell;
 
 pub const IPC_LEN: usize = std::mem::size_of::<u64>();
 

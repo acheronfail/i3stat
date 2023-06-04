@@ -1,5 +1,4 @@
 pub mod bar_items;
-pub mod cell;
 pub mod cli;
 pub mod config;
 pub mod context;
@@ -13,6 +12,7 @@ pub mod ipc;
 pub mod net;
 pub mod signals;
 pub mod theme;
+pub mod util;
 
 #[cfg(test)]
 pub mod test_utils;

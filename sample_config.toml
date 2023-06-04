@@ -66,6 +66,11 @@ type = "net_usage"
 interval = "1s"
 # Anything under this threshold will show as "-"
 minimum = "1 kiB"
+# Optionally set the display mode, one of:
+#   bits:    display as bits     8 Mbits
+#   bytes:   display as bytes    1 MB     (default)
+#   bibytes: display as *bibytes 1 MiB
+display = "bytes"
 # Up to 5 levels can be passed, and will affect the color of the item:
 #     0..1st: theme.dim
 #   1st..2nd: theme.normal

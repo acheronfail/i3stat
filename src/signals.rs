@@ -4,10 +4,10 @@ use std::error::Error;
 use libc::{SIGRTMAX, SIGRTMIN, SIGTERM};
 use signal_hook_tokio::{Handle, Signals};
 
-use crate::cell::RcCell;
 use crate::config::AppConfig;
 use crate::context::BarEvent;
 use crate::dispatcher::Dispatcher;
+use crate::util::RcCell;
 
 // NOTE: the `signal_hook` crate isn't designed to be used with realtime signals, because
 // they may be lost due to its internal buffering, etc. For our use case, I think this is

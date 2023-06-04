@@ -5,7 +5,6 @@ use std::time::Duration;
 
 use clap::Parser;
 use hex_color::HexColor;
-use istat::cell::RcCell;
 use istat::cli::Cli;
 use istat::config::AppConfig;
 use istat::context::{Context, SharedState};
@@ -16,6 +15,7 @@ use istat::i3::{I3Item, I3Markup};
 use istat::ipc::handle_ipc_events;
 use istat::signals::handle_signals;
 use istat::theme::Theme;
+use istat::util::RcCell;
 use tokio::sync::mpsc::{self, Receiver};
 
 fn main() {

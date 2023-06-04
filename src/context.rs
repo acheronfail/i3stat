@@ -10,10 +10,10 @@ use tokio::sync::mpsc::error::{SendError, TryRecvError};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::sleep;
 
-use crate::cell::RcCell;
 use crate::config::AppConfig;
 use crate::i3::bar_item::I3Item;
 use crate::i3::{I3Button, I3ClickEvent};
+use crate::util::RcCell;
 
 #[derive(Debug)]
 pub enum CustomResponse {

@@ -5,12 +5,26 @@ use async_trait::async_trait;
 use bytesize::ByteSize;
 use hex_color::HexColor;
 use serde_derive::{Deserialize, Serialize};
+use strum::EnumIter;
 use sysinfo::{NetworkExt, NetworksExt, SystemExt};
 use tokio::time::Instant;
 
 use crate::context::{BarEvent, BarItem, Context};
 use crate::i3::{I3Button, I3Item, I3Markup};
 use crate::theme::Theme;
+use crate::util::EnumCycle;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize, EnumIter)]
+#[serde(rename_all = "snake_case")]
+enum UsageDisplay {
+    // as bits: 1 Kbit == 8000 bits == 1000 B
+    Bits,
+    // as bytes: 1 KB == 1000 B
+    #[default]
+    Bytes,
+    // as bibytes: 1 KiB == 1024 B
+    Bibytes,
+}
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct NetUsage {
@@ -20,6 +34,8 @@ pub struct NetUsage {
     thresholds: Vec<ByteSize>,
     #[serde(default)]
     ignored_interfaces: Vec<String>,
+    #[serde(default)]
+    display: UsageDisplay,
 }
 
 impl NetUsage {
@@ -77,20 +93,25 @@ impl BarItem for NetUsage {
         };
 
         let min = self.minimum.map_or(bytesize::KIB, |b| b.as_u64());
-        let text = |bytes, as_bits| {
+        let text = |bytes, display| {
             format!(
                 "{:>8}",
                 if bytes >= min {
-                    format_bytes(bytes, false, as_bits)
+                    match display {
+                        UsageDisplay::Bits => format_bytes(bytes, false, true),
+                        UsageDisplay::Bytes => format_bytes(bytes, false, false),
+                        UsageDisplay::Bibytes => format_bytes(bytes, true, false),
+                    }
                 } else {
                     "-".into()
                 }
             )
         };
 
+        let mut display = EnumCycle::new_at(self.display);
+
         let div_as_u64 = |u, f| (u as f64 / f) as u64;
         let mut last_check = Instant::now();
-        let mut as_bits = false;
         loop {
             let (down, up) = {
                 let state = ctx.state.get_mut();
@@ -120,9 +141,9 @@ impl BarItem for NetUsage {
                 I3Item::new(format!(
                     "<span{}>{}↓</span> <span{}>{}↑</span>",
                     fg(down, &ctx.config.theme),
-                    text(down, as_bits),
+                    text(down, *display.current()),
                     fg(up, &ctx.config.theme),
-                    text(up, as_bits)
+                    text(up, *display.current())
                 ))
                 .markup(I3Markup::Pango),
             )
@@ -132,7 +153,7 @@ impl BarItem for NetUsage {
             if let Some(event) = ctx.wait_for_event(Some(self.interval)).await {
                 if let BarEvent::Click(click) = event {
                     if click.button == I3Button::Left {
-                        as_bits = !as_bits;
+                        display.next();
                     }
                 }
             }
