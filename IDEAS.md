@@ -9,6 +9,17 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
   * i.e., different machines
 * conditionally disable bar items
 * a bin PKGBUILD for the AUR (would need to setup CI first)
+* listen for kernel acpi events to have real-time battery updates rather than polling
+  * not possible by watching sysfs
+  * acpi events are broadcast with netlink
+    * acpid is a good example: https://git.code.sf.net/p/acpid2/code
+      * in particular `kacpimon/netlink.c`
+      * either connect socket to netlink directly, or to acpi (`netcat -U /var/run/acpid.socket`)
+        `ac_adapter ACPI0003:00 00000080 00000000` <-- when ac adaptor disconnected
+        `ac_adapter ACPI0003:00 00000080 00000001` <-- when ac adapter connected
+        `battery PNP0C0A:00 00000080 00000001`     <-- on any `/sys/class/power_supply/*/status` change
+  * udev: https://wiki.archlinux.org/title/laptop#hibernate_on_low_battery_level/
+    * run `udevadm monitor --property` and connect/disconnect the adapter
 
 ## Bugs
 

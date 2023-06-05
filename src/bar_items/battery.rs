@@ -70,7 +70,8 @@ impl Bat {
         Ok(BatState::from_str(self.read("status").await?.trim())?)
     }
 
-    async fn get_charge(&self) -> Result<f32, Box<dyn Error>> {
+    // NOTE: there is also `/capacity` which returns an integer percentage
+    async fn percent(&self) -> Result<f32, Box<dyn Error>> {
         let (charge_now, charge_full) = try_join!(
             self.read_usize("charge_now"),
             self.read_usize("charge_full"),
@@ -78,7 +79,7 @@ impl Bat {
         Ok((charge_now as f32) / (charge_full as f32) * 100.0)
     }
 
-    async fn current_watts(&self) -> Result<f64, Box<dyn Error>> {
+    async fn watts_now(&self) -> Result<f64, Box<dyn Error>> {
         let (current_pico, voltage_pico) = try_join!(
             self.read_usize("current_now"),
             self.read_usize("voltage_now"),
@@ -91,7 +92,7 @@ impl Bat {
         theme: &Theme,
         show_watts: bool,
     ) -> Result<(String, String, Option<HexColor>), Box<dyn Error>> {
-        let (charge, state) = future::join(self.get_charge(), self.get_state()).await;
+        let (charge, state) = future::join(self.percent(), self.get_state()).await;
         let charge = charge?;
         let state = state?;
 
@@ -105,7 +106,7 @@ impl Bat {
         };
 
         if show_watts {
-            let watts = self.current_watts().await?;
+            let watts = self.watts_now().await?;
             Ok((format!("{:.2} W", watts), format!("{:.0}", watts), fg))
         } else {
             let name = self.name()?;
@@ -151,7 +152,6 @@ pub struct Battery {
 
 #[async_trait(?Send)]
 impl BarItem for Battery {
-    // TODO: investigate waiting on bat/status FD for state changes?
     async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
         let batteries = match self.batteries {
             Some(inner) => inner,
