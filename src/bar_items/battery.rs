@@ -12,7 +12,7 @@ use tokio::fs::{self, read_to_string};
 use crate::context::{BarEvent, BarItem, Context};
 use crate::i3::{I3Button, I3Item, I3Markup};
 use crate::theme::Theme;
-use crate::util::format::fraction;
+use crate::util::Paginator;
 
 enum BatState {
     Unknown,
@@ -159,24 +159,24 @@ impl BarItem for Battery {
         };
 
         let mut show_watts = false;
-        let mut idx = 0;
-        let len = batteries.len();
+        let mut p = Paginator::new();
+        p.set_len(batteries.len());
+        if p.len() == 0 {
+            return Ok(());
+        }
+
         loop {
-            if len > 0 {
-                idx = idx % len;
+            let theme = &ctx.config.theme;
+            let (full, short, fg) = batteries[p.idx()].format(theme, show_watts).await?;
+            let full = format!("{}{}", full, p.format(theme));
 
-                let theme = &ctx.config.theme;
-                let (full, short, fg) = batteries[idx].format(theme, show_watts).await?;
-                let full = format!("{}{}", full, fraction(theme, idx + 1, len));
+            let mut item = I3Item::new(full).short_text(short).markup(I3Markup::Pango);
 
-                let mut item = I3Item::new(full).short_text(short).markup(I3Markup::Pango);
-
-                if let Some(color) = fg {
-                    item = item.color(color);
-                }
-
-                ctx.update_item(item).await?;
+            if let Some(color) = fg {
+                item = item.color(color);
             }
+
+            ctx.update_item(item).await?;
 
             let delay = if show_watts {
                 Duration::from_secs(2)
@@ -186,7 +186,7 @@ impl BarItem for Battery {
 
             // cycle though batteries
             ctx.delay_with_event_handler(delay, |event| {
-                Context::paginate(&event, len, &mut idx);
+                p.update(&event);
                 if let BarEvent::Click(click) = event {
                     if click.button == I3Button::Middle {
                         show_watts = !show_watts;

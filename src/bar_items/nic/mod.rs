@@ -15,8 +15,8 @@ use crate::dbus::dbus_connection;
 use crate::dbus::network_manager::NetworkManagerProxy;
 use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
-use crate::util::format::fraction;
 use crate::util::net::Interface;
+use crate::util::Paginator;
 
 impl Interface {
     fn format_wireless(&self, i: WirelessInfo, theme: &Theme) -> (String, Option<HexColor>) {
@@ -75,7 +75,7 @@ impl BarItem for Nic {
         let nm = NetworkManagerProxy::new(&connection).await?;
         let mut nm_state_change = nm.receive_state_changed().await?;
 
-        let mut idx = 0;
+        let mut p = Paginator::new();
         loop {
             let mut interfaces = Interface::get_interfaces()?
                 .into_iter()
@@ -87,50 +87,33 @@ impl BarItem for Nic {
                     }
                 })
                 .collect::<Vec<_>>();
+            p.set_len(interfaces.len());
 
             // no networks active
             if interfaces.is_empty() {
                 ctx.update_item(I3Item::new("inactive").color(ctx.config.theme.dim))
                     .await?;
 
-                idx = 0;
                 tokio::select! {
                     Some(_) = ctx.wait_for_event(self.interval) => continue,
                     Some(_) = nm_state_change.next() => continue,
                 }
             }
 
-            let len = interfaces.len();
-            idx = idx % len;
-
             let theme = &ctx.config.theme;
-            let (full, short) = interfaces[idx].format(theme);
-            let full = format!(r#"{}{}"#, full, fraction(theme, idx + 1, len));
+            let (full, short) = interfaces[p.idx()].format(theme);
+            let full = format!(r#"{}{}"#, full, p.format(theme));
 
             let item = I3Item::new(full).short_text(short).markup(I3Markup::Pango);
             ctx.update_item(item).await?;
 
-            // cycle through networks on click
-            let wait_for_click = async {
-                match self.interval {
-                    Some(duration) => {
-                        ctx.delay_with_event_handler(duration, |event| {
-                            Context::paginate(&event, len, &mut idx);
-                            async {}
-                        })
-                        .await
-                    }
-                    None => {
-                        if let Some(event) = ctx.wait_for_event(self.interval).await {
-                            Context::paginate(&event, len, &mut idx);
-                        }
-                    }
-                }
-            };
-
             tokio::select! {
-                () = wait_for_click => continue,
+                // update on network manager changes
                 Some(_) = nm_state_change.next() => continue,
+                // cycle through networks on click
+                Some(event) = ctx.wait_for_event(self.interval) => {
+                    p.update(&event);
+                },
             }
         }
     }

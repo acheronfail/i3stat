@@ -18,7 +18,6 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 
 * script to generate and resize screenshots to easily update readme
   * `scrot` + `convert` with `Xephyr`, etc
-* refactor `Context::paginate` into a wrapping item or something with a more well-defined API - right now it's not nice to use
 
 ## Tips
 

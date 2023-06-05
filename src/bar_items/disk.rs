@@ -10,7 +10,7 @@ use sysinfo::{Disk as SysDisk, DiskExt, SystemExt};
 use crate::context::{BarItem, Context};
 use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
-use crate::util::format::fraction;
+use crate::util::Paginator;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Disk {
@@ -58,7 +58,7 @@ impl DiskStats {
 #[async_trait(?Send)]
 impl BarItem for Disk {
     async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
-        let mut idx = 0;
+        let mut p = Paginator::new();
         loop {
             let stats: Vec<DiskStats> = {
                 let state = ctx.state.get_mut();
@@ -68,12 +68,12 @@ impl BarItem for Disk {
             };
             let len = stats.len();
             if len > 0 {
-                idx = idx % len;
+                p.set_len(len);
 
-                let disk = &stats[idx];
+                let disk = &stats[p.idx()];
                 let theme = &ctx.config.theme;
                 let (full, short) = disk.format(theme);
-                let full = format!("{}{}", full, fraction(theme, idx + 1, len));
+                let full = format!("{}{}", full, p.format(theme));
 
                 let mut item = I3Item::new(full).short_text(short).markup(I3Markup::Pango);
 
@@ -86,7 +86,7 @@ impl BarItem for Disk {
 
             // cycle through disks
             ctx.delay_with_event_handler(self.interval, |event| {
-                Context::paginate(&event, len, &mut idx);
+                p.update(&event);
                 async {}
             })
             .await;
