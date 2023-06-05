@@ -6,7 +6,8 @@ use std::path::PathBuf;
 
 use futures::future::join_all;
 use indexmap::IndexMap;
-use serde_derive::{Deserialize, Serialize};
+use serde::Serialize;
+use serde_derive::Deserialize;
 use serde_json::Value;
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::oneshot;
@@ -18,7 +19,7 @@ use crate::i3::I3ClickEvent;
 use crate::theme::Theme;
 use crate::util::RcCell;
 
-pub const IPC_LEN: usize = std::mem::size_of::<u64>();
+pub const IPC_HEADER_LEN: usize = std::mem::size_of::<u64>();
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -80,6 +81,15 @@ pub fn get_socket_path(socket_path: Option<&PathBuf>) -> Result<PathBuf, Box<dyn
     )
 }
 
+pub fn encode_ipc_msg<T: Serialize>(t: T) -> Result<Vec<u8>, Box<dyn Error>> {
+    let msg = serde_json::to_vec(&t)?;
+    // header is a u64 of length
+    let mut payload = (msg.len() as u64).to_le_bytes().to_vec();
+    // followed by bytes of the body encoded as json
+    payload.extend(msg);
+    Ok(payload)
+}
+
 pub async fn handle_ipc_events(
     config: RcCell<AppConfig>,
     dispatcher: Dispatcher,
@@ -117,12 +127,12 @@ async fn handle_ipc_client(
     dispatcher: Dispatcher,
 ) -> Result<(), Box<dyn Error>> {
     // first read the length header of the IPC message
-    let mut buf = [0; IPC_LEN];
+    let mut buf = [0; IPC_HEADER_LEN];
     loop {
         stream.readable().await?;
         match stream.try_read(&mut buf) {
             Ok(0) => break,
-            Ok(IPC_LEN) => {
+            Ok(IPC_HEADER_LEN) => {
                 let len = u64::from_le_bytes(buf);
                 handle_ipc_request(&stream, config, dispatcher, len as usize).await?;
                 break;
@@ -130,7 +140,7 @@ async fn handle_ipc_client(
             Ok(n) => {
                 return Err(format!(
                     "failed reading ipc header, read {} bytes, expected {}",
-                    n, IPC_LEN
+                    n, IPC_HEADER_LEN
                 )
                 .into())
             }
@@ -222,7 +232,7 @@ async fn handle_ipc_request(
         }
         IpcMessage::BarEvent { instance, event } => {
             // NOTE: special considerations here for `instance`: if it's a number, then it maps to the item at the index
-            // otherwise, it's interpreted as a tag and the first item with that tag will be sent the item
+            // otherwise, it's interpreted as a name and the first item with that name is chosen
             let instance = match instance.parse::<usize>() {
                 // ipc message contained an index
                 Ok(idx) => idx,
@@ -281,7 +291,7 @@ async fn handle_ipc_request(
 }
 
 async fn send_ipc_response(stream: &UnixStream, resp: &IpcReply) -> Result<(), Box<dyn Error>> {
-    let data = serde_json::to_vec(resp)?;
+    let data = encode_ipc_msg(resp)?;
     let mut idx = 0;
     loop {
         stream.writable().await?;

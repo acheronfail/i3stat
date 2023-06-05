@@ -7,7 +7,14 @@ use std::path::PathBuf;
 use clap::builder::PossibleValue;
 use clap::{ColorChoice, Parser, Subcommand, ValueEnum};
 use istat::i3::{I3Button, I3ClickEvent, I3Modifier};
-use istat::ipc::{get_socket_path, IpcBarEvent, IpcMessage, IpcReply};
+use istat::ipc::{
+    encode_ipc_msg,
+    get_socket_path,
+    IpcBarEvent,
+    IpcMessage,
+    IpcReply,
+    IPC_HEADER_LEN,
+};
 use serde_json::Value;
 
 #[derive(Debug, Parser)]
@@ -152,10 +159,8 @@ fn send_message(
 ) -> Result<IpcReply, Box<dyn Error>> {
     let mut stream = UnixStream::connect(socket_path.as_ref())?;
 
-    let msg = serde_json::to_vec(&msg)?;
-    let mut payload = (msg.len() as u64).to_le_bytes().to_vec();
-    payload.extend(msg);
-    if let Err(e) = stream.write_all(&payload) {
+    let msg = encode_ipc_msg(msg)?;
+    if let Err(e) = stream.write_all(&msg) {
         return Err(format!("Error writing to socket: {}", e).into());
     }
 
@@ -167,7 +172,7 @@ fn send_message(
         }
     };
 
-    Ok(serde_json::from_slice(&buf[..n])?)
+    Ok(serde_json::from_slice(&buf[IPC_HEADER_LEN..n])?)
 }
 
 fn send_and_print_response(
