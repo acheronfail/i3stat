@@ -17,8 +17,7 @@ jobs:
           submodules: 'recursive'
       - uses: extractions/setup-just@v1
       - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
+      - run: just setup
       - run: cargo build --release --all-features
       - run: cargo test
       - run: just test-publish
