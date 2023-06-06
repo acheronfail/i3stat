@@ -2,6 +2,11 @@ use std::error::Error;
 
 use ::std::os::raw::{c_char, c_uint};
 
+// https://github.com/torvalds/linux/blob/f8dba31b0a826e691949cd4fdfa5c30defaac8c5/drivers/acpi/event.c#L77
+pub const ACPI_EVENT_FAMILY_NAME: &str = "acpi_event";
+// https://github.com/torvalds/linux/blob/f8dba31b0a826e691949cd4fdfa5c30defaac8c5/drivers/acpi/event.c#L79
+pub const ACPI_EVENT_MCAST_GROUP_NAME: &str = "acpi_mc_group";
+
 // linux:  https://github.com/torvalds/linux/blob/f8dba31b0a826e691949cd4fdfa5c30defaac8c5/drivers/acpi/event.c#L62
 #[repr(u16)]
 #[allow(unused)]
@@ -14,7 +19,7 @@ pub enum AcpiAttrType {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 #[allow(non_camel_case_types)]
-pub struct acpi_generic_netlink_event {
+pub struct acpi_genl_event {
     // https://github.com/torvalds/linux/blob/f8dba31b0a826e691949cd4fdfa5c30defaac8c5/include/acpi/acpi_bus.h#L223
     device_class: [c_char; 20usize],
     bus_id: [c_char; 15usize],
@@ -24,12 +29,21 @@ pub struct acpi_generic_netlink_event {
 
 #[derive(Debug, Clone)]
 pub struct AcpiGenericNetlinkEvent {
-    /// Something like `ac_adapter`, `battery` or `processor`.
-    // TODO: might be a good idea to find a list of these somewhere
+    /// Describes the device from where the event was emitted, see struct's associated constants.
+    /// Sometimes also completely empty - `""` - in some cases (such as changing display brightness).
     pub device_class: String,
     pub bus_id: String,
     pub r#type: u32,
     pub data: u32,
+}
+
+impl AcpiGenericNetlinkEvent {
+    /// https://github.com/torvalds/linux/blob/f8dba31b0a826e691949cd4fdfa5c30defaac8c5/include/acpi/battery.h#L7
+    pub const DEVICE_CLASS_BATTERY: &str = "battery";
+    /// https://github.com/torvalds/linux/blob/f8dba31b0a826e691949cd4fdfa5c30defaac8c5/drivers/acpi/ac.c#L23
+    pub const DEVICE_CLASS_AC: &str = "ac_adapter";
+    /// https://github.com/torvalds/linux/blob/f8dba31b0a826e691949cd4fdfa5c30defaac8c5/include/acpi/processor.h#L17
+    pub const DEVICE_CLASS_PROCESSOR: &str = "processor";
 }
 
 /// Checks a slice of C's chars to ensure they're not signed, needed because C's `char` type could
@@ -48,10 +62,10 @@ fn get_u8_bytes(slice: &[c_char]) -> Result<Vec<u8>, Box<dyn Error>> {
         .collect::<Result<Vec<_>, _>>()
 }
 
-impl<'a> TryFrom<&'a acpi_generic_netlink_event> for AcpiGenericNetlinkEvent {
+impl<'a> TryFrom<&'a acpi_genl_event> for AcpiGenericNetlinkEvent {
     type Error = Box<dyn Error>;
 
-    fn try_from(value: &'a acpi_generic_netlink_event) -> Result<Self, Self::Error> {
+    fn try_from(value: &'a acpi_genl_event) -> Result<Self, Self::Error> {
         Ok(AcpiGenericNetlinkEvent {
             device_class: String::from_utf8(get_u8_bytes(&value.device_class)?)?,
             bus_id: String::from_utf8(get_u8_bytes(&value.bus_id)?)?,

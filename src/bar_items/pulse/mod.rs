@@ -20,10 +20,10 @@ use libpulse_binding::volume::{ChannelVolumes, Volume};
 use libpulse_tokio::TokioMain;
 use serde_derive::{Deserialize, Serialize};
 use tokio::sync::mpsc::{self, UnboundedSender};
-use zbus::Connection;
 
 use crate::context::{BarEvent, BarItem, Context};
 use crate::dbus::notifications::NotificationsProxy;
+use crate::dbus::{dbus_connection, BusType};
 use crate::i3::{I3Button, I3Item, I3Markup, I3Modifier};
 use crate::theme::Theme;
 use crate::util::exec;
@@ -544,7 +544,7 @@ impl BarItem for Pulse {
             let _ = exit_tx.send(main_loop.run().await).await;
         });
 
-        let dbus = Connection::session().await?;
+        let dbus = dbus_connection(BusType::Session).await?;
         let notifications = NotificationsProxy::new(&dbus).await?;
         loop {
             tokio::select! {
@@ -601,17 +601,17 @@ impl BarItem for Pulse {
                     }
                     Command::NotifyVolume { name, volume, mute } => {
                         if self.notify.should_notify(NotificationSetting::VolumeMute) {
-                            let _ = notifications.volume_mute(name, volume, mute).await;
+                            let _ = notifications.pulse_volume_mute(name, volume, mute).await;
                         }
                     }
                     Command::NotifyNewSourceSink { name, what } => {
                         if self.notify.should_notify(NotificationSetting::NewSourceSink) {
-                            let _ = notifications.new_source_sink(name, what).await;
+                            let _ = notifications.pulse_new_source_sink(name, what).await;
                         }
                     }
                     Command::NotifyDefaultsChange { name, what } => {
                         if self.notify.should_notify(NotificationSetting::DefaultsChange) {
-                            let _ = notifications.defaults_change(name, what).await;
+                            let _ = notifications.pulse_defaults_change(name, what).await;
                         }
                     }
                 },

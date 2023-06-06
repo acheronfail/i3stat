@@ -41,7 +41,7 @@ impl<'a> From<Urgency> for Value<'a> {
 impl<'a> NotificationsProxy<'a> {
     const APP_NAME: &str = "istat";
 
-    pub async fn volume_mute(&self, name: impl AsRef<str>, pct: u32, mute: bool) {
+    pub async fn pulse_volume_mute(&self, name: impl AsRef<str>, pct: u32, mute: bool) {
         let mut hints = HashMap::new();
         hints.insert("value", Value::U32(pct));
         hints.insert("urgency", Urgency::Low.into());
@@ -65,7 +65,7 @@ impl<'a> NotificationsProxy<'a> {
         }
     }
 
-    pub async fn new_source_sink(&self, name: impl AsRef<str>, what: impl AsRef<str>) {
+    pub async fn pulse_new_source_sink(&self, name: impl AsRef<str>, what: impl AsRef<str>) {
         let mut hints = HashMap::new();
         hints.insert("urgency", Urgency::Low.into());
 
@@ -86,7 +86,7 @@ impl<'a> NotificationsProxy<'a> {
         }
     }
 
-    pub async fn defaults_change(&self, name: impl AsRef<str>, what: impl AsRef<str>) {
+    pub async fn pulse_defaults_change(&self, name: impl AsRef<str>, what: impl AsRef<str>) {
         let mut hints = HashMap::new();
         hints.insert("urgency", Urgency::Low.into());
 
@@ -97,6 +97,31 @@ impl<'a> NotificationsProxy<'a> {
                 "",
                 &format!("Default {}", what.as_ref()),
                 name.as_ref(),
+                &[],
+                hints,
+                2_000,
+            )
+            .await
+        {
+            log::warn!("failed to send notification: {}", e);
+        }
+    }
+
+    pub async fn ac_adapter(&self, plugged_in: bool) {
+        let mut hints = HashMap::new();
+        hints.insert("urgency", Urgency::Low.into());
+
+        if let Err(e) = self
+            .notify_full(
+                Self::APP_NAME,
+                0,
+                "",
+                "AC Adapter",
+                if plugged_in {
+                    "Connected"
+                } else {
+                    "Disconnected"
+                },
                 &[],
                 hints,
                 2_000,

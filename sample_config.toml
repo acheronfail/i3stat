@@ -186,10 +186,13 @@ signal = 4
 type = "battery"
 # How often this item should refresh
 interval = "10s"
+# Should notifications be sent when an AC Adapter is plugged/unplugged?
+notify_on_adapter = true
 
 # Optionally specify a list of particular batteries to show. If not provided, it will attempt to
 # discover all the batteries on the system.
 # batteries = ["/sys/class/power_supply/BAT0"]
+
 
 [[items]]
 # Display the current date or time

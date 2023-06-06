@@ -10,8 +10,11 @@ use serde_derive::{Deserialize, Serialize};
 use tokio::fs::{self, read_to_string};
 
 use crate::context::{BarEvent, BarItem, Context};
+use crate::dbus::notifications::NotificationsProxy;
+use crate::dbus::{dbus_connection, BusType};
 use crate::i3::{I3Button, I3Item, I3Markup};
 use crate::theme::Theme;
+use crate::util::ffi::AcpiGenericNetlinkEvent;
 use crate::util::{netlink_acpi_listen, Paginator};
 
 enum BatState {
@@ -146,10 +149,13 @@ pub struct Battery {
     #[serde(with = "crate::human_time")]
     interval: Duration,
     batteries: Option<Vec<Bat>>,
-    // TODO: option to send warning notifications on certain percentage(s)
+    #[serde(default)]
+    notify_on_adapter: bool,
     // TODO: option to run command(s) at certain percentage(s)
 }
 
+// FIXME: sometimes the battery disappears when AC connected and this block exits
+//  should be fixed with a retry, or by refreshing `batteries`
 #[async_trait(?Send)]
 impl BarItem for Battery {
     async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
@@ -160,27 +166,28 @@ impl BarItem for Battery {
 
         let mut show_watts = false;
         let mut p = Paginator::new();
-        p.set_len(batteries.len());
-        if p.len() == 0 {
-            return Ok(());
+        if batteries.len() == 0 {
+            return Err("no batteries found".into());
+        } else {
+            p.set_len(batteries.len());
         }
 
-        // FIXME: sometimes the battery disappears when AC connected and this block exits
-        //  should be fixed with a retry, or by refreshing `batteries`
-        let mut rx = netlink_acpi_listen().await?;
+        let dbus = dbus_connection(BusType::Session).await?;
+        let notifications = NotificationsProxy::new(&dbus).await?;
+        let mut acpi_event = netlink_acpi_listen().await?;
         loop {
             let theme = &ctx.config.theme;
             let (full, short, fg) = batteries[p.idx()].format(theme, show_watts).await?;
             let full = format!("{}{}", full, p.format(theme));
 
             let mut item = I3Item::new(full).short_text(short).markup(I3Markup::Pango);
-
             if let Some(color) = fg {
                 item = item.color(color);
             }
 
             ctx.update_item(item).await?;
 
+            // change delay if we're displaying watts
             let delay = if show_watts {
                 Duration::from_secs(2)
             } else {
@@ -198,12 +205,32 @@ impl BarItem for Battery {
                 async {}
             });
 
+            // update on acpi events
+            let wait_for_acpi_event = async {
+                loop {
+                    if let Some(ev) = acpi_event.recv().await {
+                        match ev.device_class.as_str() {
+                            // refresh on battery related events
+                            AcpiGenericNetlinkEvent::DEVICE_CLASS_AC => break Some(ev.data == 1),
+                            AcpiGenericNetlinkEvent::DEVICE_CLASS_BATTERY => break None,
+                            // ignore other acpi events
+                            _ => continue,
+                        }
+                    }
+                }
+            };
+
             tokio::select! {
                 // reload block on click (or timeout)
-                () = wait_for_click => continue,
+                () = wait_for_click => {},
                 // reload block on any ACPI event
-                // TODO: since we have these events, we can send notifications on AC adapters being plugged/unplugged, etc
-                Some(_event) = rx.recv() => continue,
+                ac_state = wait_for_acpi_event => {
+                    if let Some(plugged_in) = ac_state {
+                        if self.notify_on_adapter {
+                            let _ = notifications.ac_adapter(plugged_in).await;
+                        }
+                    }
+                },
             }
         }
     }

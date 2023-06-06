@@ -1,5 +1,5 @@
-mod acpi;
-mod ffi;
+pub mod acpi;
+pub mod ffi;
 
 use std::error::Error;
 
@@ -11,7 +11,7 @@ use neli::router::asynchronous::NlRouter;
 use neli::utils::Groups;
 use tokio::sync::mpsc::{self, Receiver};
 
-use self::ffi::{acpi_generic_netlink_event, AcpiAttrType, AcpiGenericNetlinkEvent};
+use self::ffi::{acpi_genl_event, AcpiAttrType, AcpiGenericNetlinkEvent};
 
 pub async fn netlink_acpi_listen() -> Result<Receiver<AcpiGenericNetlinkEvent>, Box<dyn Error>> {
     // open netlink socket
@@ -35,7 +35,7 @@ pub async fn netlink_acpi_listen() -> Result<Receiver<AcpiGenericNetlinkEvent>, 
 
         loop {
             match multicast.next::<u16, Payload>().await as Next {
-                None => todo!("return error"),
+                None => break,
                 Some(response) => match response {
                     Err(e) => log::error!("error receiving netlink msg: {}", e),
                     Ok(nl_msg) => {
@@ -50,7 +50,7 @@ pub async fn netlink_acpi_listen() -> Result<Receiver<AcpiGenericNetlinkEvent>, 
                             if let Some(attr) = attrs.get_attribute(AcpiAttrType::Event as u16) {
                                 // cast the attribute payload into its type
                                 let raw = attr.nla_payload().as_ref().as_ptr();
-                                let event = unsafe { &*(raw as *const acpi_generic_netlink_event) };
+                                let event = unsafe { &*(raw as *const acpi_genl_event) };
 
                                 // if there was an error, stop listening and exit
                                 match event.try_into() {
@@ -71,6 +71,7 @@ pub async fn netlink_acpi_listen() -> Result<Receiver<AcpiGenericNetlinkEvent>, 
 
         // move the socket into here so it's not dropped earlier than expected
         drop(socket);
+        log::error!("unexpected end of netlink stream")
     });
 
     Ok(rx)

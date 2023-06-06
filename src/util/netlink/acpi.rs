@@ -5,8 +5,7 @@ use neli::router::asynchronous::NlRouter;
 use neli::utils::Groups;
 use tokio::sync::OnceCell;
 
-const ACPI_EVENT_FAMILY_NAME: &str = "acpi_event";
-const ACPI_EVENT_MCAST_GROUP_NAME: &str = "acpi_mc_group";
+use super::ffi::{ACPI_EVENT_FAMILY_NAME, ACPI_EVENT_MCAST_GROUP_NAME};
 
 // (family id, multicast group id)
 static ACPI_EVENT_IDS: OnceCell<(u16, u32)> = OnceCell::const_new();
