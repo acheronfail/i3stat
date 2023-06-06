@@ -24,6 +24,8 @@ pub struct acpi_generic_netlink_event {
 
 #[derive(Debug, Clone)]
 pub struct AcpiGenericNetlinkEvent {
+    /// Something like `ac_adapter`, `battery` or `processor`.
+    // TODO: might be a good idea to find a list of these somewhere
     pub device_class: String,
     pub bus_id: String,
     pub r#type: u32,

@@ -165,6 +165,8 @@ impl BarItem for Battery {
             return Ok(());
         }
 
+        // FIXME: sometimes the battery disappears when AC connected and this block exits
+        //  should be fixed with a retry, or by refreshing `batteries`
         let mut rx = netlink_acpi_listen().await?;
         loop {
             let theme = &ctx.config.theme;

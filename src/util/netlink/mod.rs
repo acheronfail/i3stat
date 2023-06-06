@@ -33,33 +33,44 @@ pub async fn netlink_acpi_listen() -> Result<Receiver<AcpiGenericNetlinkEvent>, 
         type Payload = Genlmsghdr<u8, u16>;
         type Next = Option<Result<Nlmsghdr<u16, Payload>, RouterError<u16, Payload>>>;
 
-        while let Some(Ok(response)) = multicast.next::<u16, Payload>().await as Next {
-            // skip this message if it's not part of the apci family
-            if *response.nl_type() != family_id {
-                continue;
-            }
-
-            // if it is, then decode it
-            if let Some(payload) = response.get_payload() {
-                let attrs = payload.attrs().get_attr_handle();
-                if let Some(attr) = attrs.get_attribute(AcpiAttrType::Event as u16) {
-                    // cast the attribute payload into its type
-                    let raw = attr.nla_payload().as_ref().as_ptr();
-                    let event = unsafe { &*(raw as *const acpi_generic_netlink_event) };
-
-                    // if there was an error, stop listening and exit
-                    match event.try_into() {
-                        Ok(event) => {
-                            if let Err(e) = tx.send(event).await {
-                                log::error!("failed to send acpi event: {}", e);
-                                break;
-                            };
+        loop {
+            match multicast.next::<u16, Payload>().await as Next {
+                None => todo!("return error"),
+                Some(response) => match response {
+                    Err(e) => log::error!("error receiving netlink msg: {}", e),
+                    Ok(nl_msg) => {
+                        // skip this message if it's not part of the apci family
+                        if *nl_msg.nl_type() != family_id {
+                            continue;
                         }
-                        Err(e) => log::error!("failed to parse event data: {}", e),
+
+                        // if it is, then decode it
+                        if let Some(payload) = nl_msg.get_payload() {
+                            let attrs = payload.attrs().get_attr_handle();
+                            if let Some(attr) = attrs.get_attribute(AcpiAttrType::Event as u16) {
+                                // cast the attribute payload into its type
+                                let raw = attr.nla_payload().as_ref().as_ptr();
+                                let event = unsafe { &*(raw as *const acpi_generic_netlink_event) };
+
+                                // if there was an error, stop listening and exit
+                                match event.try_into() {
+                                    Ok(event) => {
+                                        if let Err(e) = tx.send(event).await {
+                                            log::error!("failed to send acpi event: {}", e);
+                                            break;
+                                        };
+                                    }
+                                    Err(e) => log::error!("failed to parse event data: {}", e),
+                                }
+                            }
+                        }
                     }
-                }
+                },
             }
         }
+
+        // move the socket into here so it's not dropped earlier than expected
+        drop(socket);
     });
 
     Ok(rx)
