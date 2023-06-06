@@ -23,7 +23,7 @@ jobs:
       - run: rustup show
 
       - run: just setup
-      - run: cargo build --release --all-features
+      - run: cargo build --all-features
       - run: cargo test
 
   # TODO: build and upload to release tag

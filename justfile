@@ -8,7 +8,7 @@ setup:
   cd ./scripts/run && yarn
   if ! command -v cargo-lbuild >/dev/null 2>&1 /dev/null; then cargo install cargo-limit; fi
   if   command -v pacman       >/dev/null 2>&1 /dev/null; then sudo pacman -S --needed clang libpulse i3-wm xorg-server-xephyr yarn; fi
-  if   command -v apt-get      >/dev/null 2>&1 /dev/null; then sudo apt-get install -y libiw-dev; fi
+  if   command -v apt-get      >/dev/null 2>&1 /dev/null; then sudo apt-get install -y build-essential clang libiw-dev libpulse-dev; fi
 
 @check +CMDS:
     echo {{CMDS}} | xargs -n1 sh -c 'if ! command -v $1 >/dev/null 2>&1 /dev/null; then echo "$1 is required!"; exit 1; fi' bash
