@@ -87,7 +87,6 @@ impl BarItem for Nic {
                     }
                 })
                 .collect::<Vec<_>>();
-            p.set_len(interfaces.len());
 
             // no networks active
             if interfaces.is_empty() {
@@ -99,6 +98,8 @@ impl BarItem for Nic {
                     Some(_) = nm_state_change.next() => continue,
                 }
             }
+
+            p.set_len(interfaces.len());
 
             let theme = &ctx.config.theme;
             let (full, short) = interfaces[p.idx()].format(theme);

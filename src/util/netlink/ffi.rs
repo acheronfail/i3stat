@@ -22,6 +22,7 @@ pub struct acpi_generic_netlink_event {
     data: c_uint,
 }
 
+#[derive(Debug, Clone)]
 pub struct AcpiGenericNetlinkEvent {
     pub device_class: String,
     pub bus_id: String,
@@ -31,12 +32,18 @@ pub struct AcpiGenericNetlinkEvent {
 
 /// Checks a slice of C's chars to ensure they're not signed, needed because:
 /// https://stackoverflow.com/a/2054941/5552584
-fn check_char_sign(slice: &[c_char]) -> Result<&[u8], Box<dyn Error>> {
-    if slice.iter().all(|c| *c >= 0) {
-        Ok(unsafe { &*(slice.as_ptr() as *const &[u8]) })
-    } else {
-        Err(format!("slice contained signed chars: {:?}", slice).into())
-    }
+fn get_u8_bytes(slice: &[c_char]) -> Result<Vec<u8>, Box<dyn Error>> {
+    slice
+        .into_iter()
+        .take_while(|c| **c != 0)
+        .map(|c| -> Result<u8, Box<dyn Error>> {
+            if *c < 0 {
+                Err(format!("slice contained signed char: {}", c).into())
+            } else {
+                Ok(*c as u8)
+            }
+        })
+        .collect::<Result<Vec<_>, _>>()
 }
 
 impl<'a> TryFrom<&'a acpi_generic_netlink_event> for AcpiGenericNetlinkEvent {
@@ -44,8 +51,8 @@ impl<'a> TryFrom<&'a acpi_generic_netlink_event> for AcpiGenericNetlinkEvent {
 
     fn try_from(value: &'a acpi_generic_netlink_event) -> Result<Self, Self::Error> {
         Ok(AcpiGenericNetlinkEvent {
-            device_class: std::str::from_utf8(&check_char_sign(&value.device_class)?)?.to_string(),
-            bus_id: std::str::from_utf8(&check_char_sign(&value.bus_id)?)?.to_string(),
+            device_class: String::from_utf8(get_u8_bytes(&value.device_class)?)?,
+            bus_id: String::from_utf8(get_u8_bytes(&value.bus_id)?)?,
             r#type: value.r#type,
             data: value.data,
         })
