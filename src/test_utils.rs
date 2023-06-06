@@ -39,7 +39,7 @@ fn m(cmd: &Command, dir: &Path, parent_name: Option<&str>) -> Result<(), Box<dyn
 
 // FIXME: this is used, but for some reason the warning is still here?
 #[allow(dead_code)]
-pub fn async_test<F>(f: F)
+pub fn async_test<F>(f: F) -> F::Output
 where
     F: Future,
 {
@@ -48,5 +48,5 @@ where
         .build()
         .unwrap();
 
-    tokio::task::LocalSet::new().block_on(&rt, f);
+    tokio::task::LocalSet::new().block_on(&rt, f)
 }

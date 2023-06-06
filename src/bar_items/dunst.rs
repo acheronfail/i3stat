@@ -29,9 +29,6 @@ impl Dunst {
 #[async_trait(?Send)]
 impl BarItem for Dunst {
     async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
-        // this item doesn't receive any input, so close the receiver
-        ctx.raw_event_rx().close();
-
         // get initial state
         let connection = dbus_connection(BusType::Session).await?;
         let dunst_proxy = DunstProxy::new(&connection).await?;

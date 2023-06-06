@@ -254,6 +254,7 @@ async fn battery_acpi_events() -> Result<Receiver<BatteryAcpiEvent>, Box<dyn Err
                 };
 
                 if result.is_err() {
+                    // SAFETY: we just checked with `.is_err()`
                     break result.unwrap_err();
                 }
             }

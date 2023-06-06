@@ -18,6 +18,10 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 
 * script to generate and resize screenshots to easily update readme
   * `scrot` + `convert` with `Xephyr`, etc
+* tests
+  * unit tests for what makes sense
+  * xephyr tests for i3 interactions
+  * ipc tests
 
 ## Tips
 
