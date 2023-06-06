@@ -30,8 +30,8 @@ pub struct AcpiGenericNetlinkEvent {
     pub data: u32,
 }
 
-/// Checks a slice of C's chars to ensure they're not signed, needed because:
-/// https://stackoverflow.com/a/2054941/5552584
+/// Checks a slice of C's chars to ensure they're not signed, needed because C's `char` type could
+/// be either signed or unsigned unless specified. See: https://stackoverflow.com/a/2054941/5552584
 fn get_u8_bytes(slice: &[c_char]) -> Result<Vec<u8>, Box<dyn Error>> {
     slice
         .into_iter()
