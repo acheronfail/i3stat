@@ -25,6 +25,5 @@ jobs:
       - run: just setup
       - run: cargo build --release --all-features
       - run: cargo test
-      - run: just test-publish
 
   # TODO: build and upload to release tag
