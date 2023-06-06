@@ -119,7 +119,7 @@ show = ["caps_lock", "num_lock"]
 signal = 8
 ```
 
-Now, whenever `istat` receive the `SIGRTMIN+8` signal, the bar item will be refreshed.
+Now, whenever `istat` receives the `SIGRTMIN+8` signal, the bar item will be refreshed.
 Pair this with the following config in i3/sway, and you'll have a bar item that reflects your keys all the time:
 
 ```
@@ -134,7 +134,7 @@ $ istat-signals
 {"max":30,"min":0,"sigrtmax":64,"sigrtmin":34}
 ```
 
-The same signal can be configured for multiple bar items, too!
+The same signal can be configured for multiple bar items, so you many can be refreshed with the same signal!
 
 #### Custom IPC events
 
