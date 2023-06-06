@@ -105,22 +105,11 @@ where
 #[cfg(test)]
 mod cell_tests {
     use futures::stream::FuturesUnordered;
-    use futures::{Future, StreamExt};
+    use futures::StreamExt;
     use tokio::join;
 
     use super::*;
-
-    fn async_test<F>(f: F)
-    where
-        F: Future,
-    {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-
-        tokio::task::LocalSet::new().block_on(&rt, f);
-    }
+    use crate::test_utils::async_test;
 
     #[test]
     fn across_await_boundaries() {

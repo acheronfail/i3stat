@@ -12,7 +12,7 @@ use tokio::fs::{self, read_to_string};
 use crate::context::{BarEvent, BarItem, Context};
 use crate::i3::{I3Button, I3Item, I3Markup};
 use crate::theme::Theme;
-use crate::util::Paginator;
+use crate::util::{netlink_acpi_listen, Paginator};
 
 enum BatState {
     Unknown,
@@ -165,6 +165,7 @@ impl BarItem for Battery {
             return Ok(());
         }
 
+        let mut rx = netlink_acpi_listen().await?;
         loop {
             let theme = &ctx.config.theme;
             let (full, short, fg) = batteries[p.idx()].format(theme, show_watts).await?;
@@ -185,7 +186,7 @@ impl BarItem for Battery {
             };
 
             // cycle though batteries
-            ctx.delay_with_event_handler(delay, |event| {
+            let wait_for_click = ctx.delay_with_event_handler(delay, |event| {
                 p.update(&event);
                 if let BarEvent::Click(click) = event {
                     if click.button == I3Button::Middle {
@@ -193,8 +194,15 @@ impl BarItem for Battery {
                     }
                 }
                 async {}
-            })
-            .await;
+            });
+
+            tokio::select! {
+                // reload block on click (or timeout)
+                () = wait_for_click => continue,
+                // reload block on any ACPI event
+                // TODO: since we have these events, we can send notifications on AC adapters being plugged/unplugged, etc
+                Some(_event) = rx.recv() => continue,
+            }
         }
     }
 }
