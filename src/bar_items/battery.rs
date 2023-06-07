@@ -4,10 +4,11 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use futures::{future, try_join};
+use futures::try_join;
 use hex_color::HexColor;
 use serde_derive::{Deserialize, Serialize};
 use tokio::fs::{self, read_to_string};
+use tokio::sync::mpsc::Receiver;
 
 use crate::context::{BarEvent, BarItem, Context};
 use crate::dbus::notifications::NotificationsProxy;
@@ -95,9 +96,16 @@ impl Bat {
         theme: &Theme,
         show_watts: bool,
     ) -> Result<(String, String, Option<HexColor>), Box<dyn Error>> {
-        let (charge, state) = future::join(self.percent(), self.get_state()).await;
-        let charge = charge?;
-        let state = state?;
+        let (charge, state) = match try_join!(self.percent(), self.get_state()) {
+            Ok((charge, state)) => (charge, state),
+            // Return unknown state: the files in sysfs aren't present at times, such as when connecting
+            // ac adapters, etc. In these scenarios we just end early here without an error and let the
+            // item retry on the next interval/acpi event.
+            Err(e) => {
+                log::warn!("failed to read battery {}: {}", self.0.display(), e);
+                return Ok(("???".into(), "?".into(), Some(theme.red)));
+            }
+        };
 
         let (icon, fg) = state.get_color(theme);
         let (icon, fg) = match charge as u32 {
@@ -154,8 +162,6 @@ pub struct Battery {
     // TODO: option to run command(s) at certain percentage(s)
 }
 
-// FIXME: sometimes the battery disappears when AC connected and this block exits
-//  should be fixed with a retry, or by refreshing `batteries`
 #[async_trait(?Send)]
 impl BarItem for Battery {
     async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
@@ -174,7 +180,7 @@ impl BarItem for Battery {
 
         let dbus = dbus_connection(BusType::Session).await?;
         let notifications = NotificationsProxy::new(&dbus).await?;
-        let mut acpi_event = netlink_acpi_listen().await?;
+        let mut on_acpi_event = battery_acpi_events().await?;
         loop {
             let theme = &ctx.config.theme;
             let (full, short, fg) = batteries[p.idx()].format(theme, show_watts).await?;
@@ -205,27 +211,12 @@ impl BarItem for Battery {
                 async {}
             });
 
-            // update on acpi events
-            let wait_for_acpi_event = async {
-                loop {
-                    if let Some(ev) = acpi_event.recv().await {
-                        match ev.device_class.as_str() {
-                            // refresh on battery related events
-                            AcpiGenericNetlinkEvent::DEVICE_CLASS_AC => break Some(ev.data == 1),
-                            AcpiGenericNetlinkEvent::DEVICE_CLASS_BATTERY => break None,
-                            // ignore other acpi events
-                            _ => continue,
-                        }
-                    }
-                }
-            };
-
             tokio::select! {
                 // reload block on click (or timeout)
                 () = wait_for_click => {},
                 // reload block on any ACPI event
-                ac_state = wait_for_acpi_event => {
-                    if let Some(plugged_in) = ac_state {
+                Some(event) = on_acpi_event.recv() => {
+                    if let BatteryAcpiEvent::AcAdapterPlugged(plugged_in) = event {
                         if self.notify_on_adapter {
                             let _ = notifications.ac_adapter(plugged_in).await;
                         }
@@ -234,4 +225,42 @@ impl BarItem for Battery {
             }
         }
     }
+}
+
+#[derive(Debug, Copy, Clone)]
+enum BatteryAcpiEvent {
+    Battery,
+    AcAdapterPlugged(bool),
+}
+
+async fn battery_acpi_events() -> Result<Receiver<BatteryAcpiEvent>, Box<dyn Error>> {
+    let mut acpi_event = netlink_acpi_listen().await?;
+    let (tx, rx) = tokio::sync::mpsc::channel(1);
+    tokio::task::spawn_local(async move {
+        let err = loop {
+            if let Some(ev) = acpi_event.recv().await {
+                let result = match ev.device_class.as_str() {
+                    // refresh on ac adapter events
+                    AcpiGenericNetlinkEvent::DEVICE_CLASS_AC => {
+                        tx.send(BatteryAcpiEvent::AcAdapterPlugged(ev.data == 1))
+                            .await
+                    }
+                    // refresh on battery related events
+                    AcpiGenericNetlinkEvent::DEVICE_CLASS_BATTERY => {
+                        tx.send(BatteryAcpiEvent::Battery).await
+                    }
+                    // ignore other acpi events
+                    _ => continue,
+                };
+
+                if result.is_err() {
+                    break result.unwrap_err();
+                }
+            }
+        };
+
+        log::error!("unexpected failure of battery acpi event stream: {}", err);
+    });
+
+    Ok(rx)
 }
