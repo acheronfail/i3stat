@@ -31,6 +31,7 @@ pub enum BarEvent {
     },
 }
 
+#[derive(Debug)]
 pub struct SharedState {
     pub sys: System,
 }
@@ -44,6 +45,7 @@ impl SharedState {
     }
 }
 
+#[derive(Debug)]
 pub struct Context {
     pub config: RcCell<AppConfig>,
     pub state: RcCell<SharedState>,
@@ -108,7 +110,14 @@ impl Context {
     }
 }
 
+#[derive(Debug, Default, Copy, Clone)]
+pub enum StopAction {
+    #[default]
+    Complete,
+    Restart,
+}
+
 #[async_trait(?Send)]
 pub trait BarItem: Send {
-    async fn start(self: Box<Self>, ctx: Context) -> Result<(), Box<dyn Error>>;
+    async fn start(self: Box<Self>, ctx: Context) -> Result<StopAction, Box<dyn Error>>;
 }

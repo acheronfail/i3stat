@@ -6,7 +6,7 @@ use serde_derive::{Deserialize, Serialize};
 use strum::{EnumIter, IntoEnumIterator};
 use tokio::fs;
 
-use crate::context::{BarEvent, BarItem, Context};
+use crate::context::{BarEvent, BarItem, Context, StopAction};
 use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
 
@@ -84,7 +84,7 @@ impl Keys {
 
 #[async_trait(?Send)]
 impl BarItem for Kbd {
-    async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
+    async fn start(self: Box<Self>, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
         let keys = self.show.clone().unwrap_or_else(|| Keys::iter().collect());
 
         'outer: loop {

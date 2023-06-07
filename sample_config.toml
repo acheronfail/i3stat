@@ -170,6 +170,8 @@ max_volume = 120
 #   all             all notifications
 notify = "none"
 
+# server_name = "pipewire-0"
+
 [[items]]
 # Show information about CapsLock/NumLock/ScrollLock.
 type = "kbd"

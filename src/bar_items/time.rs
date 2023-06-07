@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use chrono::prelude::*;
 use serde_derive::{Deserialize, Serialize};
 
-use crate::context::{BarEvent, BarItem, Context};
+use crate::context::{BarEvent, BarItem, Context, StopAction};
 use crate::i3::{I3Button, I3Item, I3Markup};
 use crate::util::exec;
 
@@ -19,7 +19,7 @@ pub struct Time {
 
 #[async_trait(?Send)]
 impl BarItem for Time {
-    async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
+    async fn start(self: Box<Self>, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
         loop {
             let now = Local::now();
             let item = I3Item::new(format!("󰥔 {}", now.format(&self.format_long)))

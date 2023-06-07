@@ -13,7 +13,7 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 
 ## Bugs
 
-* ...
+* restarting pipewire/pulseaudio breaks pulse item
 
 ## Improvements
 

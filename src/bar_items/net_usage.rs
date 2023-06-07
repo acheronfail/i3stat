@@ -9,7 +9,7 @@ use strum::EnumIter;
 use sysinfo::{NetworkExt, NetworksExt, SystemExt};
 use tokio::time::Instant;
 
-use crate::context::{BarEvent, BarItem, Context};
+use crate::context::{BarEvent, BarItem, Context, StopAction};
 use crate::i3::{I3Button, I3Item, I3Markup};
 use crate::theme::Theme;
 use crate::util::EnumCycle;
@@ -85,7 +85,7 @@ fn format_bytes(bytes: u64, si: bool, as_bits: bool) -> String {
 
 #[async_trait(?Send)]
 impl BarItem for NetUsage {
-    async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
+    async fn start(self: Box<Self>, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
         let fg = |bytes: u64, theme: &Theme| {
             self.get_color(&theme, bytes)
                 .map(|c| format!(r#" foreground="{}""#, c))

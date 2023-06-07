@@ -10,7 +10,7 @@ use serde_derive::{Deserialize, Serialize};
 use tokio::fs::{self, read_to_string};
 use tokio::sync::mpsc::Receiver;
 
-use crate::context::{BarEvent, BarItem, Context};
+use crate::context::{BarEvent, BarItem, Context, StopAction};
 use crate::dbus::notifications::NotificationsProxy;
 use crate::dbus::{dbus_connection, BusType};
 use crate::i3::{I3Button, I3Item, I3Markup};
@@ -164,7 +164,10 @@ pub struct Battery {
 
 #[async_trait(?Send)]
 impl BarItem for Battery {
-    async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
+    async fn start(
+        self: Box<Self>,
+        mut ctx: Context,
+    ) -> Result<StopAction, Box<dyn Error>> {
         let batteries = match self.batteries {
             Some(inner) => inner,
             None => Bat::find_all().await?,

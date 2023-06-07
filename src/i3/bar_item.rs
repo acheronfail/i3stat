@@ -7,7 +7,7 @@ use serde::Serialize;
 use serde_derive::Deserialize;
 use serde_json::Value;
 
-use crate::context::{BarItem, Context};
+use crate::context::{BarItem, Context, StopAction};
 
 #[derive(Debug, Default, Serialize, Deserialize, Copy, Clone, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -218,8 +218,8 @@ impl I3Item {
 
 #[async_trait(?Send)]
 impl BarItem for I3Item {
-    async fn start(self: Box<Self>, ctx: Context) -> Result<(), Box<dyn Error>> {
+    async fn start(self: Box<Self>, ctx: Context) -> Result<StopAction, Box<dyn Error>> {
         ctx.update_item(self.as_ref().clone()).await?;
-        Ok(())
+        Ok(Default::default())
     }
 }

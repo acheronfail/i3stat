@@ -14,14 +14,16 @@ use libpulse_binding::context::introspect::{Introspector, SinkInfo, SourceInfo};
 use libpulse_binding::context::subscribe::{Facility, InterestMaskSet, Operation};
 use libpulse_binding::context::{Context as PAContext, FlagSet, State};
 use libpulse_binding::def::DevicePortType;
+use libpulse_binding::error::{Code, PAErr};
 use libpulse_binding::proplist::properties::{APPLICATION_NAME, APPLICATION_PROCESS_ID};
 use libpulse_binding::proplist::Proplist;
 use libpulse_binding::volume::{ChannelVolumes, Volume};
 use libpulse_tokio::TokioMain;
+use num_traits::ToPrimitive;
 use serde_derive::{Deserialize, Serialize};
 use tokio::sync::mpsc::{self, UnboundedSender};
 
-use crate::context::{BarEvent, BarItem, Context};
+use crate::context::{BarEvent, BarItem, Context, StopAction};
 use crate::dbus::notifications::NotificationsProxy;
 use crate::dbus::{dbus_connection, BusType};
 use crate::i3::{I3Button, I3Item, I3Markup, I3Modifier};
@@ -171,14 +173,23 @@ impl NotificationSetting {
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Pulse {
     /// How much to increment when increasing/decreasing the volume; measured in percent
-    increment: Option<u32>,
+    #[serde(default = "Pulse::default_increment")]
+    increment: u32,
     /// The maximum allowed volume; measured in percent
     max_volume: Option<u32>,
     /// Whether to send notifications on server state changes
     #[serde(default)]
     notify: NotificationSetting,
+    /// Name of the audio server to try to connect to
+    server_name: Option<String>,
     // TODO: a sample to play each time the volume is changed?
     // See: https://docs.rs/libpulse-binding/2.26.0/libpulse_binding/mainloop/threaded/index.html#example
+}
+
+impl Pulse {
+    pub const fn default_increment() -> u32 {
+        2
+    }
 }
 
 pub struct PulseState {
@@ -393,6 +404,7 @@ impl PulseState {
     ) {
         use Facility::*;
         use Operation::*;
+
         // TODO: these events come in fast with many per type, can we debounce the `fetch_server_state` call?
         macro_rules! impl_handler {
             ($(($obj:ty, $get:ident)),*) => {
@@ -470,7 +482,10 @@ impl PulseState {
 
 #[async_trait(?Send)]
 impl BarItem for Pulse {
-    async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
+    async fn start(
+        self: Box<Self>,
+        mut ctx: Context,
+    ) -> Result<crate::context::StopAction, Box<dyn Error>> {
         // setup pulse main loop
         let (mut main_loop, pa_ctx) = {
             let mut main_loop = TokioMain::new();
@@ -483,11 +498,16 @@ impl BarItem for Pulse {
             let mut pa_ctx = PAContext::new_with_proplist(&main_loop, app_name, &props)
                 .ok_or("Failed to create PulseAudio context")?;
 
-            pa_ctx.connect(None, FlagSet::NOFAIL, None)?;
+            pa_ctx.connect(self.server_name.as_deref(), FlagSet::NOFAIL, None)?;
             match main_loop.wait_for_ready(&pa_ctx).await {
                 Ok(State::Ready) => {}
-                Ok(c) => {
-                    return Err(format!("Pulse context {:?}, not continuing", c).into());
+                Ok(state) => {
+                    return Err(format!(
+                        "failed to connect: state={:?}, err={:?}",
+                        state,
+                        pa_ctx.errno().to_string()
+                    )
+                    .into());
                 }
                 Err(_) => {
                     return Err(
@@ -501,11 +521,12 @@ impl BarItem for Pulse {
 
         let inspect = pa_ctx.introspect();
 
+        // TODO: use RcCell instead?
         // this is shared between all the async tasks
         let (tx, mut rx) = mpsc::unbounded_channel();
         let inner = Rc::new(PulseState {
             tx,
-            increment: self.increment.unwrap_or(2),
+            increment: self.increment,
             max_volume: self.max_volume,
 
             pa_ctx: RefCell::new(pa_ctx),
@@ -515,10 +536,12 @@ impl BarItem for Pulse {
             sources: RefCell::new(vec![]),
         });
 
-        // subscribe to changes
+        // TODO move each of these into an instance method
+
+        // subscribe to server changes
         {
-            let state = inner.clone();
             let mut pa_ctx = inner.pa_ctx.borrow_mut();
+            let state = inner.clone();
             pa_ctx.set_subscribe_callback(Some(Box::new(move |fac, op, idx| {
                 // SAFETY: `libpulse_binding` decodes these values from an integer, and explains
                 // that it's probably safe to always unwrap them
@@ -538,10 +561,37 @@ impl BarItem for Pulse {
             inner.fetch_server_state();
         }
 
+        // subscribe to state changes to detect if the server is terminated
+        let (exit_tx, mut exit_rx) = mpsc::unbounded_channel();
+        {
+            // SAFETY: there's a test ensuring this doesn't panic
+            let conn_terminated = Code::ConnectionTerminated.to_i32().unwrap();
+
+            let exit_tx = exit_tx.clone();
+            let mut pa_ctx = inner.pa_ctx.borrow_mut();
+            let state = inner.clone();
+            pa_ctx.set_state_callback(Some(Box::new(move || {
+                let pa_ctx = state.pa_ctx.borrow_mut();
+                match pa_ctx.get_state() {
+                    State::Failed => match pa_ctx.errno() {
+                        PAErr(code) if code == conn_terminated => {
+                            let _ = exit_tx.send(());
+                        }
+                        pa_err => {
+                            log::error!("unknown error occurred: {:?}", pa_err.to_string());
+                        }
+                    },
+                    State::Terminated => {}
+                    _ => (),
+                }
+            })));
+        }
+
         // run pulse main loop
-        let (exit_tx, mut exit_rx) = mpsc::channel(1);
         tokio::task::spawn_local(async move {
-            let _ = exit_tx.send(main_loop.run().await).await;
+            let ret = main_loop.run().await;
+            log::warn!("exited with return value: {}", ret.0);
+            let _ = exit_tx.send(());
         });
 
         let dbus = dbus_connection(BusType::Session).await?;
@@ -617,10 +667,23 @@ impl BarItem for Pulse {
                 },
 
                 // handle pulse main loop exited
-                Some(ret_val) = exit_rx.recv() => {
-                    break Err(format!("mainloop exited unexpectedly with value: {}", ret_val.0).into());
+                Some(()) = exit_rx.recv() => {
+                    log::warn!("connection to server closed");
+                    break Ok(StopAction::Restart);
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use libpulse_binding::error::Code;
+
+    #[test]
+    fn check_code_cast() {
+        use num_traits::ToPrimitive;
+
+        assert_eq!(Code::ConnectionTerminated.to_i32().unwrap(), 11);
     }
 }

@@ -7,7 +7,7 @@ use clap::Parser;
 use hex_color::HexColor;
 use istat::cli::Cli;
 use istat::config::AppConfig;
-use istat::context::{Context, SharedState};
+use istat::context::{Context, SharedState, StopAction};
 use istat::dispatcher::Dispatcher;
 use istat::i3::header::I3BarHeader;
 use istat::i3::ipc::handle_click_events;
@@ -76,9 +76,13 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
         let config = config.clone();
         tokio::task::spawn_local(async move {
             let fut = bar_item.start(ctx);
-            // since this item has terminated, remove its entry from the bar
             match fut.await {
-                Ok(()) => {
+                Ok(StopAction::Restart) => {
+                    // TODO: need to re-create event_rx and update dispatcher (make a single dispatcher and share with RcCell)
+                    todo!("handle item restart request")
+                }
+                // since this item has terminated, remove its entry from the bar
+                Ok(StopAction::Complete) => {
                     log::info!("item[{}] finished running", idx);
                     // NOTE: we have to await this empty future like this so any remaining item updates are flushed
                     // and processed in `handle_item_updates()` before we set it for the last time here

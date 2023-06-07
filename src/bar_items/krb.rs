@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use serde_derive::{Deserialize, Serialize};
 use tokio::process::Command;
 
-use crate::context::{BarItem, Context};
+use crate::context::{BarItem, Context, StopAction};
 use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
 
@@ -34,7 +34,7 @@ impl Krb {
 
 #[async_trait(?Send)]
 impl BarItem for Krb {
-    async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
+    async fn start(self: Box<Self>, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
         loop {
             ctx.update_item(self.item(&ctx.config.theme).await?).await?;
             ctx.wait_for_event(self.interval).await;

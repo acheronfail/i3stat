@@ -8,7 +8,7 @@ use serde_derive::{Deserialize, Serialize};
 use strum::EnumIter;
 use sysinfo::SystemExt;
 
-use crate::context::{BarEvent, BarItem, Context};
+use crate::context::{BarEvent, BarItem, Context, StopAction};
 use crate::i3::{I3Button, I3Item, I3Markup};
 use crate::theme::Theme;
 use crate::util::format::{float, FloatFormat};
@@ -45,7 +45,7 @@ impl Mem {
 
 #[async_trait(?Send)]
 impl BarItem for Mem {
-    async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
+    async fn start(self: Box<Self>, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
         let mut total = None;
         let mut display = EnumCycle::new_at(self.display);
         loop {
