@@ -44,16 +44,18 @@ async fn get_acpi_id_from_netlink() -> Result<(u16, u32), Box<dyn Error>> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test_utils::async_test;
+    use crate::util::local_block_on;
 
     #[test]
     fn it_works() {
-        async_test(async {
+        local_block_on(async {
             assert!(event_family_id().await.unwrap() > 0);
-        });
+        })
+        .unwrap();
 
-        async_test(async {
+        local_block_on(async {
             assert!(multicast_group_id().await.unwrap() > 0);
-        });
+        })
+        .unwrap();
     }
 }

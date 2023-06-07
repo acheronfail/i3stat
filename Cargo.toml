@@ -11,16 +11,20 @@ keywords = ["i3", "sway", "status_command", "istat", "status"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [[bin]]
-name = "istat-signals"
-path = "bin/signals.rs"
+name = "istat-acpi"
+path = "bin/acpi.rs"
+
+[[bin]]
+name = "istat-ipc"
+path = "bin/ipc.rs"
 
 [[bin]]
 name = "istat-sensors"
 path = "bin/sensors.rs"
 
 [[bin]]
-name = "istat-ipc"
-path = "bin/ipc.rs"
+name = "istat-signals"
+path = "bin/signals.rs"
 
 [dependencies]
 async-trait = "0.1.68"

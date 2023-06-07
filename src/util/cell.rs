@@ -109,11 +109,11 @@ mod cell_tests {
     use tokio::join;
 
     use super::*;
-    use crate::test_utils::async_test;
+    use crate::util::local_block_on;
 
     #[test]
     fn across_await_boundaries() {
-        async_test(async {
+        local_block_on(async {
             let data = RcCell::new(0);
 
             let (tx1, rx1) = tokio::sync::oneshot::channel();
@@ -142,12 +142,13 @@ mod cell_tests {
             assert_eq!(*data, 0);
             join!(fut1, fut2);
             assert_eq!(*data, 2);
-        });
+        })
+        .unwrap();
     }
 
     #[test]
     fn multiple_mutable_futures() {
-        async_test(async {
+        local_block_on(async {
             let data = RcCell::new(0);
 
             let futures = FuturesUnordered::new();
@@ -161,6 +162,7 @@ mod cell_tests {
             futures.collect::<Vec<_>>().await;
             assert_eq!(*data, 100);
         })
+        .unwrap();
     }
 
     #[test]

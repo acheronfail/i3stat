@@ -9,6 +9,7 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
   * i.e., different machines
 * conditionally disable bar items
 * a bin PKGBUILD for the AUR (would need to setup CI first)
+* man pages for all binaries
 
 ## Bugs
 

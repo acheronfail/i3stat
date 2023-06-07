@@ -15,7 +15,7 @@ use istat::i3::{I3Item, I3Markup};
 use istat::ipc::handle_ipc_events;
 use istat::signals::handle_signals;
 use istat::theme::Theme;
-use istat::util::RcCell;
+use istat::util::{local_block_on, RcCell};
 use tokio::sync::mpsc::{self, Receiver};
 
 fn main() {
@@ -30,12 +30,7 @@ fn start_runtime() -> Result<Infallible, Box<dyn Error>> {
 
     let args = Cli::parse();
 
-    let runtime = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()?;
-
-    let result = tokio::task::LocalSet::new().block_on(&runtime, async_main(args));
-
+    let (result, runtime) = local_block_on(async_main(args))?;
     // NOTE: we use tokio's stdin implementation which spawns a background thread and blocks,
     // we have to shutdown the runtime ourselves here. If we didn't, then when the runtime is
     // dropped it would block indefinitely until that background thread unblocked (i.e., another
