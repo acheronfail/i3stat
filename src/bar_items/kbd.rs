@@ -84,7 +84,7 @@ impl Keys {
 
 #[async_trait(?Send)]
 impl BarItem for Kbd {
-    async fn start(self: Box<Self>, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
         let keys = self.show.clone().unwrap_or_else(|| Keys::iter().collect());
 
         'outer: loop {

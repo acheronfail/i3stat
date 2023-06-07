@@ -164,11 +164,8 @@ pub struct Battery {
 
 #[async_trait(?Send)]
 impl BarItem for Battery {
-    async fn start(
-        self: Box<Self>,
-        mut ctx: Context,
-    ) -> Result<StopAction, Box<dyn Error>> {
-        let batteries = match self.batteries {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
+        let batteries = match self.batteries.clone() {
             Some(inner) => inner,
             None => Bat::find_all().await?,
         };

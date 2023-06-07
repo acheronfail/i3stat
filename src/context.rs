@@ -119,5 +119,5 @@ pub enum StopAction {
 
 #[async_trait(?Send)]
 pub trait BarItem: Send {
-    async fn start(self: Box<Self>, ctx: Context) -> Result<StopAction, Box<dyn Error>>;
+    async fn start(&self, ctx: Context) -> Result<StopAction, Box<dyn Error>>;
 }

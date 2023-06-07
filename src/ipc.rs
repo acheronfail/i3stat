@@ -4,7 +4,6 @@ use std::error::Error;
 use std::io::ErrorKind;
 use std::path::PathBuf;
 
-use futures::future::join_all;
 use indexmap::IndexMap;
 use serde::Serialize;
 use serde_derive::Deserialize;
@@ -92,7 +91,7 @@ pub fn encode_ipc_msg<T: Serialize>(t: T) -> Result<Vec<u8>, Box<dyn Error>> {
 
 pub async fn handle_ipc_events(
     config: RcCell<AppConfig>,
-    dispatcher: Dispatcher,
+    dispatcher: RcCell<Dispatcher>,
 ) -> Result<Infallible, Box<dyn Error>> {
     let socket_path = config.socket();
 
@@ -107,10 +106,10 @@ pub async fn handle_ipc_events(
     loop {
         match listener.accept().await {
             Ok((stream, _)) => {
-                let bar_txs = dispatcher.clone();
+                let dispatcher = dispatcher.clone();
                 let config = config.clone();
                 tokio::task::spawn_local(async move {
-                    match handle_ipc_client(stream, config, bar_txs).await {
+                    match handle_ipc_client(stream, config, dispatcher).await {
                         Ok(_) => {}
                         Err(e) => log::error!("ipc error: {}", e),
                     }
@@ -124,7 +123,7 @@ pub async fn handle_ipc_events(
 async fn handle_ipc_client(
     stream: UnixStream,
     config: RcCell<AppConfig>,
-    dispatcher: Dispatcher,
+    dispatcher: RcCell<Dispatcher>,
 ) -> Result<(), Box<dyn Error>> {
     // first read the length header of the IPC message
     let mut buf = [0; IPC_HEADER_LEN];
@@ -156,7 +155,7 @@ async fn handle_ipc_client(
 async fn handle_ipc_request(
     stream: &UnixStream,
     mut config: RcCell<AppConfig>,
-    dispatcher: Dispatcher,
+    dispatcher: RcCell<Dispatcher>,
     len: usize,
 ) -> Result<(), Box<dyn Error>> {
     // read ipc message entirely
@@ -215,19 +214,7 @@ async fn handle_ipc_request(
             send_ipc_response(&stream, &reply).await?;
         }
         IpcMessage::RefreshAll => {
-            join_all(
-                dispatcher
-                    .enumerate()
-                    .map(|(idx, _)| dispatcher.send_bar_event(idx, BarEvent::Signal)),
-            )
-            .await
-            .into_iter()
-            .for_each(|r| {
-                if let Err(e) = r {
-                    log::warn!("{}", e);
-                }
-            });
-
+            dispatcher.signal_all().await?;
             send_ipc_response(&stream, &IpcReply::Result(IpcResult::Success(None))).await?;
         }
         IpcMessage::BarEvent { instance, event } => {

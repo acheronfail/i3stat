@@ -70,7 +70,7 @@ pub struct Nic {
 
 #[async_trait(?Send)]
 impl BarItem for Nic {
-    async fn start(self: Box<Self>, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
         let connection = dbus_connection(crate::dbus::BusType::System).await?;
         let nm = NetworkManagerProxy::new(&connection).await?;
         let mut nm_state_change = nm.receive_state_changed().await?;

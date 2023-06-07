@@ -37,7 +37,7 @@ impl Cpu {
 
 #[async_trait(?Send)]
 impl BarItem for Cpu {
-    async fn start(self: Box<Self>, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
         loop {
             let pct = {
                 let state = ctx.state.get_mut();

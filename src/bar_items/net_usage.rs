@@ -85,7 +85,7 @@ fn format_bytes(bytes: u64, si: bool, as_bits: bool) -> String {
 
 #[async_trait(?Send)]
 impl BarItem for NetUsage {
-    async fn start(self: Box<Self>, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
         let fg = |bytes: u64, theme: &Theme| {
             self.get_color(&theme, bytes)
                 .map(|c| format!(r#" foreground="{}""#, c))

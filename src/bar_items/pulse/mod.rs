@@ -482,10 +482,7 @@ impl PulseState {
 
 #[async_trait(?Send)]
 impl BarItem for Pulse {
-    async fn start(
-        self: Box<Self>,
-        mut ctx: Context,
-    ) -> Result<crate::context::StopAction, Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<crate::context::StopAction, Box<dyn Error>> {
         // setup pulse main loop
         let (mut main_loop, pa_ctx) = {
             let mut main_loop = TokioMain::new();

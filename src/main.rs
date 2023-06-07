@@ -55,56 +55,68 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
 
     // state for the bar (moved to bar_printer)
     let bar = RcCell::new(vec![I3Item::empty(); item_count]);
-    let mut bar_event_txs = vec![];
+    let dispatcher = RcCell::new(Dispatcher::new(item_count));
 
     // for each BarItem, spawn a new task to manage it
     let (item_tx, item_rx) = mpsc::channel(item_count + 1);
     for (idx, item) in config.items.iter().enumerate() {
         let bar_item = item.to_bar_item();
 
-        let (event_tx, event_rx) = mpsc::channel(32);
-        bar_event_txs.push(event_tx);
-
-        let ctx = Context::new(
-            config.clone(),
-            state.clone(),
-            item_tx.clone(),
-            event_rx,
-            idx,
-        );
         let mut bar = bar.clone();
         let config = config.clone();
+        let state = state.clone();
+        let mut dispatcher = dispatcher.clone();
+        let item_tx = item_tx.clone();
         tokio::task::spawn_local(async move {
-            let fut = bar_item.start(ctx);
-            match fut.await {
-                Ok(StopAction::Restart) => {
-                    // TODO: need to re-create event_rx and update dispatcher (make a single dispatcher and share with RcCell)
-                    todo!("handle item restart request")
-                }
-                // since this item has terminated, remove its entry from the bar
-                Ok(StopAction::Complete) => {
-                    log::info!("item[{}] finished running", idx);
-                    // NOTE: we have to await this empty future like this so any remaining item updates are flushed
-                    // and processed in `handle_item_updates()` before we set it for the last time here
-                    // TODO: `(async {}).await` doesn't work - is that a no-op in Rust's futures?
-                    let _ = tokio::spawn(async {}).await;
-                    // replace with an empty item
-                    bar[idx] = I3Item::empty();
-                }
-                // TODO: rather than error - attempt to restart the item?
-                Err(e) => {
-                    log::error!("item[{}] exited with error: {}", idx, e);
-                    // replace with an error item
-                    let theme = config.theme.clone();
-                    bar[idx] = I3Item::new("ERROR")
-                        .color(theme.bg)
-                        .background_color(theme.red);
+            let mut retries = 0;
+            loop {
+                let (event_tx, event_rx) = mpsc::channel(32);
+                dispatcher.get_mut().set(idx, event_tx);
+
+                let ctx = Context::new(
+                    config.clone(),
+                    state.clone(),
+                    item_tx.clone(),
+                    event_rx,
+                    idx,
+                );
+
+                let fut = bar_item.start(ctx);
+                match fut.await {
+                    Ok(StopAction::Restart) if retries < 3 => {
+                        log::error!("item[{}] requested restart...", idx);
+                        retries += 1;
+                        continue;
+                    }
+                    Ok(StopAction::Restart) => {
+                        log::error!("item[{}] stopped, exceeded max retries", idx);
+                        break;
+                    }
+                    // since this item has terminated, remove its entry from the bar
+                    Ok(StopAction::Complete) => {
+                        log::info!("item[{}] finished running", idx);
+                        // NOTE: we have to await this empty future like this so any remaining item updates are flushed
+                        // and processed in `handle_item_updates()` before we set it for the last time here
+                        // TODO: `(async {}).await` doesn't work - is that a no-op in Rust's futures?
+                        let _ = tokio::spawn(async {}).await;
+                        // replace with an empty item
+                        bar[idx] = I3Item::empty();
+                        break;
+                    }
+                    // TODO: rather than error - attempt to restart the item?
+                    Err(e) => {
+                        log::error!("item[{}] exited with error: {}", idx, e);
+                        // replace with an error item
+                        let theme = config.theme.clone();
+                        bar[idx] = I3Item::new("ERROR")
+                            .color(theme.bg)
+                            .background_color(theme.red);
+                        break;
+                    }
                 }
             }
         });
     }
-
-    let dispatcher = Dispatcher::new(bar_event_txs);
 
     // setup listener for handling item updates and printing the bar to STDOUT
     handle_item_updates(config.clone(), item_rx, bar);

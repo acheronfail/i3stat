@@ -34,7 +34,7 @@ impl Krb {
 
 #[async_trait(?Send)]
 impl BarItem for Krb {
-    async fn start(self: Box<Self>, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
         loop {
             ctx.update_item(self.item(&ctx.config.theme).await?).await?;
             ctx.wait_for_event(self.interval).await;

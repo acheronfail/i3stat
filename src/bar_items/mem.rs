@@ -14,7 +14,7 @@ use crate::theme::Theme;
 use crate::util::format::{float, FloatFormat};
 use crate::util::EnumCycle;
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, EnumIter)]
+#[derive(Debug, Default, Copy, Clone, Serialize, Deserialize, PartialEq, EnumIter)]
 #[serde(rename_all = "snake_case")]
 pub enum MemDisplay {
     #[default]
@@ -45,7 +45,7 @@ impl Mem {
 
 #[async_trait(?Send)]
 impl BarItem for Mem {
-    async fn start(self: Box<Self>, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
         let mut total = None;
         let mut display = EnumCycle::new_at(self.display);
         loop {

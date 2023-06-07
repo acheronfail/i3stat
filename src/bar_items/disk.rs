@@ -57,7 +57,7 @@ impl DiskStats {
 
 #[async_trait(?Send)]
 impl BarItem for Disk {
-    async fn start(self: Box<Self>, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
         let mut p = Paginator::new();
         loop {
             let stats: Vec<DiskStats> = {

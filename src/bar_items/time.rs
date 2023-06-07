@@ -19,7 +19,7 @@ pub struct Time {
 
 #[async_trait(?Send)]
 impl BarItem for Time {
-    async fn start(self: Box<Self>, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
         loop {
             let now = Local::now();
             let item = I3Item::new(format!("󰥔 {}", now.format(&self.format_long)))

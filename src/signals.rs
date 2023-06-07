@@ -15,7 +15,7 @@ use crate::util::RcCell;
 // See: https://docs.rs/signal-hook/latest/signal_hook/index.html#limitations
 pub fn handle_signals(
     config: RcCell<AppConfig>,
-    dispatcher: Dispatcher,
+    dispatcher: RcCell<Dispatcher>,
 ) -> Result<Handle, Box<dyn Error>> {
     let min = SIGRTMIN();
     let max = SIGRTMAX();
