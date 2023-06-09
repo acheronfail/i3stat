@@ -40,13 +40,12 @@ impl BarItem for Cpu {
     async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
         loop {
             let pct = {
-                let state = ctx.state.get_mut();
                 // refresh cpu usage
-                state
+                ctx.state
                     .sys
                     .refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage());
                 // fetch cpu usage since we last refreshed
-                state.sys.global_cpu_info().cpu_usage()
+                ctx.state.sys.global_cpu_info().cpu_usage()
             };
 
             let theme = &ctx.config.theme;

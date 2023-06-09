@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use clap::{Parser, ValueEnum};
 use num_traits::ToPrimitive;
 use serde_derive::{Deserialize, Serialize};
@@ -8,6 +6,7 @@ use tokio::sync::oneshot;
 
 use super::{Object, Port, PulseState, Vol};
 use crate::context::CustomResponse;
+use crate::util::RcCell;
 
 #[derive(Debug, Copy, Clone, ValueEnum)]
 enum Bool {
@@ -70,28 +69,24 @@ impl Port {
     }
 }
 
-impl PulseState {
-    pub fn handle_custom_message(
-        self: &Rc<Self>,
-        args: Vec<String>,
-        tx: oneshot::Sender<CustomResponse>,
-    ) {
+impl RcCell<PulseState> {
+    pub fn handle_custom_message(&self, args: Vec<String>, tx: oneshot::Sender<CustomResponse>) {
         let resp = match PulseCommand::try_parse_from(args) {
             Ok(cmd) => {
                 let resp = match cmd {
                     PulseCommand::Info => PulseResponse::Info(json!({
-                        "default_sink": &*self.default_sink.borrow(),
-                        "default_source": &*self.default_source.borrow(),
-                        "sinks": self.sinks.borrow().iter().map(|p| p.to_value()).collect::<Value>(),
-                        "sources": self.sources.borrow().iter().map(|p| p.to_value()).collect::<Value>(),
+                        "default_sink": &*self.default_sink,
+                        "default_source": &*self.default_source,
+                        "sinks": self.sinks.iter().map(|p| p.to_value()).collect::<Value>(),
+                        "sources": self.sources.iter().map(|p| p.to_value()).collect::<Value>(),
                     })),
                     PulseCommand::List { what } => match what {
-                        Object::Sink => PulseResponse::List(
-                            self.sinks.borrow().iter().map(|p| p.to_value()).collect(),
-                        ),
-                        Object::Source => PulseResponse::List(
-                            self.sources.borrow().iter().map(|p| p.to_value()).collect(),
-                        ),
+                        Object::Sink => {
+                            PulseResponse::List(self.sinks.iter().map(|p| p.to_value()).collect())
+                        }
+                        Object::Source => {
+                            PulseResponse::List(self.sources.iter().map(|p| p.to_value()).collect())
+                        }
                     },
                     PulseCommand::VolumeUp { what } => {
                         self.set_volume(what, Vol::Incr(self.increment));

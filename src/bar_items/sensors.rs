@@ -37,25 +37,19 @@ impl Sensors {
 impl BarItem for Sensors {
     async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
         {
-            ctx.state.get_mut().sys.refresh_components_list();
+            ctx.state.sys.refresh_components_list();
         }
 
         loop {
             let temp = {
-                let search = ctx
-                    .state
-                    .get_mut()
-                    .sys
-                    .components_mut()
-                    .iter_mut()
-                    .find_map(|c| {
-                        if c.label() == self.label {
-                            c.refresh();
-                            Some(c.temperature())
-                        } else {
-                            None
-                        }
-                    });
+                let search = ctx.state.sys.components_mut().iter_mut().find_map(|c| {
+                    if c.label() == self.label {
+                        c.refresh();
+                        Some(c.temperature())
+                    } else {
+                        None
+                    }
+                });
 
                 match search {
                     Some(temp) => temp,

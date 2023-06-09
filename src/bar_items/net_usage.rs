@@ -114,8 +114,7 @@ impl BarItem for NetUsage {
         let mut last_check = Instant::now();
         loop {
             let (down, up) = {
-                let state = ctx.state.get_mut();
-                let networks = state.sys.networks_mut();
+                let networks = ctx.state.sys.networks_mut();
 
                 // NOTE: can call `networks.refresh()` instead of this to only update networks rather
                 // than searching for new ones each time

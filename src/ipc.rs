@@ -206,7 +206,7 @@ async fn handle_ipc_request(
         IpcMessage::SetTheme(json) => {
             let reply = match serde_json::from_value::<Theme>(json) {
                 Ok(new) => {
-                    config.get_mut().theme = new;
+                    config.theme = new;
                     IpcReply::Result(IpcResult::Success(None))
                 }
                 Err(e) => IpcReply::Result(IpcResult::Failure(e.to_string())),

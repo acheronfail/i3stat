@@ -61,10 +61,14 @@ impl BarItem for Disk {
         let mut p = Paginator::new();
         loop {
             let stats: Vec<DiskStats> = {
-                let state = ctx.state.get_mut();
-                state.sys.refresh_disks();
-                state.sys.refresh_disks_list();
-                state.sys.disks().iter().map(DiskStats::from_disk).collect()
+                ctx.state.sys.refresh_disks();
+                ctx.state.sys.refresh_disks_list();
+                ctx.state
+                    .sys
+                    .disks()
+                    .iter()
+                    .map(DiskStats::from_disk)
+                    .collect()
             };
             let len = stats.len();
             if len > 0 {

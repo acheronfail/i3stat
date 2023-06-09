@@ -50,11 +50,10 @@ impl BarItem for Mem {
         let mut display = EnumCycle::new_at(self.display);
         loop {
             let (available, total) = {
-                let state = ctx.state.get_mut();
-                state.sys.refresh_memory();
+                ctx.state.sys.refresh_memory();
                 (
-                    state.sys.available_memory(),
-                    *total.get_or_insert_with(|| state.sys.total_memory()),
+                    ctx.state.sys.available_memory(),
+                    *total.get_or_insert_with(|| ctx.state.sys.total_memory()),
                 )
             };
 

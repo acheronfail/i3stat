@@ -48,30 +48,54 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
     println!("{}", serde_json::to_string(&I3BarHeader::default())?);
     println!("[");
 
+    // create i3 bar and spawn tasks for each bar item
+    let dispatcher = create_bar_items(&config);
+
+    // handle incoming signals
+    let signal_handle = handle_signals(config.clone(), dispatcher.clone())?;
+
+    // handle our inputs: i3's IPC and our own IPC
+    let err = tokio::select! {
+        err = handle_ipc_events(config.clone(), dispatcher.clone()) => err,
+        err = handle_click_events(dispatcher.clone()) => err,
+    };
+
+    // if we reach here, then something went wrong while reading STDIN, so clean up
+    signal_handle.close();
+    return err;
+}
+
+fn create_bar_items(config: &RcCell<AppConfig>) -> RcCell<Dispatcher> {
     let item_count = config.items.len();
 
-    // shared context
+    // shared state
     let state = SharedState::new();
 
-    // state for the bar (moved to bar_printer)
+    // A list of items which represents the i3 bar
     let bar = RcCell::new(vec![I3Item::empty(); item_count]);
+
+    // Used to send events to each bar item
     let dispatcher = RcCell::new(Dispatcher::new(item_count));
 
-    // for each BarItem, spawn a new task to manage it
+    // Used by items to send updates back to the bar
     let (item_tx, item_rx) = mpsc::channel(item_count + 1);
+
+    // Iterate config and create bar items
     for (idx, item) in config.items.iter().enumerate() {
         let bar_item = item.to_bar_item();
 
+        // all cheaply cloneable (smart pointers, senders, etc)
         let mut bar = bar.clone();
-        let config = config.clone();
         let state = state.clone();
-        let mut dispatcher = dispatcher.clone();
+        let config = config.clone();
         let item_tx = item_tx.clone();
+        let mut dispatcher = dispatcher.clone();
+
         tokio::task::spawn_local(async move {
             let mut retries = 0;
             loop {
                 let (event_tx, event_rx) = mpsc::channel(32);
-                dispatcher.get_mut().set(idx, event_tx);
+                dispatcher.set(idx, event_tx);
 
                 let ctx = Context::new(
                     config.clone(),
@@ -103,7 +127,7 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
                         bar[idx] = I3Item::empty();
                         break;
                     }
-                    // TODO: rather than error - attempt to restart the item?
+                    // unexpected error, log and display an error block
                     Err(e) => {
                         log::error!("item[{}] exited with error: {}", idx, e);
                         // replace with an error item
@@ -121,18 +145,7 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
     // setup listener for handling item updates and printing the bar to STDOUT
     handle_item_updates(config.clone(), item_rx, bar);
 
-    // handle incoming signals
-    let signal_handle = handle_signals(config.clone(), dispatcher.clone())?;
-
-    // handle our inputs: i3's IPC and our own IPC
-    let err = tokio::select! {
-        err = handle_ipc_events(config.clone(), dispatcher.clone()) => err,
-        err = handle_click_events(dispatcher.clone()) => err,
-    };
-
-    // if we reach here, then something went wrong while reading STDIN, so clean up
-    signal_handle.close();
-    return err;
+    dispatcher
 }
 
 // task to manage updating the bar and printing it as JSON
