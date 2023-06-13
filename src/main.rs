@@ -119,10 +119,9 @@ fn create_bar_items(config: &RcCell<AppConfig>) -> RcCell<Dispatcher> {
                     // since this item has terminated, remove its entry from the bar
                     Ok(StopAction::Complete) => {
                         log::info!("item[{}] finished running", idx);
-                        // NOTE: we have to await this empty future like this so any remaining item updates are flushed
-                        // and processed in `handle_item_updates()` before we set it for the last time here
-                        // TODO: `(async {}).await` doesn't work - is that a no-op in Rust's futures?
-                        let _ = tokio::spawn(async {}).await;
+                        // NOTE: wait for all tasks in queue so any remaining item updates are flushed and processed
+                        // before we set it for the last time here
+                        tokio::task::yield_now().await;
                         // replace with an empty item
                         bar[idx] = I3Item::empty();
                         break;
