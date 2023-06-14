@@ -64,6 +64,7 @@ name = "spawn"
 path = "tests/spawn/mod.rs"
 
 [dev-dependencies]
+automod = "1.0.8"
 clap_mangen = "0.2.11"
 clap = { version = "4.2.7", features = ["derive"] }
 timeout-readwrite = "0.3.3"

@@ -201,6 +201,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
+name = "automod"
+version = "1.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2820ec8709207251544277a96c4e97692107868a6c6096f2c8e0b32b66e942d6"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.16",
+]
+
+[[package]]
 name = "bindgen"
 version = "0.65.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -931,6 +942,7 @@ name = "istat"
 version = "0.3.0"
 dependencies = [
  "async-trait",
+ "automod",
  "bytesize",
  "chrono",
  "clap",

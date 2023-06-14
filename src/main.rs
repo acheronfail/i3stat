@@ -129,6 +129,7 @@ fn setup_i3_bar(config: &RcCell<AppConfig>) -> Result<RcCell<Dispatcher>, Box<dy
                         tokio::task::yield_now().await;
                         // replace with an empty item
                         bar[idx] = I3Item::empty();
+                        dispatcher.remove(idx);
                         break;
                     }
                     // unexpected error, log and display an error block

@@ -1,10 +1,11 @@
 use std::io::{BufRead, BufReader, Read, Write};
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
-use std::process::{Child, ChildStderr, ChildStdout, Command, Stdio};
+use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, Stdio};
 use std::time::Duration;
 use std::{env, fs};
 
+use istat::i3::{I3Button, I3ClickEvent, I3Modifier};
 use istat::ipc::{encode_ipc_msg, IpcMessage, IpcReply, IpcResult, IPC_HEADER_LEN};
 use serde_json::Value;
 use timeout_readwrite::{TimeoutReadExt, TimeoutReader};
@@ -17,7 +18,7 @@ pub const FAKE_TIME: &str = "1985-10-26 01:35:00";
 const FAKE_TIME_LIB_PATHS: &[&str] = &[
     // Arch Linux
     "/usr/lib/faketime/libfaketime.so.1",
-    // Debian
+    // Debian/Ubuntu (used in CI)
     "/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1",
 ];
 
@@ -44,14 +45,17 @@ fn get_current_exe() -> PathBuf {
 
 // spawn  ----------------------------------------------------------------------
 
+/// Convenience struct for running assertions on and communicating with a running instance of the program
 pub struct TestProgram {
     child: Child,
     socket: PathBuf,
+    stdin: ChildStdin,
     stdout: BufReader<TimeoutReader<ChildStdout>>,
     stderr: ChildStderr,
 }
 
 impl TestProgram {
+    /// Spawn the program, setting up it's own test directory
     pub fn run(name: impl AsRef<str>, config: Value) -> TestProgram {
         let name = name.as_ref();
         let test_dir = env::temp_dir().join(format!("istat-test-{}", name));
@@ -79,6 +83,8 @@ impl TestProgram {
             .spawn()
             .unwrap();
 
+        let stdin = child.stdin.take().unwrap();
+
         let stdout = child.stdout.take().unwrap();
         let stdout = stdout.with_timeout(Duration::from_secs(3));
         let stdout = BufReader::new(stdout);
@@ -88,11 +94,13 @@ impl TestProgram {
         TestProgram {
             child,
             socket,
+            stdin,
             stdout,
             stderr,
         }
     }
 
+    /// Get the next line of STDOUT as a string - blocks
     pub fn next_line(&mut self) -> Option<String> {
         let mut line = String::new();
         let count = self.stdout.read_line(&mut line).unwrap();
@@ -103,38 +111,47 @@ impl TestProgram {
         }
     }
 
-    pub fn shutdown(&mut self) {
-        let mut stream = UnixStream::connect(&self.socket).unwrap();
+    /// Send a raw click event
+    pub fn click_raw(&mut self, click: I3ClickEvent) {
+        self.stdin
+            .write_all(&serde_json::to_vec(&click).unwrap())
+            .unwrap();
+        self.stdin.write_all(b"\n").unwrap();
+    }
 
-        let msg = encode_ipc_msg(IpcMessage::Shutdown).unwrap();
-        stream.write_all(&msg).unwrap();
+    /// Simple interface for sending click events
+    pub fn click(&mut self, target: impl AsRef<str>, button: I3Button, modifiers: &[I3Modifier]) {
+        self.click_raw(I3ClickEvent {
+            instance: Some(target.as_ref().into()),
+            button,
+            modifiers: modifiers.to_vec(),
+            ..Default::default()
+        })
+    }
+
+    /// Send a shutdown request via IPC
+    pub fn send_shutdown(&mut self) {
+        let reply = self.send_ipc(IpcMessage::Shutdown);
+        let reply = serde_json::from_value::<IpcReply>(reply).unwrap();
+        assert_eq!(reply, IpcReply::Result(IpcResult::Success(None)));
+    }
+
+    pub fn send_ipc(&mut self, msg: IpcMessage) -> Value {
+        let mut stream = UnixStream::connect(&self.socket).unwrap();
+        stream.write_all(&encode_ipc_msg(msg).unwrap()).unwrap();
 
         let mut buf = vec![];
         stream.read_to_end(&mut buf).unwrap();
-        let resp = serde_json::from_slice::<IpcReply>(&buf[IPC_HEADER_LEN..]).unwrap();
-        assert_eq!(resp, IpcReply::Result(IpcResult::Success(None)));
+        serde_json::from_slice::<Value>(&buf[IPC_HEADER_LEN..]).unwrap()
     }
 
-    pub fn assert_next_line(&mut self, expected: Option<&str>) {
-        assert_eq!(self.next_line().as_deref(), expected);
-    }
-
-    pub fn assert_next_line_json(&mut self, expected: Value) {
+    /// Perform an assertion on the next line as JSON
+    pub fn next_line_json(&mut self) -> Value {
         let next_line = self.next_line();
         match next_line {
-            Some(line) => {
-                assert_eq!(
-                    serde_json::from_str::<Value>(&line[..line.len() - 1]).unwrap(),
-                    expected
-                );
-            }
-            None => assert_eq!(Value::Null, expected),
-        };
-    }
-
-    pub fn assert_i3_header(&mut self) {
-        self.assert_next_line(Some(r#"{"version":1,"click_events":true}"#));
-        self.assert_next_line(Some(r#"["#));
+            Some(line) => serde_json::from_str::<Value>(&line[..line.len() - 1]).unwrap(),
+            None => Value::Null,
+        }
     }
 }
 
@@ -150,16 +167,4 @@ impl Drop for TestProgram {
             eprintln!("stderr: {:?}", stderr.trim());
         }
     }
-}
-
-// macros ----------------------------------------------------------------------
-
-#[macro_export]
-macro_rules! spawn_test {
-    ($name:ident, $config:expr, $test_fn:expr) => {
-        #[test]
-        fn $name() {
-            $test_fn(crate::util::TestProgram::run(stringify!($name), $config));
-        }
-    };
 }
