@@ -5,6 +5,7 @@ use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, Stdio};
 use std::time::Duration;
 use std::{env, fs};
 
+use istat::config::AppConfig;
 use istat::i3::{I3Button, I3ClickEvent, I3Modifier};
 use istat::ipc::{encode_ipc_msg, IpcMessage, IpcReply, IpcResult, IPC_HEADER_LEN};
 use serde_json::Value;
@@ -71,12 +72,18 @@ impl TestProgram {
         fs::write(&config_file, config.to_string()).unwrap();
 
         let mut child = Command::new(get_current_exe())
+            // setup faketime
             .env("LD_PRELOAD", get_faketime_lib())
             .env("FAKETIME", format!("@{}", FAKE_TIME))
+            // setup logs
+            .env("RUST_LOG", "istat=trace")
+            // socket
             .arg("--socket")
             .arg(&socket)
+            // config
             .arg("--config")
             .arg(config_file)
+            // stdio
             .stdin(Stdio::piped())
             .stderr(Stdio::piped())
             .stdout(Stdio::piped())
@@ -86,7 +93,7 @@ impl TestProgram {
         let stdin = child.stdin.take().unwrap();
 
         let stdout = child.stdout.take().unwrap();
-        let stdout = stdout.with_timeout(Duration::from_secs(3));
+        let stdout = stdout.with_timeout(Duration::from_secs(2));
         let stdout = BufReader::new(stdout);
 
         let stderr = child.stderr.take().unwrap();
@@ -101,14 +108,14 @@ impl TestProgram {
     }
 
     /// Get the next line of STDOUT as a string - blocks
-    pub fn next_line(&mut self) -> Option<String> {
+    pub fn next_line(&mut self) -> Result<Option<String>, Box<dyn std::error::Error>> {
         let mut line = String::new();
-        let count = self.stdout.read_line(&mut line).unwrap();
-        if count == 0 {
+        let count = self.stdout.read_line(&mut line)?;
+        Ok(if count == 0 {
             None
         } else {
             Some(line.trim().to_string())
-        }
+        })
     }
 
     /// Send a raw click event
@@ -129,13 +136,7 @@ impl TestProgram {
         })
     }
 
-    /// Send a shutdown request via IPC
-    pub fn send_shutdown(&mut self) {
-        let reply = self.send_ipc(IpcMessage::Shutdown);
-        let reply = serde_json::from_value::<IpcReply>(reply).unwrap();
-        assert_eq!(reply, IpcReply::Result(IpcResult::Success(None)));
-    }
-
+    /// Send an IPC message to the running program
     pub fn send_ipc(&mut self, msg: IpcMessage) -> Value {
         let mut stream = UnixStream::connect(&self.socket).unwrap();
         stream.write_all(&encode_ipc_msg(msg).unwrap()).unwrap();
@@ -145,12 +146,36 @@ impl TestProgram {
         serde_json::from_slice::<Value>(&buf[IPC_HEADER_LEN..]).unwrap()
     }
 
+    /// Send a shutdown request via IPC
+    pub fn send_shutdown(&mut self) {
+        let reply = self.send_ipc(IpcMessage::Shutdown);
+        let reply = serde_json::from_value::<IpcReply>(reply).unwrap();
+        assert_eq!(reply, IpcReply::Result(IpcResult::Success(None)));
+    }
+
+    /// Gets the current config for the program
+    pub fn get_config(&mut self) -> AppConfig {
+        let reply = self.send_ipc(IpcMessage::GetConfig);
+        let reply = serde_json::from_value::<IpcReply>(reply).unwrap();
+        match reply {
+            IpcReply::CustomResponse(value) => serde_json::from_value::<AppConfig>(value).unwrap(),
+            _ => unreachable!(),
+        }
+    }
+
     /// Perform an assertion on the next line as JSON
-    pub fn next_line_json(&mut self) -> Value {
-        let next_line = self.next_line();
-        match next_line {
-            Some(line) => serde_json::from_str::<Value>(&line[..line.len() - 1]).unwrap(),
+    pub fn next_line_json(&mut self) -> Result<Value, Box<dyn std::error::Error>> {
+        let next_line = self.next_line()?;
+        Ok(match next_line {
+            Some(line) => serde_json::from_str::<Value>(&line[..line.len() - 1])?,
             None => Value::Null,
+        })
+    }
+
+    /// A message is emitted per item, so wait for all items to have emitted something
+    pub fn wait_for_all_init(&mut self) {
+        for _ in 0..self.get_config().items.len() - 1 {
+            self.next_line_json().unwrap();
         }
     }
 }

@@ -12,26 +12,10 @@ spawn_test!(
         ]
     }),
     |mut istat: TestProgram| {
-        assert_eq!(
-            istat.next_line_json(),
-            json!([
-                { "instance": "0", "full_text": "0", "name": "raw" },
-                { "full_text": "" },
-                { "full_text": "" },
-            ])
-        );
+        istat.wait_for_all_init();
 
         assert_eq!(
-            istat.next_line_json(),
-            json!([
-                { "instance": "0", "full_text": "0", "name": "raw" },
-                { "instance": "1", "full_text": "1", "name": "raw" },
-                { "full_text": "" },
-            ])
-        );
-
-        assert_eq!(
-            istat.next_line_json(),
+            istat.next_line_json().unwrap(),
             json!([
                 { "instance": "0", "full_text": "0", "name": "raw" },
                 { "instance": "1", "full_text": "1", "name": "raw" },

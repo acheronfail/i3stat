@@ -16,7 +16,7 @@ spawn_test!(
     }),
     |mut istat: TestProgram| {
         assert_eq!(
-            istat.next_line_json(),
+            istat.next_line_json().unwrap(),
             json!([
                 {
                     "instance": "0",
@@ -28,7 +28,7 @@ spawn_test!(
 
         istat.click("0", I3Button::Left, &[]);
         assert_eq!(
-            istat.next_line_json(),
+            istat.next_line_json().unwrap(),
             json!([
                 {
                     "instance": "0",
@@ -40,7 +40,7 @@ spawn_test!(
 
         istat.click("0", I3Button::Middle, &[]);
         assert_eq!(
-            istat.next_line_json(),
+            istat.next_line_json().unwrap(),
             json!([
                 {
                     "instance": "0",
@@ -66,7 +66,7 @@ spawn_test!(
     }),
     |mut istat: TestProgram| {
         assert_eq!(
-            istat.next_line_json(),
+            istat.next_line_json().unwrap(),
             json!([
                 {
                     "instance": "0",

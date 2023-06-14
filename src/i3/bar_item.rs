@@ -220,6 +220,6 @@ impl I3Item {
 impl BarItem for I3Item {
     async fn start(&self, ctx: Context) -> Result<StopAction, Box<dyn Error>> {
         ctx.update_item(self.clone()).await?;
-        Ok(Default::default())
+        Ok(StopAction::Complete)
     }
 }

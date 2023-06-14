@@ -122,14 +122,19 @@ fn setup_i3_bar(config: &RcCell<AppConfig>) -> Result<RcCell<Dispatcher>, Box<dy
                         break;
                     }
                     // since this item has terminated, remove its entry from the bar
-                    Ok(StopAction::Complete) => {
+                    action @ Ok(StopAction::Complete) | action @ Ok(StopAction::Remove) => {
                         log::info!("item[{}] finished running", idx);
-                        // NOTE: wait for all tasks in queue so any remaining item updates are flushed and processed
-                        // before we set it for the last time here
-                        tokio::task::yield_now().await;
-                        // replace with an empty item
-                        bar[idx] = I3Item::empty();
                         dispatcher.remove(idx);
+
+                        // Remove this item if requested
+                        if matches!(action, Ok(StopAction::Remove)) {
+                            // NOTE: wait for all tasks in queue so any remaining item updates are flushed and processed
+                            // before we set it for the last time here
+                            tokio::task::yield_now().await;
+                            // replace with an empty item
+                            bar[idx] = I3Item::empty();
+                        }
+
                         break;
                     }
                     // unexpected error, log and display an error block

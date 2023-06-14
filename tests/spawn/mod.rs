@@ -4,10 +4,10 @@ macro_rules! spawn_test {
         fn $name() {
             let mut istat = crate::util::TestProgram::run(stringify!($name), $config);
             assert_eq!(
-                istat.next_line().as_deref(),
+                istat.next_line().unwrap().as_deref(),
                 Some(r#"{"version":1,"click_events":true}"#)
             );
-            assert_eq!(istat.next_line().as_deref(), Some(r#"["#));
+            assert_eq!(istat.next_line().unwrap().as_deref(), Some(r#"["#));
             $test_fn(istat);
         }
     };
