@@ -56,11 +56,17 @@ signal-hook-tokio = { version = "0.3.1", features = ["futures-v0_3"] }
 strum = { version = "0.24.1", features = ["derive"] }
 sysinfo = { version = "0.28.4", default-features = false }
 tokio = { version = "1.27.0", features = ["full"] }
+tokio-util = "0.7.8"
 zbus = { version = "3.13.1", default-features = false, features = ["tokio"] }
+
+[[test]]
+name = "spawn"
+path = "tests/spawn/mod.rs"
 
 [dev-dependencies]
 clap_mangen = "0.2.11"
 clap = { version = "4.2.7", features = ["derive"] }
+timeout-readwrite = "0.3.3"
 
 [profile.release]
 # Reducing binary size. Read the git commit with this change for detailed savings.

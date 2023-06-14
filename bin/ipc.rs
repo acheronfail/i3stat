@@ -97,6 +97,7 @@ enum CliCommand {
         #[clap(trailing_var_arg = true)]
         args: Vec<String>,
     },
+    Shutdown,
 }
 
 #[derive(Debug, Clone)]
@@ -208,6 +209,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let socket_path = get_socket_path(args.socket.as_ref())?;
 
     match args.cmd {
+        CliCommand::Shutdown => send_and_print_response(&socket_path, IpcMessage::Shutdown)?,
         CliCommand::Info => send_and_print_response(&socket_path, IpcMessage::Info)?,
         CliCommand::RefreshAll => send_and_print_response(&socket_path, IpcMessage::RefreshAll)?,
         CliCommand::GetConfig { pointer: None } => {

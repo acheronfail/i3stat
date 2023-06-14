@@ -1,7 +1,6 @@
 use std::convert::Infallible;
 use std::error::Error;
 use std::process;
-use std::time::Duration;
 
 use clap::Parser;
 use hex_color::HexColor;
@@ -12,11 +11,12 @@ use istat::dispatcher::Dispatcher;
 use istat::i3::header::I3BarHeader;
 use istat::i3::ipc::handle_click_events;
 use istat::i3::{I3Item, I3Markup};
-use istat::ipc::handle_ipc_events;
+use istat::ipc::{create_ipc_socket, handle_ipc_events};
 use istat::signals::handle_signals;
 use istat::theme::Theme;
 use istat::util::{local_block_on, RcCell};
 use tokio::sync::mpsc::{self, Receiver};
+use tokio_util::sync::CancellationToken;
 
 fn main() {
     if let Err(err) = start_runtime() {
@@ -31,13 +31,14 @@ fn start_runtime() -> Result<Infallible, Box<dyn Error>> {
     let args = Cli::parse();
 
     let (result, runtime) = local_block_on(async_main(args))?;
+
     // NOTE: we use tokio's stdin implementation which spawns a background thread and blocks,
     // we have to shutdown the runtime ourselves here. If we didn't, then when the runtime is
     // dropped it would block indefinitely until that background thread unblocked (i.e., another
     // JSON line from i3).
     // Thus, if anything other than the stdin task fails, we have to manually shut it down here.
     // See: https://github.com/tokio-rs/tokio/discussions/5684
-    runtime.shutdown_timeout(Duration::from_secs(1));
+    runtime.shutdown_background();
 
     result
 }
@@ -45,27 +46,31 @@ fn start_runtime() -> Result<Infallible, Box<dyn Error>> {
 async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
     let config = RcCell::new(AppConfig::read(args).await?);
 
-    println!("{}", serde_json::to_string(&I3BarHeader::default())?);
-    println!("[");
+    // create socket first, so it's ready before anything is written to stdout
+    let socket = create_ipc_socket(&config).await?;
 
     // create i3 bar and spawn tasks for each bar item
-    let dispatcher = create_bar_items(&config);
+    let dispatcher = setup_i3_bar(&config)?;
 
     // handle incoming signals
     let signal_handle = handle_signals(config.clone(), dispatcher.clone())?;
 
+    // used to handle app shutdown
+    let cancel = CancellationToken::new();
+
     // handle our inputs: i3's IPC and our own IPC
     let err = tokio::select! {
-        err = handle_ipc_events(config.clone(), dispatcher.clone()) => err,
+        err = handle_ipc_events(socket, config.clone(), dispatcher.clone(), cancel.clone()) => err,
         err = handle_click_events(dispatcher.clone()) => err,
+        _ = cancel.cancelled() => Err("cancelled".into()),
     };
 
-    // if we reach here, then something went wrong while reading STDIN, so clean up
+    // if we reach here, then something went wrong, so clean up
     signal_handle.close();
     return err;
 }
 
-fn create_bar_items(config: &RcCell<AppConfig>) -> RcCell<Dispatcher> {
+fn setup_i3_bar(config: &RcCell<AppConfig>) -> Result<RcCell<Dispatcher>, Box<dyn Error>> {
     let item_count = config.items.len();
 
     // shared state
@@ -142,9 +147,9 @@ fn create_bar_items(config: &RcCell<AppConfig>) -> RcCell<Dispatcher> {
     }
 
     // setup listener for handling item updates and printing the bar to STDOUT
-    handle_item_updates(config.clone(), item_rx, bar);
+    handle_item_updates(config.clone(), item_rx, bar)?;
 
-    dispatcher
+    Ok(dispatcher)
 }
 
 // task to manage updating the bar and printing it as JSON
@@ -152,8 +157,13 @@ fn handle_item_updates(
     config: RcCell<AppConfig>,
     mut rx: Receiver<(I3Item, usize)>,
     mut bar: RcCell<Vec<I3Item>>,
-) {
+) -> Result<(), Box<dyn Error>> {
     let item_names = config.item_name_map();
+
+    // output first parts of the i3 bar protocol - the header
+    println!("{}", serde_json::to_string(&I3BarHeader::default())?);
+    // and the opening bracket for the "infinite array"
+    println!("[");
 
     tokio::task::spawn_local(async move {
         while let Some((i3_item, idx)) = rx.recv().await {
@@ -194,6 +204,8 @@ fn handle_item_updates(
             }
         }
     });
+
+    Ok(())
 }
 
 fn create_powerline<F>(bar: &[I3Item], theme: &Theme, adjuster: F) -> Vec<I3Item>

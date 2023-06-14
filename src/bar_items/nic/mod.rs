@@ -11,8 +11,8 @@ use serde_derive::{Deserialize, Serialize};
 
 use self::filter::InterfaceFilter;
 use crate::context::{BarItem, Context, StopAction};
-use crate::dbus::dbus_connection;
 use crate::dbus::network_manager::NetworkManagerProxy;
+use crate::dbus::{dbus_connection, BusType};
 use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
 use crate::util::net::Interface;
@@ -71,7 +71,7 @@ pub struct Nic {
 #[async_trait(?Send)]
 impl BarItem for Nic {
     async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
-        let connection = dbus_connection(crate::dbus::BusType::System).await?;
+        let connection = dbus_connection(BusType::System).await?;
         let nm = NetworkManagerProxy::new(&connection).await?;
         let mut nm_state_change = nm.receive_state_changed().await?;
 

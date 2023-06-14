@@ -1,5 +1,3 @@
-#![allow(non_snake_case)]
-
 use zbus::dbus_proxy;
 use zbus::zvariant::{DeserializeDict, OwnedObjectPath, OwnedValue, SerializeDict, Type, Value};
 
