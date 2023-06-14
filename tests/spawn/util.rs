@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
@@ -44,6 +46,60 @@ fn get_current_exe() -> PathBuf {
         .expect("failed to resolve path")
 }
 
+// test ------------------------------------------------------------------------
+
+pub struct Test {
+    pub env: HashMap<String, String>,
+    bin_dir: PathBuf,
+    socket_file: PathBuf,
+    config_file: PathBuf,
+}
+
+impl Test {
+    pub fn new(name: impl AsRef<str>, config: Value) -> Test {
+        let name = name.as_ref();
+        let dir = env::temp_dir().join(format!("istat-test-{}", name));
+        let bin_dir = dir.join("bin");
+        {
+            if dir.exists() {
+                fs::remove_dir_all(&dir).unwrap();
+            }
+            fs::create_dir_all(&bin_dir).unwrap();
+        }
+
+        let socket_file = dir.join("socket");
+        let config_file = dir.join("config.json");
+        fs::write(&config_file, config.to_string()).unwrap();
+
+        let mut env = HashMap::new();
+        env.insert(
+            "PATH".into(),
+            format!(
+                "{}:{}",
+                bin_dir.to_str().unwrap(),
+                env::var("PATH").unwrap()
+            ),
+        );
+
+        Test {
+            env,
+            bin_dir,
+            config_file,
+            socket_file,
+        }
+    }
+
+    pub fn add_bin(&mut self, name: impl AsRef<str>, contents: impl AsRef<str>) {
+        let mut file = File::create(self.bin_dir.join(name.as_ref())).unwrap();
+        file.write_all(contents.as_ref().as_bytes()).unwrap();
+
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = file.metadata().unwrap().permissions();
+        perms.set_mode(0o777);
+        file.set_permissions(perms).unwrap();
+    }
+}
+
 // spawn  ----------------------------------------------------------------------
 
 /// Convenience struct for running assertions on and communicating with a running instance of the program
@@ -57,21 +113,9 @@ pub struct TestProgram {
 
 impl TestProgram {
     /// Spawn the program, setting up it's own test directory
-    pub fn run(name: impl AsRef<str>, config: Value) -> TestProgram {
-        let name = name.as_ref();
-        let test_dir = env::temp_dir().join(format!("istat-test-{}", name));
-        {
-            if test_dir.exists() {
-                fs::remove_dir_all(&test_dir).unwrap();
-            }
-            fs::create_dir_all(&test_dir).unwrap();
-        }
-
-        let socket = test_dir.join("socket");
-        let config_file = test_dir.join("config.json");
-        fs::write(&config_file, config.to_string()).unwrap();
-
+    pub fn spawn(test: Test) -> TestProgram {
         let mut child = Command::new(get_current_exe())
+            .envs(test.env)
             // setup faketime
             .env("LD_PRELOAD", get_faketime_lib())
             .env("FAKETIME", format!("@{}", FAKE_TIME))
@@ -79,10 +123,10 @@ impl TestProgram {
             .env("RUST_LOG", "istat=trace")
             // socket
             .arg("--socket")
-            .arg(&socket)
+            .arg(&test.socket_file)
             // config
             .arg("--config")
-            .arg(config_file)
+            .arg(&test.config_file)
             // stdio
             .stdin(Stdio::piped())
             .stderr(Stdio::piped())
@@ -100,13 +144,13 @@ impl TestProgram {
 
         let mut test = TestProgram {
             child,
-            socket,
+            socket: test.socket_file,
             stdin,
             stdout,
             stderr,
         };
 
-        // check header
+        // assert header
         assert_eq!(
             test.next_line().unwrap().as_deref(),
             Some(r#"{"version":1,"click_events":true}"#)
@@ -130,7 +174,7 @@ impl TestProgram {
         })
     }
 
-    /// Send a raw click event
+    /// Send a raw click event via STDIN
     pub fn click_raw(&mut self, click: I3ClickEvent) {
         self.stdin
             .write_all(&serde_json::to_vec(&click).unwrap())
@@ -138,7 +182,7 @@ impl TestProgram {
         self.stdin.write_all(b"\n").unwrap();
     }
 
-    /// Simple interface for sending click events
+    /// Simple interface for sending click events via STDIN
     pub fn click(&mut self, target: impl AsRef<str>, button: I3Button, modifiers: &[I3Modifier]) {
         self.click_raw(I3ClickEvent {
             instance: Some(target.as_ref().into()),

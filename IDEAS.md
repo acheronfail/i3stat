@@ -22,7 +22,7 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 * tests
   * unit tests for what makes sense
   * xephyr tests for i3 interactions
-  * ipc tests
+  * spawn tests for as many bar items as is feasible
 
 ## Tips
 
