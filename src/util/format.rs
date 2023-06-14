@@ -6,7 +6,7 @@ use crate::theme::Theme;
 /// Display a fraction (e.g., 1/2) with pango formatting.
 pub fn fraction(theme: &Theme, num: usize, den: usize) -> String {
     if den <= 1 {
-        return "".into();
+        return String::new();
     }
 
     // NOTE: need the `line_height` hack so it doesn't change the vertical alignment of other text
@@ -48,29 +48,128 @@ pub fn float<F: Float>(n: F, fmt: &FloatFormat) -> String {
         return format!("{:3.0}", n);
     }
 
+    let pad_char = fmt.pad.unwrap_or(' ');
     let precision = fmt.precision.unwrap_or(0);
     let pad_count = fmt.pad_count.unwrap_or_else(|| {
         if precision > 0 {
-            // three digits (e.g., 100%) + decimal separator + precision
-            3 + 1 + precision
+            // three digits (e.g., 100%) + decimal separator
+            3 + 1
         } else {
             // three digits (e.g., 100%) only
             3
         }
     });
 
-    let padding = fmt
-        .pad
-        .map(|c| {
-            let s = c.to_string();
-            let len = num_digits(n);
-            if len >= pad_count {
-                "".into()
-            } else {
-                s.repeat(pad_count - len)
-            }
-        })
-        .unwrap_or("".into());
+    let len = num_digits(n);
+    if len >= pad_count {
+        format!("{:.precision$}", n, precision = precision)
+    } else {
+        format!(
+            "{}{:.precision$}",
+            pad_char.to_string().repeat(pad_count - len),
+            n,
+            precision = precision
+        )
+    }
+}
 
-    format!("{}{:.precision$}", padding, n, precision = precision,)
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_num_digits() {
+        assert_eq!(num_digits(0.0), 1);
+        assert_eq!(num_digits(1.0), 1);
+        assert_eq!(num_digits(5.0), 1);
+        assert_eq!(num_digits(10.0), 2);
+        assert_eq!(num_digits(42.0), 2);
+        assert_eq!(num_digits(1729.0), 4);
+        assert_eq!(num_digits(1_234_567_890.0), 10);
+
+        assert_eq!(num_digits(-0.0), 1);
+        assert_eq!(num_digits(-1.0), 1);
+        assert_eq!(num_digits(-5.0), 1);
+        assert_eq!(num_digits(-10.0), 2);
+        assert_eq!(num_digits(-42.0), 2);
+        assert_eq!(num_digits(-1729.0), 4);
+        assert_eq!(num_digits(-1_234_567_890.0), 10);
+    }
+
+    #[test]
+    fn format_default() {
+        let fmt = FloatFormat::default();
+        assert_eq!(float(0.1, &fmt), "  0");
+        assert_eq!(float(1.2, &fmt), "  1");
+        assert_eq!(float(10.3, &fmt), " 10");
+        assert_eq!(float(100.4, &fmt), "100");
+    }
+
+    #[test]
+    fn format_just_pad() {
+        let fmt = FloatFormat {
+            pad: Some('x'),
+            ..Default::default()
+        };
+
+        assert_eq!(float(0.1, &fmt), "xx0");
+        assert_eq!(float(1.2, &fmt), "xx1");
+        assert_eq!(float(10.3, &fmt), "x10");
+        assert_eq!(float(100.4, &fmt), "100");
+    }
+
+    #[test]
+    fn format_just_pad_count() {
+        let fmt = FloatFormat {
+            pad_count: Some(4),
+            ..Default::default()
+        };
+
+        assert_eq!(float(0.1, &fmt), "   0");
+        assert_eq!(float(1.2, &fmt), "   1");
+        assert_eq!(float(10.3, &fmt), "  10");
+        assert_eq!(float(100.4, &fmt), " 100");
+    }
+
+    #[test]
+    fn format_just_precision() {
+        let fmt = FloatFormat {
+            precision: Some(3),
+            ..Default::default()
+        };
+
+        assert_eq!(float(0.1, &fmt), "   0.100");
+        assert_eq!(float(1.2, &fmt), "   1.200");
+        assert_eq!(float(10.3, &fmt), "  10.300");
+        assert_eq!(float(100.4, &fmt), " 100.400");
+    }
+
+    #[test]
+    fn format_precision() {
+        let fmt = FloatFormat {
+            precision: Some(3),
+            pad_count: Some(0),
+            ..Default::default()
+        };
+
+        assert_eq!(float(0.1, &fmt), "0.100");
+        assert_eq!(float(1.2, &fmt), "1.200");
+        assert_eq!(float(10.3, &fmt), "10.300");
+        assert_eq!(float(100.4, &fmt), "100.400");
+    }
+
+    #[test]
+    fn format_all() {
+        let fmt = FloatFormat {
+            precision: Some(3),
+            pad_count: Some(5),
+            pad: Some('-'),
+        };
+
+        assert_eq!(float(0.1, &fmt), "----0.100");
+        assert_eq!(float(1.2, &fmt), "----1.200");
+        assert_eq!(float(10.3, &fmt), "---10.300");
+        assert_eq!(float(100.4, &fmt), "--100.400");
+        assert_eq!(float(99999.999, &fmt), "99999.999");
+    }
 }

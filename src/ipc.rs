@@ -308,3 +308,26 @@ async fn send_ipc_response(stream: &UnixStream, resp: &IpcReply) -> Result<(), B
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_encode_ipc_msg() {
+        let bytes = encode_ipc_msg::<IpcMessage>(IpcMessage::Info).unwrap();
+        let header = &bytes[0..IPC_HEADER_LEN];
+        let body = &bytes[IPC_HEADER_LEN..];
+        assert_eq!(header, 6_u64.to_le_bytes());
+        assert_eq!(body, br#""info""#);
+    }
+
+    #[test]
+    fn test_encode_ipc_reply() {
+        let bytes = encode_ipc_msg::<IpcReply>(IpcReply::Result(IpcResult::Success(None))).unwrap();
+        let header = &bytes[0..IPC_HEADER_LEN];
+        let body = &bytes[IPC_HEADER_LEN..];
+        assert_eq!(header, 43_u64.to_le_bytes());
+        assert_eq!(body, br#"{"result":{"type":"success","detail":null}}"#);
+    }
+}

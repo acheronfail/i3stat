@@ -4,16 +4,8 @@ use crate::util::{Test, TestProgram};
 
 spawn_test!(
     krb_on,
-    json!({
-        "items": [
-            {
-                "type": "krb",
-            }
-        ]
-    }),
-    |test: &mut Test| {
-        test.add_bin("klist", "#!/usr/bin/env bash\nexit 0");
-    },
+    json!({ "items": [{ "type": "krb" }] }),
+    |test: &mut Test| test.add_bin("klist", "#!/usr/bin/env bash\nexit 0"),
     |mut istat: TestProgram| {
         assert_eq!(
             istat.next_line_json().unwrap(),
@@ -24,16 +16,8 @@ spawn_test!(
 
 spawn_test!(
     krb_off,
-    json!({
-        "items": [
-            {
-                "type": "krb",
-            }
-        ]
-    }),
-    |test: &mut Test| {
-        test.add_bin("klist", "#!/usr/bin/env bash\nexit 1");
-    },
+    json!({ "items": [{ "type": "krb" }] }),
+    |test: &mut Test| test.add_bin("klist", "#!/usr/bin/env bash\nexit 1"),
     |mut istat: TestProgram| {
         assert_eq!(
             istat.next_line_json().unwrap(),
