@@ -117,7 +117,7 @@ pub enum StopAction {
     Complete,
     /// The task finished, and the item should be removed from the bar
     Remove,
-    /// The task for this item will be restarted
+    /// The task finished, and should be restarted
     Restart,
 }
 
