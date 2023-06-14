@@ -1,5 +1,6 @@
-use istat::ipc::IpcMessage;
-use serde_json::json;
+use istat::i3::{I3Button, I3ClickEvent};
+use istat::ipc::{IpcBarEvent, IpcMessage};
+use serde_json::{json, Value};
 
 use crate::util::TestProgram;
 
@@ -46,8 +47,6 @@ spawn_test!(
         ]
     }),
     |mut istat: TestProgram| {
-        istat.wait_for_all_init();
-
         // initial state
         assert_eq!(
             istat.next_line_json().unwrap(),
@@ -77,32 +76,236 @@ spawn_test!(
     }
 );
 
-// spawn_test!(
-//     signal_item,
-//     json!({ "items": [] }),
-//     |mut istat: TestProgram| { todo!() }
-// );
+spawn_test!(
+    signal_item_index,
+    json!({
+        "items": [
+            { "type": "script", "command": "echo -n signal: ${I3_SIGNAL:-false}", "output": "simple" },
+            { "type": "script", "command": "echo -n signal: ${I3_SIGNAL:-false}", "output": "simple" },
+            { "type": "script", "command": "echo -n signal: ${I3_SIGNAL:-false}", "output": "simple" },
+        ]
+    }),
+    |mut istat: TestProgram| {
+        assert_eq!(
+            istat.next_line_json().unwrap(),
+            json!([
+                { "instance": "0", "name": "script", "full_text": "signal: false" },
+                { "instance": "1", "name": "script", "full_text": "signal: false" },
+                { "instance": "2", "name": "script", "full_text": "signal: false" },
+            ])
+        );
 
-// spawn_test!(
-//     send_click,
-//     json!({ "items": [] }),
-//     |mut istat: TestProgram| { todo!() }
-// );
+        assert_eq!(
+            istat.send_ipc(IpcMessage::BarEvent {
+                instance: "1".into(),
+                event: IpcBarEvent::Signal
+            }),
+            json!({ "result": { "detail": null, "type": "success" } })
+        );
 
-// spawn_test!(
-//     get_config,
-//     json!({ "items": [] }),
-//     |mut istat: TestProgram| { todo!() }
-// );
+        assert_eq!(
+            istat.next_line_json().unwrap(),
+            json!([
+                { "instance": "0", "name": "script", "full_text": "signal: false" },
+                { "instance": "1", "name": "script", "full_text": "signal: true" },
+                { "instance": "2", "name": "script", "full_text": "signal: false" },
+            ])
+        );
+    }
+);
 
-// spawn_test!(
-//     get_theme,
-//     json!({ "items": [] }),
-//     |mut istat: TestProgram| { todo!() }
-// );
+spawn_test!(
+    signal_item_name_first,
+    json!({
+        "items": [
+            { "type": "script", "command": "echo -n signal: ${I3_SIGNAL:-false}", "output": "simple" },
+            { "type": "script", "command": "echo -n signal: ${I3_SIGNAL:-false}", "output": "simple" },
+            { "type": "script", "command": "echo -n signal: ${I3_SIGNAL:-false}", "output": "simple" },
+        ]
+    }),
+    |mut istat: TestProgram| {
+        assert_eq!(
+            istat.next_line_json().unwrap(),
+            json!([
+                { "instance": "0", "name": "script", "full_text": "signal: false" },
+                { "instance": "1", "name": "script", "full_text": "signal: false" },
+                { "instance": "2", "name": "script", "full_text": "signal: false" },
+            ])
+        );
 
-// spawn_test!(
-//     set_theme,
-//     json!({ "items": [] }),
-//     |mut istat: TestProgram| { todo!() }
-// );
+        assert_eq!(
+            istat.send_ipc(IpcMessage::BarEvent {
+                instance: "script".into(),
+                event: IpcBarEvent::Signal
+            }),
+            json!({ "result": { "detail": null, "type": "success" } })
+        );
+
+        assert_eq!(
+            istat.next_line_json().unwrap(),
+            json!([
+                { "instance": "0", "name": "script", "full_text": "signal: true" },
+                { "instance": "1", "name": "script", "full_text": "signal: false" },
+                { "instance": "2", "name": "script", "full_text": "signal: false" },
+            ])
+        );
+    }
+);
+
+spawn_test!(
+    signal_item_name_specific,
+    json!({
+        "items": [
+            { "type": "script", "command": "echo -n signal: ${I3_SIGNAL:-false}", "output": "simple" },
+            { "type": "script", "command": "echo -n signal: ${I3_SIGNAL:-false}", "output": "simple" },
+            { "type": "script", "command": "echo -n signal: ${I3_SIGNAL:-false}", "output": "simple", "name": "foo" },
+        ]
+    }),
+    |mut istat: TestProgram| {
+        assert_eq!(
+            istat.next_line_json().unwrap(),
+            json!([
+                { "instance": "0", "name": "script", "full_text": "signal: false" },
+                { "instance": "1", "name": "script", "full_text": "signal: false" },
+                { "instance": "2", "name": "foo", "full_text": "signal: false" },
+            ])
+        );
+
+        assert_eq!(
+            istat.send_ipc(IpcMessage::BarEvent {
+                instance: "foo".into(),
+                event: IpcBarEvent::Signal
+            }),
+            json!({ "result": { "detail": null, "type": "success" } })
+        );
+
+        assert_eq!(
+            istat.next_line_json().unwrap(),
+            json!([
+                { "instance": "0", "name": "script", "full_text": "signal: false" },
+                { "instance": "1", "name": "script", "full_text": "signal: false" },
+                { "instance": "2", "name": "foo", "full_text": "signal: true" },
+            ])
+        );
+    }
+);
+
+spawn_test!(
+    send_click,
+    json!({
+        "items": [
+            {
+                "type": "script",
+                "command": "echo -n `if [ ! -z $I3_BUTTON ]; then echo button=$I3_BUTTON; else echo bar item; fi`",
+                "output": "simple",
+            }
+        ]
+    }),
+    |mut istat: TestProgram| {
+        assert_eq!(
+            istat.next_line_json().unwrap(),
+            json!([
+                { "instance": "0", "name": "script", "full_text": "bar item" }
+            ])
+        );
+
+        // ipc click with index
+        assert_eq!(
+            istat.send_ipc(IpcMessage::BarEvent {
+                instance: "0".into(),
+                event: IpcBarEvent::Click(I3ClickEvent {
+                    button: I3Button::Left,
+                    ..Default::default()
+                })
+            }),
+            json!({ "result": { "detail": null, "type": "success" } })
+        );
+
+        assert_eq!(
+            istat.next_line_json().unwrap(),
+            json!([
+                { "instance": "0", "name": "script", "full_text": "button=1" }
+            ])
+        );
+
+        // ipc click with name
+        assert_eq!(
+            istat.send_ipc(IpcMessage::BarEvent {
+                instance: "script".into(),
+                event: IpcBarEvent::Click(I3ClickEvent {
+                    button: I3Button::Right,
+                    ..Default::default()
+                })
+            }),
+            json!({ "result": { "detail": null, "type": "success" } })
+        );
+
+        assert_eq!(
+            istat.next_line_json().unwrap(),
+            json!([
+                { "instance": "0", "name": "script", "full_text": "button=3" }
+            ])
+        );
+    }
+);
+
+spawn_test!(
+    get_config,
+    json!({ "items": [{ "type": "raw", "full_text": "raw" }] }),
+    |mut istat: TestProgram| {
+        let reply = istat.send_ipc(IpcMessage::GetConfig);
+        let config = reply.get("custom_response").unwrap();
+        assert_eq!(config.get("items").unwrap().as_array().unwrap().len(), 1);
+        assert!(config.get("socket").unwrap().is_string());
+        assert!(config.get("theme").is_some());
+    }
+);
+
+spawn_test!(
+    get_theme,
+    json!({ "items": [] }),
+    |mut istat: TestProgram| {
+        let reply = istat.send_ipc(IpcMessage::GetConfig);
+        let config = reply.get("custom_response").unwrap();
+
+        let reply = istat.send_ipc(IpcMessage::GetTheme);
+        let theme = reply.get("custom_response").unwrap();
+
+        assert_eq!(config.get("theme").unwrap(), theme);
+    }
+);
+
+spawn_test!(
+    set_theme,
+    json!({ "items": [] }),
+    |mut istat: TestProgram| {
+        // get theme
+        let mut reply = istat.send_ipc(IpcMessage::GetTheme);
+        let mut theme = reply
+            .as_object_mut()
+            .unwrap()
+            .remove("custom_response")
+            .unwrap();
+
+        // ensure `powerline_enable` is false
+        assert_eq!(
+            *theme.pointer("/powerline_enable").unwrap(),
+            Value::Bool(false)
+        );
+
+        // send message to set it to true
+        *theme.pointer_mut("/powerline_enable").unwrap() = Value::Bool(true);
+        assert_eq!(
+            istat.send_ipc(IpcMessage::SetTheme(theme)),
+            json!({ "result": { "detail": null, "type": "success" } })
+        );
+
+        // fetch again and assert it was updated
+        let reply = istat.send_ipc(IpcMessage::GetTheme);
+        let theme = reply.get("custom_response").unwrap();
+        assert_eq!(
+            *theme.pointer("/powerline_enable").unwrap(),
+            Value::Bool(true)
+        );
+    }
+);

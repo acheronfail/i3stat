@@ -12,8 +12,6 @@ spawn_test!(
         ]
     }),
     |mut istat: TestProgram| {
-        istat.wait_for_all_init();
-
         assert_eq!(
             istat.next_line_json().unwrap(),
             json!([

@@ -98,13 +98,25 @@ impl TestProgram {
 
         let stderr = child.stderr.take().unwrap();
 
-        TestProgram {
+        let mut test = TestProgram {
             child,
             socket,
             stdin,
             stdout,
             stderr,
-        }
+        };
+
+        // check header
+        assert_eq!(
+            test.next_line().unwrap().as_deref(),
+            Some(r#"{"version":1,"click_events":true}"#)
+        );
+        assert_eq!(test.next_line().unwrap().as_deref(), Some(r#"["#));
+
+        // wait for all items to start up
+        test.wait_for_all_init();
+
+        test
     }
 
     /// Get the next line of STDOUT as a string - blocks
@@ -153,7 +165,7 @@ impl TestProgram {
         assert_eq!(reply, IpcReply::Result(IpcResult::Success(None)));
     }
 
-    /// Gets the current config for the program
+    /// Gets the current config for the program via IPC
     pub fn get_config(&mut self) -> AppConfig {
         let reply = self.send_ipc(IpcMessage::GetConfig);
         let reply = serde_json::from_value::<IpcReply>(reply).unwrap();
@@ -173,8 +185,8 @@ impl TestProgram {
     }
 
     /// A message is emitted per item, so wait for all items to have emitted something
-    pub fn wait_for_all_init(&mut self) {
-        for _ in 0..self.get_config().items.len() - 1 {
+    fn wait_for_all_init(&mut self) {
+        for _ in 0..self.get_config().items.len().saturating_sub(1) {
             self.next_line_json().unwrap();
         }
     }
