@@ -8,13 +8,13 @@ use serde_derive::{Deserialize, Serialize};
 use strum::EnumIter;
 use sysinfo::SystemExt;
 
-use crate::context::{BarEvent, BarItem, Context};
+use crate::context::{BarEvent, BarItem, Context, StopAction};
 use crate::i3::{I3Button, I3Item, I3Markup};
 use crate::theme::Theme;
 use crate::util::format::{float, FloatFormat};
 use crate::util::EnumCycle;
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, EnumIter)]
+#[derive(Debug, Default, Copy, Clone, Serialize, Deserialize, PartialEq, EnumIter)]
 #[serde(rename_all = "snake_case")]
 pub enum MemDisplay {
     #[default]
@@ -45,16 +45,15 @@ impl Mem {
 
 #[async_trait(?Send)]
 impl BarItem for Mem {
-    async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
         let mut total = None;
         let mut display = EnumCycle::new_at(self.display);
         loop {
             let (available, total) = {
-                let state = ctx.state.get_mut();
-                state.sys.refresh_memory();
+                ctx.state.sys.refresh_memory();
                 (
-                    state.sys.available_memory(),
-                    *total.get_or_insert_with(|| state.sys.total_memory()),
+                    ctx.state.sys.available_memory(),
+                    *total.get_or_insert_with(|| ctx.state.sys.total_memory()),
                 )
             };
 

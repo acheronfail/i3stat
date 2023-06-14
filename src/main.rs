@@ -1,22 +1,22 @@
 use std::convert::Infallible;
 use std::error::Error;
 use std::process;
-use std::time::Duration;
 
 use clap::Parser;
 use hex_color::HexColor;
 use istat::cli::Cli;
 use istat::config::AppConfig;
-use istat::context::{Context, SharedState};
+use istat::context::{Context, SharedState, StopAction};
 use istat::dispatcher::Dispatcher;
 use istat::i3::header::I3BarHeader;
 use istat::i3::ipc::handle_click_events;
 use istat::i3::{I3Item, I3Markup};
-use istat::ipc::handle_ipc_events;
+use istat::ipc::{create_ipc_socket, handle_ipc_events};
 use istat::signals::handle_signals;
 use istat::theme::Theme;
-use istat::util::RcCell;
+use istat::util::{local_block_on, RcCell};
 use tokio::sync::mpsc::{self, Receiver};
+use tokio_util::sync::CancellationToken;
 
 fn main() {
     if let Err(err) = start_runtime() {
@@ -30,11 +30,7 @@ fn start_runtime() -> Result<Infallible, Box<dyn Error>> {
 
     let args = Cli::parse();
 
-    let runtime = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()?;
-
-    let result = tokio::task::LocalSet::new().block_on(&runtime, async_main(args));
+    let (result, runtime) = local_block_on(async_main(args))?;
 
     // NOTE: we use tokio's stdin implementation which spawns a background thread and blocks,
     // we have to shutdown the runtime ourselves here. If we didn't, then when the runtime is
@@ -42,7 +38,7 @@ fn start_runtime() -> Result<Infallible, Box<dyn Error>> {
     // JSON line from i3).
     // Thus, if anything other than the stdin task fails, we have to manually shut it down here.
     // See: https://github.com/tokio-rs/tokio/discussions/5684
-    runtime.shutdown_timeout(Duration::from_secs(1));
+    runtime.shutdown_background();
 
     result
 }
@@ -50,78 +46,110 @@ fn start_runtime() -> Result<Infallible, Box<dyn Error>> {
 async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
     let config = RcCell::new(AppConfig::read(args).await?);
 
-    println!("{}", serde_json::to_string(&I3BarHeader::default())?);
-    println!("[");
+    // create socket first, so it's ready before anything is written to stdout
+    let socket = create_ipc_socket(&config).await?;
 
+    // create i3 bar and spawn tasks for each bar item
+    let dispatcher = setup_i3_bar(&config)?;
+
+    // handle incoming signals
+    let signal_handle = handle_signals(config.clone(), dispatcher.clone())?;
+
+    // used to handle app shutdown
+    let cancel = CancellationToken::new();
+
+    // handle our inputs: i3's IPC and our own IPC
+    let err = tokio::select! {
+        err = handle_ipc_events(socket, config.clone(), dispatcher.clone(), cancel.clone()) => err,
+        err = handle_click_events(dispatcher.clone()) => err,
+        _ = cancel.cancelled() => Err("cancelled".into()),
+    };
+
+    // if we reach here, then something went wrong, so clean up
+    signal_handle.close();
+    return err;
+}
+
+fn setup_i3_bar(config: &RcCell<AppConfig>) -> Result<RcCell<Dispatcher>, Box<dyn Error>> {
     let item_count = config.items.len();
 
-    // shared context
+    // shared state
     let state = SharedState::new();
 
-    // state for the bar (moved to bar_printer)
+    // A list of items which represents the i3 bar
     let bar = RcCell::new(vec![I3Item::empty(); item_count]);
-    let mut bar_event_txs = vec![];
 
-    // for each BarItem, spawn a new task to manage it
+    // Used to send events to each bar item
+    let dispatcher = RcCell::new(Dispatcher::new(item_count));
+
+    // Used by items to send updates back to the bar
     let (item_tx, item_rx) = mpsc::channel(item_count + 1);
+
+    // Iterate config and create bar items
     for (idx, item) in config.items.iter().enumerate() {
         let bar_item = item.to_bar_item();
 
-        let (event_tx, event_rx) = mpsc::channel(32);
-        bar_event_txs.push(event_tx);
-
-        let ctx = Context::new(
-            config.clone(),
-            state.clone(),
-            item_tx.clone(),
-            event_rx,
-            idx,
-        );
+        // all cheaply cloneable (smart pointers, senders, etc)
         let mut bar = bar.clone();
+        let state = state.clone();
         let config = config.clone();
+        let item_tx = item_tx.clone();
+        let mut dispatcher = dispatcher.clone();
+
         tokio::task::spawn_local(async move {
-            let fut = bar_item.start(ctx);
-            // since this item has terminated, remove its entry from the bar
-            match fut.await {
-                Ok(()) => {
-                    log::info!("item[{}] finished running", idx);
-                    // NOTE: we have to await this empty future like this so any remaining item updates are flushed
-                    // and processed in `handle_item_updates()` before we set it for the last time here
-                    // TODO: `(async {}).await` doesn't work - is that a no-op in Rust's futures?
-                    let _ = tokio::spawn(async {}).await;
-                    // replace with an empty item
-                    bar[idx] = I3Item::empty();
-                }
-                // TODO: rather than error - attempt to restart the item?
-                Err(e) => {
-                    log::error!("item[{}] exited with error: {}", idx, e);
-                    // replace with an error item
-                    let theme = config.theme.clone();
-                    bar[idx] = I3Item::new("ERROR")
-                        .color(theme.bg)
-                        .background_color(theme.red);
+            let mut retries = 0;
+            loop {
+                let (event_tx, event_rx) = mpsc::channel(32);
+                dispatcher.set(idx, event_tx);
+
+                let ctx = Context::new(
+                    config.clone(),
+                    state.clone(),
+                    item_tx.clone(),
+                    event_rx,
+                    idx,
+                );
+
+                let fut = bar_item.start(ctx);
+                match fut.await {
+                    Ok(StopAction::Restart) if retries < 3 => {
+                        log::error!("item[{}] requested restart...", idx);
+                        retries += 1;
+                        continue;
+                    }
+                    Ok(StopAction::Restart) => {
+                        log::error!("item[{}] stopped, exceeded max retries", idx);
+                        break;
+                    }
+                    // since this item has terminated, remove its entry from the bar
+                    Ok(StopAction::Complete) => {
+                        log::info!("item[{}] finished running", idx);
+                        // NOTE: wait for all tasks in queue so any remaining item updates are flushed and processed
+                        // before we set it for the last time here
+                        tokio::task::yield_now().await;
+                        // replace with an empty item
+                        bar[idx] = I3Item::empty();
+                        break;
+                    }
+                    // unexpected error, log and display an error block
+                    Err(e) => {
+                        log::error!("item[{}] exited with error: {}", idx, e);
+                        // replace with an error item
+                        let theme = config.theme.clone();
+                        bar[idx] = I3Item::new("ERROR")
+                            .color(theme.bg)
+                            .background_color(theme.red);
+                        break;
+                    }
                 }
             }
         });
     }
 
-    let dispatcher = Dispatcher::new(bar_event_txs);
-
     // setup listener for handling item updates and printing the bar to STDOUT
-    handle_item_updates(config.clone(), item_rx, bar);
+    handle_item_updates(config.clone(), item_rx, bar)?;
 
-    // handle incoming signals
-    let signal_handle = handle_signals(config.clone(), dispatcher.clone())?;
-
-    // handle our inputs: i3's IPC and our own IPC
-    let err = tokio::select! {
-        err = handle_ipc_events(config.clone(), dispatcher.clone()) => err,
-        err = handle_click_events(dispatcher.clone()) => err,
-    };
-
-    // if we reach here, then something went wrong while reading STDIN, so clean up
-    signal_handle.close();
-    return err;
+    Ok(dispatcher)
 }
 
 // task to manage updating the bar and printing it as JSON
@@ -129,8 +157,13 @@ fn handle_item_updates(
     config: RcCell<AppConfig>,
     mut rx: Receiver<(I3Item, usize)>,
     mut bar: RcCell<Vec<I3Item>>,
-) {
+) -> Result<(), Box<dyn Error>> {
     let item_names = config.item_name_map();
+
+    // output first parts of the i3 bar protocol - the header
+    println!("{}", serde_json::to_string(&I3BarHeader::default())?);
+    // and the opening bracket for the "infinite array"
+    println!("[");
 
     tokio::task::spawn_local(async move {
         while let Some((i3_item, idx)) = rx.recv().await {
@@ -171,6 +204,8 @@ fn handle_item_updates(
             }
         }
     });
+
+    Ok(())
 }
 
 fn create_powerline<F>(bar: &[I3Item], theme: &Theme, adjuster: F) -> Vec<I3Item>

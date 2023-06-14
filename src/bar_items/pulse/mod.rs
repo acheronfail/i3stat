@@ -1,11 +1,8 @@
 mod custom;
 
-use std::borrow::Cow;
-use std::cell::RefCell;
 use std::error::Error;
 use std::fmt::Debug;
 use std::process;
-use std::rc::Rc;
 
 use async_trait::async_trait;
 use clap::ValueEnum;
@@ -14,19 +11,21 @@ use libpulse_binding::context::introspect::{Introspector, SinkInfo, SourceInfo};
 use libpulse_binding::context::subscribe::{Facility, InterestMaskSet, Operation};
 use libpulse_binding::context::{Context as PAContext, FlagSet, State};
 use libpulse_binding::def::DevicePortType;
+use libpulse_binding::error::{Code, PAErr};
 use libpulse_binding::proplist::properties::{APPLICATION_NAME, APPLICATION_PROCESS_ID};
 use libpulse_binding::proplist::Proplist;
 use libpulse_binding::volume::{ChannelVolumes, Volume};
 use libpulse_tokio::TokioMain;
+use num_traits::ToPrimitive;
 use serde_derive::{Deserialize, Serialize};
 use tokio::sync::mpsc::{self, UnboundedSender};
 
-use crate::context::{BarEvent, BarItem, Context};
+use crate::context::{BarEvent, BarItem, Context, StopAction};
 use crate::dbus::notifications::NotificationsProxy;
 use crate::dbus::{dbus_connection, BusType};
 use crate::i3::{I3Button, I3Item, I3Markup, I3Modifier};
 use crate::theme::Theme;
-use crate::util::exec;
+use crate::util::{exec, RcCell};
 
 #[derive(Debug, Copy, Clone, ValueEnum)]
 pub enum Object {
@@ -171,37 +170,43 @@ impl NotificationSetting {
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Pulse {
     /// How much to increment when increasing/decreasing the volume; measured in percent
-    increment: Option<u32>,
+    #[serde(default = "Pulse::default_increment")]
+    increment: u32,
     /// The maximum allowed volume; measured in percent
     max_volume: Option<u32>,
     /// Whether to send notifications on server state changes
     #[serde(default)]
     notify: NotificationSetting,
+    /// Name of the audio server to try to connect to
+    server_name: Option<String>,
     // TODO: a sample to play each time the volume is changed?
     // See: https://docs.rs/libpulse-binding/2.26.0/libpulse_binding/mainloop/threaded/index.html#example
+}
+
+impl Pulse {
+    pub const fn default_increment() -> u32 {
+        2
+    }
 }
 
 pub struct PulseState {
     tx: UnboundedSender<Command>,
     increment: u32,
     max_volume: Option<u32>,
-
-    // NOTE: wrapped in `RefCell`s so they can be easily shared between tokio tasks on the same thread
-    pa_ctx: RefCell<PAContext>,
-    default_sink: RefCell<String>,
-    default_source: RefCell<String>,
-    sinks: RefCell<Vec<Port>>,
-    sources: RefCell<Vec<Port>>,
+    pa_ctx: PAContext,
+    default_sink: String,
+    default_source: String,
+    sinks: Vec<Port>,
+    sources: Vec<Port>,
 }
 
 macro_rules! impl_pa_methods {
     ($name:ident) => {
         paste::paste! {
-            fn [<add_ $name>](&self, result: ListResult<&[<$name:camel Info>]>) {
+            fn [<add_ $name>](&mut self, result: ListResult<&[<$name:camel Info>]>) {
                 match result {
                     ListResult::Item(info) => {
-                        let mut items = self.[<$name s>].borrow_mut();
-                        match items.iter_mut().find(|s| s.index == info.index) {
+                        match self.[<$name s>].iter_mut().find(|s| s.index == info.index) {
                             Some(s) => *s = info.into(),
                             None => {
                                 let obj = info.into();
@@ -211,7 +216,7 @@ macro_rules! impl_pa_methods {
                                     }
                                 }
 
-                                items.push(obj);
+                                self.[<$name s>].push(obj);
                             },
                         }
                     },
@@ -220,13 +225,13 @@ macro_rules! impl_pa_methods {
                 }
             }
 
-            fn [<remove_ $name>](&self, idx: u32) {
-                self.[<$name s>].borrow_mut().retain(|s| s.index == idx);
+            fn [<remove_ $name>](&mut self, idx: u32) {
+                self.[<$name s>].retain(|s| s.index == idx);
             }
 
-            fn [<set_mute_ $name>](self: &Rc<Self>, idx: u32, mute: bool) {
+            fn [<set_mute_ $name>](&self, idx: u32, mute: bool) {
                 let inner = self.clone();
-                let mut inspect = self.pa_ctx.borrow_mut().introspect();
+                let mut inspect = self.pa_ctx.introspect();
                 inspect.[<set_ $name _mute_by_index>](idx, mute, Some(Box::new(move |success| {
                     if !success {
                         let port = inner.get_port_by_idx(idx);
@@ -235,9 +240,9 @@ macro_rules! impl_pa_methods {
                 })));
             }
 
-            fn [<set_volume_ $name>](self: &Rc<Self>, idx: u32, cv: &ChannelVolumes) {
+            fn [<set_volume_ $name>](&self, idx: u32, cv: &ChannelVolumes) {
                 let inner = self.clone();
-                let mut inspect = self.pa_ctx.borrow_mut().introspect();
+                let mut inspect = self.pa_ctx.introspect();
                 inspect.[<set_ $name _volume_by_index>](idx, cv, Some(Box::new(move |success| {
                     if !success {
                         let port = inner.get_port_by_idx(idx);
@@ -249,32 +254,29 @@ macro_rules! impl_pa_methods {
     };
 }
 
-impl PulseState {
+impl RcCell<PulseState> {
     impl_pa_methods!(sink);
     impl_pa_methods!(source);
 
     fn get_port_by_idx(&self, idx: u32) -> Option<Port> {
         self.sinks
-            .borrow()
             .iter()
-            .chain(self.sources.borrow().iter())
+            .chain(self.sources.iter())
             .find(|p| p.index == idx)
             .cloned()
     }
 
     fn default_sink(&self) -> Option<Port> {
         self.sinks
-            .borrow()
             .iter()
-            .find(|s| s.name == *self.default_sink.borrow())
+            .find(|s| s.name == *self.default_sink)
             .cloned()
     }
 
     fn default_source(&self) -> Option<Port> {
         self.sources
-            .borrow()
             .iter()
-            .find(|s| s.name == *self.default_source.borrow())
+            .find(|s| s.name == *self.default_source)
             .cloned()
     }
 
@@ -313,7 +315,7 @@ impl PulseState {
         cv
     }
 
-    fn set_volume(self: &Rc<Self>, what: Object, vol: Vol) {
+    fn set_volume(&self, what: Object, vol: Vol) {
         (match what {
             Object::Sink => self.default_sink().map(|mut p| {
                 self.set_volume_sink(p.index, self.update_volume(&mut p.volume, vol));
@@ -329,7 +331,7 @@ impl PulseState {
         });
     }
 
-    fn set_mute(self: &Rc<Self>, what: Object, mute: bool) {
+    fn set_mute(&self, what: Object, mute: bool) {
         (match what {
             Object::Sink => self.default_sink().map(|mut p| {
                 p.mute = mute;
@@ -347,7 +349,7 @@ impl PulseState {
         });
     }
 
-    fn toggle_mute(self: &Rc<Self>, what: Object) {
+    fn toggle_mute(&self, what: Object) {
         (match what {
             Object::Sink => self.default_sink().map(|mut p| {
                 p.mute = !p.mute;
@@ -365,7 +367,7 @@ impl PulseState {
         });
     }
 
-    fn update_item(self: &Rc<Self>) {
+    fn update_item(&self) {
         let (default_sink, default_source) = match (self.default_sink(), self.default_source()) {
             (Some(sink), Some(source)) => (sink, source),
             _ => {
@@ -384,8 +386,28 @@ impl PulseState {
         })));
     }
 
+    /// Setup subscription to be notified of server change events
+    fn subscribe_to_server_changes(&mut self) {
+        let inspect = self.pa_ctx.introspect();
+        let mut state = self.clone();
+        self.pa_ctx
+            .set_subscribe_callback(Some(Box::new(move |fac, op, idx| {
+                // SAFETY: `libpulse_binding` decodes these values from an integer, and explains
+                // that it's probably safe to always unwrap them
+                state.subscribe_cb(&inspect, fac.unwrap(), op.unwrap(), idx);
+            })));
+
+        let mask = InterestMaskSet::SERVER | InterestMaskSet::SINK | InterestMaskSet::SOURCE;
+        self.pa_ctx.subscribe(mask, |success| {
+            if !success {
+                log::error!("subscribe failed");
+            }
+        });
+    }
+
+    /// Callback used when server sends us change evnets
     fn subscribe_cb(
-        self: &Rc<Self>,
+        &mut self,
         inspect: &Introspector,
         facility: Facility,
         op: Operation,
@@ -393,6 +415,7 @@ impl PulseState {
     ) {
         use Facility::*;
         use Operation::*;
+
         // TODO: these events come in fast with many per type, can we debounce the `fetch_server_state` call?
         macro_rules! impl_handler {
             ($(($obj:ty, $get:ident)),*) => {
@@ -400,7 +423,7 @@ impl PulseState {
                     match (facility, op) {
                         $(
                             ($obj, New) | ($obj, Changed) => {
-                                let inner = self.clone();
+                                let mut inner = self.clone();
                                 inspect.$get(idx, move |result| {
                                     let should_refetch = matches!(&result, ListResult::End | ListResult::Error);
                                     inner.[<add_ $obj:snake>](result);
@@ -429,39 +452,62 @@ impl PulseState {
         );
     }
 
-    fn fetch_server_state(self: &Rc<Self>) {
-        let inspect = self.pa_ctx.borrow().introspect();
+    /// subscribe to state changes to detect if the server is terminated
+    fn subscribe_to_state_changes(&mut self, exit_tx: UnboundedSender<()>) {
+        // SAFETY: there's a test ensuring this doesn't panic
+        let conn_terminated = Code::ConnectionTerminated.to_i32().unwrap();
 
-        let inner = self.clone();
+        let state = self.clone();
+        self.pa_ctx
+            .set_state_callback(Some(Box::new(move || match state.pa_ctx.get_state() {
+                State::Failed => match state.pa_ctx.errno() {
+                    PAErr(code) if code == conn_terminated => {
+                        let _ = exit_tx.send(());
+                    }
+                    pa_err => {
+                        log::error!("unknown error occurred: {:?}", pa_err.to_string());
+                    }
+                },
+                State::Terminated => {}
+                _ => (),
+            })));
+    }
+
+    fn fetch_server_state(&self) {
+        let inspect = self.pa_ctx.introspect();
+
+        let mut inner = self.clone();
         inspect.get_sink_info_list(move |item| {
             inner.add_sink(item);
         });
 
-        let inner = self.clone();
+        let mut inner = self.clone();
         inspect.get_source_info_list(move |item| {
             inner.add_source(item);
         });
 
-        let inner = self.clone();
+        let mut inner = self.clone();
         inspect.get_server_info(move |info| {
-            let update_default = |name: &Cow<str>, default: &RefCell<String>, what: Object| {
-                let name = (**name).to_owned();
-                let prev = default.replace(name.clone());
-                if &*prev != &*name {
-                    let _ = inner.tx.send(Command::NotifyDefaultsChange {
-                        name,
-                        what: what.to_string(),
-                    });
+            let update_if_needed = |me: &mut PulseState, what: Object, name: String| {
+                match what {
+                    Object::Sink if me.default_sink != name => me.default_sink = name.clone(),
+                    Object::Source if me.default_source != name => me.default_source = name.clone(),
+                    _ => return,
                 }
+
+                let _ = me.tx.send(Command::NotifyDefaultsChange {
+                    what: what.to_string(),
+                    name,
+                });
             };
 
-            if let Some(name) = &info.default_sink_name {
-                update_default(name, &inner.default_sink, Object::Sink);
-            }
+            info.default_sink_name
+                .as_ref()
+                .map(|name| update_if_needed(&mut inner, Object::Sink, name.to_string()));
 
-            if let Some(name) = &info.default_source_name {
-                update_default(name, &inner.default_source, Object::Source);
-            }
+            info.default_source_name
+                .as_ref()
+                .map(|name| update_if_needed(&mut inner, Object::Source, name.to_string()));
 
             inner.update_item();
         });
@@ -470,7 +516,7 @@ impl PulseState {
 
 #[async_trait(?Send)]
 impl BarItem for Pulse {
-    async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<crate::context::StopAction, Box<dyn Error>> {
         // setup pulse main loop
         let (mut main_loop, pa_ctx) = {
             let mut main_loop = TokioMain::new();
@@ -483,11 +529,16 @@ impl BarItem for Pulse {
             let mut pa_ctx = PAContext::new_with_proplist(&main_loop, app_name, &props)
                 .ok_or("Failed to create PulseAudio context")?;
 
-            pa_ctx.connect(None, FlagSet::NOFAIL, None)?;
+            pa_ctx.connect(self.server_name.as_deref(), FlagSet::NOFAIL, None)?;
             match main_loop.wait_for_ready(&pa_ctx).await {
                 Ok(State::Ready) => {}
-                Ok(c) => {
-                    return Err(format!("Pulse context {:?}, not continuing", c).into());
+                Ok(state) => {
+                    return Err(format!(
+                        "failed to connect: state={:?}, err={:?}",
+                        state,
+                        pa_ctx.errno().to_string()
+                    )
+                    .into());
                 }
                 Err(_) => {
                     return Err(
@@ -499,49 +550,31 @@ impl BarItem for Pulse {
             (main_loop, pa_ctx)
         };
 
-        let inspect = pa_ctx.introspect();
-
         // this is shared between all the async tasks
         let (tx, mut rx) = mpsc::unbounded_channel();
-        let inner = Rc::new(PulseState {
+        let mut inner = RcCell::new(PulseState {
             tx,
-            increment: self.increment.unwrap_or(2),
+            increment: self.increment,
             max_volume: self.max_volume,
 
-            pa_ctx: RefCell::new(pa_ctx),
-            default_sink: RefCell::new("?".into()),
-            default_source: RefCell::new("?".into()),
-            sinks: RefCell::new(vec![]),
-            sources: RefCell::new(vec![]),
+            pa_ctx,
+            default_sink: "?".into(),
+            default_source: "?".into(),
+            sinks: vec![],
+            sources: vec![],
         });
 
-        // subscribe to changes
-        {
-            let state = inner.clone();
-            let mut pa_ctx = inner.pa_ctx.borrow_mut();
-            pa_ctx.set_subscribe_callback(Some(Box::new(move |fac, op, idx| {
-                // SAFETY: `libpulse_binding` decodes these values from an integer, and explains
-                // that it's probably safe to always unwrap them
-                state.subscribe_cb(&inspect, fac.unwrap(), op.unwrap(), idx);
-            })));
-
-            let mask = InterestMaskSet::SERVER | InterestMaskSet::SINK | InterestMaskSet::SOURCE;
-            pa_ctx.subscribe(mask, |success| {
-                if !success {
-                    log::error!("subscribe failed");
-                }
-            });
-        }
-
-        // request initial state
-        {
-            inner.fetch_server_state();
-        }
+        // subscribe to server changes
+        let (exit_tx, mut exit_rx) = mpsc::unbounded_channel();
+        inner.subscribe_to_state_changes(exit_tx.clone());
+        inner.subscribe_to_server_changes();
+        inner.fetch_server_state();
 
         // run pulse main loop
-        let (exit_tx, mut exit_rx) = mpsc::channel(1);
         tokio::task::spawn_local(async move {
-            let _ = exit_tx.send(main_loop.run().await).await;
+            let ret = main_loop.run().await;
+            log::warn!("exited with return value: {}", ret.0);
+            let _ = exit_tx.send(());
         });
 
         let dbus = dbus_connection(BusType::Session).await?;
@@ -617,10 +650,23 @@ impl BarItem for Pulse {
                 },
 
                 // handle pulse main loop exited
-                Some(ret_val) = exit_rx.recv() => {
-                    break Err(format!("mainloop exited unexpectedly with value: {}", ret_val.0).into());
+                Some(()) = exit_rx.recv() => {
+                    log::warn!("connection to server closed");
+                    break Ok(StopAction::Restart);
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use libpulse_binding::error::Code;
+
+    #[test]
+    fn check_code_cast() {
+        use num_traits::ToPrimitive;
+
+        assert_eq!(Code::ConnectionTerminated.to_i32().unwrap(), 11);
     }
 }

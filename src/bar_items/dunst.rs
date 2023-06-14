@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use futures::StreamExt;
 use serde_derive::{Deserialize, Serialize};
 
-use crate::context::{BarItem, Context};
+use crate::context::{BarItem, Context, StopAction};
 use crate::dbus::dunst::DunstProxy;
 use crate::dbus::{dbus_connection, BusType};
 use crate::i3::{I3Item, I3Markup};
@@ -28,10 +28,7 @@ impl Dunst {
 
 #[async_trait(?Send)]
 impl BarItem for Dunst {
-    async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
-        // this item doesn't receive any input, so close the receiver
-        ctx.raw_event_rx().close();
-
+    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
         // get initial state
         let connection = dbus_connection(BusType::Session).await?;
         let dunst_proxy = DunstProxy::new(&connection).await?;

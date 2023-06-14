@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use serde_derive::{Deserialize, Serialize};
 use tokio::process::Command;
 
-use crate::context::{BarEvent, BarItem, Context};
+use crate::context::{BarEvent, BarItem, Context, StopAction};
 use crate::i3::{I3Item, I3Markup};
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -45,7 +45,7 @@ impl Script {
 
 #[async_trait(?Send)]
 impl BarItem for Script {
-    async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
         // update script environment on any click event
         let mut script_env = HashMap::new();
         let handle_event = |event: BarEvent, env: &mut HashMap<_, _>| match event {

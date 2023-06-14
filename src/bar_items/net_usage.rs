@@ -9,7 +9,7 @@ use strum::EnumIter;
 use sysinfo::{NetworkExt, NetworksExt, SystemExt};
 use tokio::time::Instant;
 
-use crate::context::{BarEvent, BarItem, Context};
+use crate::context::{BarEvent, BarItem, Context, StopAction};
 use crate::i3::{I3Button, I3Item, I3Markup};
 use crate::theme::Theme;
 use crate::util::EnumCycle;
@@ -85,7 +85,7 @@ fn format_bytes(bytes: u64, si: bool, as_bits: bool) -> String {
 
 #[async_trait(?Send)]
 impl BarItem for NetUsage {
-    async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
         let fg = |bytes: u64, theme: &Theme| {
             self.get_color(&theme, bytes)
                 .map(|c| format!(r#" foreground="{}""#, c))
@@ -114,8 +114,7 @@ impl BarItem for NetUsage {
         let mut last_check = Instant::now();
         loop {
             let (down, up) = {
-                let state = ctx.state.get_mut();
-                let networks = state.sys.networks_mut();
+                let networks = ctx.state.sys.networks_mut();
 
                 // NOTE: can call `networks.refresh()` instead of this to only update networks rather
                 // than searching for new ones each time

@@ -6,8 +6,11 @@ use tokio::io::{stdin, AsyncBufReadExt, BufReader};
 use super::I3ClickEvent;
 use crate::context::BarEvent;
 use crate::dispatcher::Dispatcher;
+use crate::util::RcCell;
 
-pub async fn handle_click_events(dispatcher: Dispatcher) -> Result<Infallible, Box<dyn Error>> {
+pub async fn handle_click_events(
+    dispatcher: RcCell<Dispatcher>,
+) -> Result<Infallible, Box<dyn Error>> {
     let s = BufReader::new(stdin());
     let mut lines = s.lines();
     loop {

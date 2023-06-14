@@ -1,6 +1,7 @@
 use std::error::Error;
 
 use ::std::os::raw::{c_char, c_uint};
+use serde_derive::{Deserialize, Serialize};
 
 // https://github.com/torvalds/linux/blob/f8dba31b0a826e691949cd4fdfa5c30defaac8c5/drivers/acpi/event.c#L77
 pub const ACPI_EVENT_FAMILY_NAME: &str = "acpi_event";
@@ -27,7 +28,7 @@ pub struct acpi_genl_event {
     data: c_uint,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AcpiGenericNetlinkEvent {
     /// Describes the device from where the event was emitted, see struct's associated constants.
     /// Sometimes also completely empty - `""` - in some cases (such as changing display brightness).

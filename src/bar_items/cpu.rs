@@ -6,7 +6,7 @@ use hex_color::HexColor;
 use serde_derive::{Deserialize, Serialize};
 use sysinfo::{CpuExt, CpuRefreshKind, SystemExt};
 
-use crate::context::{BarEvent, BarItem, Context};
+use crate::context::{BarEvent, BarItem, Context, StopAction};
 use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
 use crate::util::exec;
@@ -37,16 +37,15 @@ impl Cpu {
 
 #[async_trait(?Send)]
 impl BarItem for Cpu {
-    async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
         loop {
             let pct = {
-                let state = ctx.state.get_mut();
                 // refresh cpu usage
-                state
+                ctx.state
                     .sys
                     .refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage());
                 // fetch cpu usage since we last refreshed
-                state.sys.global_cpu_info().cpu_usage()
+                ctx.state.sys.global_cpu_info().cpu_usage()
             };
 
             let theme = &ctx.config.theme;

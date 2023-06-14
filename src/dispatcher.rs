@@ -1,7 +1,6 @@
 use std::error::Error;
-use std::iter::Enumerate;
-use std::slice::Iter;
 
+use futures::future::join_all;
 use tokio::sync::mpsc::error::SendError;
 use tokio::sync::mpsc::Sender;
 
@@ -9,21 +8,39 @@ use crate::context::BarEvent;
 
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
-    inner: Vec<Sender<BarEvent>>,
+    inner: Vec<Option<Sender<BarEvent>>>,
 }
 
 impl Dispatcher {
-    pub fn new(inner: Vec<Sender<BarEvent>>) -> Dispatcher {
-        Dispatcher { inner }
+    pub fn new(capacity: usize) -> Dispatcher {
+        Dispatcher {
+            inner: vec![None; capacity],
+        }
     }
 
-    pub fn enumerate(&self) -> Enumerate<Iter<Sender<BarEvent>>> {
-        self.inner.iter().enumerate()
+    pub fn set(&mut self, idx: usize, tx: Sender<BarEvent>) {
+        self.inner[idx] = Some(tx);
+    }
+
+    pub async fn signal_all(&self) -> Result<(), Box<dyn Error>> {
+        Ok(join_all(
+            self.inner
+                .iter()
+                .enumerate()
+                .filter_map(|(i, o)| o.as_ref().map(|_| self.send_bar_event(i, BarEvent::Signal))),
+        )
+        .await
+        .into_iter()
+        .for_each(|r| {
+            if let Err(e) = r {
+                log::warn!("{}", e);
+            }
+        }))
     }
 
     pub async fn send_bar_event(&self, idx: usize, ev: BarEvent) -> Result<(), Box<dyn Error>> {
         match self.inner.get(idx) {
-            Some(tx) => {
+            Some(Some(tx)) => {
                 // if the channel fills up (the bar never reads click events), since this is a bounded channel
                 // sending the event would block forever, so just drop the event
                 if tx.capacity() == 0 {
@@ -44,7 +61,7 @@ impl Dispatcher {
                 }
                 Ok(())
             }
-            None => Err(format!("no item found with index: {}", idx).into()),
+            None | Some(None) => Err(format!("no item found with index: {}", idx).into()),
         }
     }
 }

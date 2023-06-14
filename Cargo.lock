@@ -959,7 +959,9 @@ dependencies = [
  "signal-hook-tokio",
  "strum",
  "sysinfo",
+ "timeout-readwrite",
  "tokio",
+ "tokio-util",
  "zbus",
 ]
 
@@ -1779,6 +1781,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "timeout-readwrite"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "37312ddc0adbd0f112618a4250ac586448151ff6d69241ff061b29b883349f3e"
+dependencies = [
+ "nix",
+]
+
+[[package]]
 name = "tokio"
 version = "1.28.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1807,6 +1818,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.16",
+]
+
+[[package]]
+name = "tokio-util"
+version = "0.7.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "806fe8c2c87eccc8b3267cbae29ed3ab2d0bd37fca70ab622e46aaa9375ddb7d"
+dependencies = [
+ "bytes",
+ "futures-core",
+ "futures-sink",
+ "pin-project-lite",
+ "tokio",
 ]
 
 [[package]]

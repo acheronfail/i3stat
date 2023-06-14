@@ -5,7 +5,6 @@ use std::path::{Path, PathBuf};
 
 use clap::Command;
 use clap_mangen::Man;
-use futures::Future;
 
 // man pages -------------------------------------------------------------------
 
@@ -33,20 +32,4 @@ fn m(cmd: &Command, dir: &Path, parent_name: Option<&str>) -> Result<(), Box<dyn
     }
 
     Ok(())
-}
-
-// async -----------------------------------------------------------------------
-
-// FIXME: this is used, but for some reason the warning is still here?
-#[allow(dead_code)]
-pub fn async_test<F>(f: F)
-where
-    F: Future,
-{
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap();
-
-    tokio::task::LocalSet::new().block_on(&rt, f);
 }

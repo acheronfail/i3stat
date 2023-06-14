@@ -7,7 +7,7 @@ use hex_color::HexColor;
 use serde_derive::{Deserialize, Serialize};
 use sysinfo::{Disk as SysDisk, DiskExt, SystemExt};
 
-use crate::context::{BarItem, Context};
+use crate::context::{BarItem, Context, StopAction};
 use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
 use crate::util::Paginator;
@@ -57,14 +57,18 @@ impl DiskStats {
 
 #[async_trait(?Send)]
 impl BarItem for Disk {
-    async fn start(self: Box<Self>, mut ctx: Context) -> Result<(), Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
         let mut p = Paginator::new();
         loop {
             let stats: Vec<DiskStats> = {
-                let state = ctx.state.get_mut();
-                state.sys.refresh_disks();
-                state.sys.refresh_disks_list();
-                state.sys.disks().iter().map(DiskStats::from_disk).collect()
+                ctx.state.sys.refresh_disks();
+                ctx.state.sys.refresh_disks_list();
+                ctx.state
+                    .sys
+                    .disks()
+                    .iter()
+                    .map(DiskStats::from_disk)
+                    .collect()
             };
             let len = stats.len();
             if len > 0 {

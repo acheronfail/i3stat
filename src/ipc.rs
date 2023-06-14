@@ -4,13 +4,13 @@ use std::error::Error;
 use std::io::ErrorKind;
 use std::path::PathBuf;
 
-use futures::future::join_all;
 use indexmap::IndexMap;
 use serde::Serialize;
 use serde_derive::Deserialize;
 use serde_json::Value;
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::oneshot;
+use tokio_util::sync::CancellationToken;
 
 use crate::config::AppConfig;
 use crate::context::{BarEvent, CustomResponse};
@@ -41,9 +41,10 @@ pub enum IpcMessage {
         instance: String,
         event: IpcBarEvent,
     },
+    Shutdown,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum IpcReply {
     Result(IpcResult),
@@ -53,7 +54,7 @@ pub enum IpcReply {
     CustomResponse(Value),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case", tag = "type", content = "detail")]
 pub enum IpcResult {
     Success(Option<String>),
@@ -90,10 +91,7 @@ pub fn encode_ipc_msg<T: Serialize>(t: T) -> Result<Vec<u8>, Box<dyn Error>> {
     Ok(payload)
 }
 
-pub async fn handle_ipc_events(
-    config: RcCell<AppConfig>,
-    dispatcher: Dispatcher,
-) -> Result<Infallible, Box<dyn Error>> {
+pub async fn create_ipc_socket(config: &RcCell<AppConfig>) -> Result<UnixListener, Box<dyn Error>> {
     let socket_path = config.socket();
 
     // try to remove socket if one exists
@@ -103,14 +101,23 @@ pub async fn handle_ipc_events(
         Err(e) => return Err(e.into()),
     }
 
-    let listener = UnixListener::bind(&socket_path)?;
+    Ok(UnixListener::bind(&socket_path)?)
+}
+
+pub async fn handle_ipc_events(
+    listener: UnixListener,
+    config: RcCell<AppConfig>,
+    dispatcher: RcCell<Dispatcher>,
+    cancel_token: CancellationToken,
+) -> Result<Infallible, Box<dyn Error>> {
     loop {
         match listener.accept().await {
             Ok((stream, _)) => {
-                let bar_txs = dispatcher.clone();
+                let dispatcher = dispatcher.clone();
                 let config = config.clone();
+                let cancel_token = cancel_token.clone();
                 tokio::task::spawn_local(async move {
-                    match handle_ipc_client(stream, config, bar_txs).await {
+                    match handle_ipc_client(stream, config, dispatcher, cancel_token).await {
                         Ok(_) => {}
                         Err(e) => log::error!("ipc error: {}", e),
                     }
@@ -124,7 +131,8 @@ pub async fn handle_ipc_events(
 async fn handle_ipc_client(
     stream: UnixStream,
     config: RcCell<AppConfig>,
-    dispatcher: Dispatcher,
+    dispatcher: RcCell<Dispatcher>,
+    cancel_token: CancellationToken,
 ) -> Result<(), Box<dyn Error>> {
     // first read the length header of the IPC message
     let mut buf = [0; IPC_HEADER_LEN];
@@ -134,7 +142,7 @@ async fn handle_ipc_client(
             Ok(0) => break,
             Ok(IPC_HEADER_LEN) => {
                 let len = u64::from_le_bytes(buf);
-                handle_ipc_request(&stream, config, dispatcher, len as usize).await?;
+                handle_ipc_request(&stream, config, dispatcher, len as usize, cancel_token).await?;
                 break;
             }
             Ok(n) => {
@@ -156,8 +164,9 @@ async fn handle_ipc_client(
 async fn handle_ipc_request(
     stream: &UnixStream,
     mut config: RcCell<AppConfig>,
-    dispatcher: Dispatcher,
+    dispatcher: RcCell<Dispatcher>,
     len: usize,
+    cancel_token: CancellationToken,
 ) -> Result<(), Box<dyn Error>> {
     // read ipc message entirely
     let mut buf = vec![0; len];
@@ -187,6 +196,10 @@ async fn handle_ipc_request(
     // handle ipc message
     let msg = serde_json::from_slice::<IpcMessage>(&buf)?;
     match msg {
+        IpcMessage::Shutdown => {
+            send_ipc_response(&stream, &IpcReply::Result(IpcResult::Success(None))).await?;
+            cancel_token.cancel();
+        }
         IpcMessage::Info => {
             send_ipc_response(&stream, &IpcReply::Info(config.item_name_map())).await?;
         }
@@ -207,7 +220,7 @@ async fn handle_ipc_request(
         IpcMessage::SetTheme(json) => {
             let reply = match serde_json::from_value::<Theme>(json) {
                 Ok(new) => {
-                    config.get_mut().theme = new;
+                    config.theme = new;
                     IpcReply::Result(IpcResult::Success(None))
                 }
                 Err(e) => IpcReply::Result(IpcResult::Failure(e.to_string())),
@@ -215,19 +228,7 @@ async fn handle_ipc_request(
             send_ipc_response(&stream, &reply).await?;
         }
         IpcMessage::RefreshAll => {
-            join_all(
-                dispatcher
-                    .enumerate()
-                    .map(|(idx, _)| dispatcher.send_bar_event(idx, BarEvent::Signal)),
-            )
-            .await
-            .into_iter()
-            .for_each(|r| {
-                if let Err(e) = r {
-                    log::warn!("{}", e);
-                }
-            });
-
+            dispatcher.signal_all().await?;
             send_ipc_response(&stream, &IpcReply::Result(IpcResult::Success(None))).await?;
         }
         IpcMessage::BarEvent { instance, event } => {
