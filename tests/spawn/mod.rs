@@ -1,6 +1,5 @@
 use util::TestProgram;
 
-#[macro_use]
 mod util;
 
 spawn_test!(shuts_down_on_ipc, |mut istat: TestProgram| {

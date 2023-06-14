@@ -107,6 +107,7 @@ impl Drop for TestProgram {
 
 // macros ----------------------------------------------------------------------
 
+#[macro_export]
 macro_rules! spawn_test {
     ($name:ident, $test_fn:expr) => {
         #[test]
