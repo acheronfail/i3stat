@@ -1,7 +1,7 @@
 use std::io::{BufRead, BufReader, Read, Write};
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
-use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, Stdio};
+use std::process::{ChildStdin, ChildStdout, Command, Stdio};
 use std::time::Duration;
 
 use istat::config::AppConfig;
@@ -10,39 +10,41 @@ use istat::ipc::{encode_ipc_msg, IpcMessage, IpcReply, IpcResult, IPC_HEADER_LEN
 use serde_json::Value;
 use timeout_readwrite::{TimeoutReadExt, TimeoutReader};
 
-use crate::util::{get_current_exe, get_faketime_lib, Test, FAKE_TIME};
+use crate::util::{get_current_exe, get_faketime_lib, LogOnDropChild, Test, FAKE_TIME};
 
 /// Convenience struct for running assertions on and communicating with a running instance of the program
 pub struct SpawnedProgram {
-    child: Child,
+    #[allow(unused)]
+    child: LogOnDropChild,
     socket: PathBuf,
     stdin: ChildStdin,
     stdout: BufReader<TimeoutReader<ChildStdout>>,
-    stderr: ChildStderr,
 }
 
 impl SpawnedProgram {
     /// Spawn the program, setting up it's own test directory
-    pub fn spawn(test: Test) -> SpawnedProgram {
-        let mut child = Command::new(get_current_exe())
-            .envs(test.env)
-            // setup faketime
-            .env("LD_PRELOAD", get_faketime_lib())
-            .env("FAKETIME", format!("@{}", FAKE_TIME))
-            // setup logs
-            .env("RUST_LOG", "istat=trace")
-            // socket
-            .arg("--socket")
-            .arg(&test.socket_file)
-            // config
-            .arg("--config")
-            .arg(&test.config_file)
-            // stdio
-            .stdin(Stdio::piped())
-            .stderr(Stdio::piped())
-            .stdout(Stdio::piped())
-            .spawn()
-            .unwrap();
+    pub fn spawn(test: &Test) -> SpawnedProgram {
+        let mut child = LogOnDropChild::log_stderr(
+            Command::new(get_current_exe())
+                .envs(&test.env)
+                // setup faketime
+                .env("LD_PRELOAD", get_faketime_lib())
+                .env("FAKETIME", format!("@{}", FAKE_TIME))
+                // setup logs
+                .env("RUST_LOG", "istat=trace")
+                // socket
+                .arg("--socket")
+                .arg(&test.istat_socket_file)
+                // config
+                .arg("--config")
+                .arg(&test.istat_config_file)
+                // stdio
+                .stdin(Stdio::piped())
+                .stderr(Stdio::piped())
+                .stdout(Stdio::piped())
+                .spawn()
+                .unwrap(),
+        );
 
         let stdin = child.stdin.take().unwrap();
 
@@ -50,14 +52,11 @@ impl SpawnedProgram {
         let stdout = stdout.with_timeout(Duration::from_secs(2));
         let stdout = BufReader::new(stdout);
 
-        let stderr = child.stderr.take().unwrap();
-
         let mut test = SpawnedProgram {
             child,
-            socket: test.socket_file,
+            socket: test.istat_socket_file.clone(),
             stdin,
             stdout,
-            stderr,
         };
 
         // assert header
@@ -124,7 +123,7 @@ impl SpawnedProgram {
         let reply = self.send_ipc(IpcMessage::GetConfig);
         let reply = serde_json::from_value::<IpcReply>(reply).unwrap();
         match reply {
-            IpcReply::CustomResponse(value) => serde_json::from_value::<AppConfig>(value).unwrap(),
+            IpcReply::Value(value) => serde_json::from_value::<AppConfig>(value).unwrap(),
             _ => unreachable!(),
         }
     }
@@ -146,20 +145,6 @@ impl SpawnedProgram {
     }
 }
 
-impl Drop for SpawnedProgram {
-    fn drop(&mut self) {
-        // terminate child
-        let _ = self.child.kill();
-
-        // get any stderr and log it
-        {
-            let mut stderr = String::new();
-            self.stderr.read_to_string(&mut stderr).unwrap();
-            eprintln!("stderr: {:?}", stderr.trim());
-        }
-    }
-}
-
 macro_rules! spawn_test {
     ($name:ident, $config:expr, $test_fn:expr) => {
         spawn_test!($name, $config, |x| x, $test_fn);
@@ -170,7 +155,7 @@ macro_rules! spawn_test {
         fn $name() {
             let mut test = crate::util::Test::new(stringify!($name), $config);
             $setup_fn(&mut test);
-            let istat = crate::spawn::SpawnedProgram::spawn(test);
+            let istat = crate::spawn::SpawnedProgram::spawn(&test);
             $test_fn(istat);
         }
     };

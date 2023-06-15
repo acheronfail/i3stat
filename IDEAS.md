@@ -23,6 +23,8 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
   * unit tests for what makes sense
   * xephyr tests for i3 interactions
   * spawn tests for as many bar items as is feasible
+* ipc functions have too many args - create an "ipc context" or something?
+* use i3bar's `urgent`?
 
 ## Tips
 

@@ -50,7 +50,7 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
     let socket = create_ipc_socket(&config).await?;
 
     // create i3 bar and spawn tasks for each bar item
-    let dispatcher = setup_i3_bar(&config)?;
+    let (bar, dispatcher) = setup_i3_bar(&config)?;
 
     // handle incoming signals
     let signal_handle = handle_signals(config.clone(), dispatcher.clone())?;
@@ -60,7 +60,7 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
 
     // handle our inputs: i3's IPC and our own IPC
     let err = tokio::select! {
-        err = handle_ipc_events(socket, config.clone(), dispatcher.clone(), cancel.clone()) => err,
+        err = handle_ipc_events(socket, config.clone(), dispatcher.clone(), bar.clone(), cancel.clone()) => err,
         err = handle_click_events(dispatcher.clone()) => err,
         _ = cancel.cancelled() => Err("cancelled".into()),
     };
@@ -70,7 +70,9 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
     return err;
 }
 
-fn setup_i3_bar(config: &RcCell<AppConfig>) -> Result<RcCell<Dispatcher>, Box<dyn Error>> {
+fn setup_i3_bar(
+    config: &RcCell<AppConfig>,
+) -> Result<(RcCell<Vec<I3Item>>, RcCell<Dispatcher>), Box<dyn Error>> {
     let item_count = config.items.len();
 
     // shared state
@@ -153,9 +155,9 @@ fn setup_i3_bar(config: &RcCell<AppConfig>) -> Result<RcCell<Dispatcher>, Box<dy
     }
 
     // setup listener for handling item updates and printing the bar to STDOUT
-    handle_item_updates(config.clone(), item_rx, bar)?;
+    handle_item_updates(config.clone(), item_rx, bar.clone())?;
 
-    Ok(dispatcher)
+    Ok((bar, dispatcher))
 }
 
 // task to manage updating the bar and printing it as JSON

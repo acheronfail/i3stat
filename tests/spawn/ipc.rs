@@ -254,7 +254,7 @@ spawn_test!(
     json!({ "items": [{ "type": "raw", "full_text": "raw" }] }),
     |mut istat: SpawnedProgram| {
         let reply = istat.send_ipc(IpcMessage::GetConfig);
-        let config = reply.get("custom_response").unwrap();
+        let config = reply.get("value").unwrap();
         assert_eq!(config.get("items").unwrap().as_array().unwrap().len(), 1);
         assert!(config.get("socket").unwrap().is_string());
         assert!(config.get("theme").is_some());
@@ -266,10 +266,10 @@ spawn_test!(
     json!({ "items": [] }),
     |mut istat: SpawnedProgram| {
         let reply = istat.send_ipc(IpcMessage::GetConfig);
-        let config = reply.get("custom_response").unwrap();
+        let config = reply.get("value").unwrap();
 
         let reply = istat.send_ipc(IpcMessage::GetTheme);
-        let theme = reply.get("custom_response").unwrap();
+        let theme = reply.get("value").unwrap();
 
         assert_eq!(config.get("theme").unwrap(), theme);
     }
@@ -281,11 +281,7 @@ spawn_test!(
     |mut istat: SpawnedProgram| {
         // get theme
         let mut reply = istat.send_ipc(IpcMessage::GetTheme);
-        let mut theme = reply
-            .as_object_mut()
-            .unwrap()
-            .remove("custom_response")
-            .unwrap();
+        let mut theme = reply.as_object_mut().unwrap().remove("value").unwrap();
 
         // ensure `powerline_enable` is false
         assert_eq!(
@@ -302,7 +298,7 @@ spawn_test!(
 
         // fetch again and assert it was updated
         let reply = istat.send_ipc(IpcMessage::GetTheme);
-        let theme = reply.get("custom_response").unwrap();
+        let theme = reply.get("value").unwrap();
         assert_eq!(
             *theme.pointer("/powerline_enable").unwrap(),
             Value::Bool(true)

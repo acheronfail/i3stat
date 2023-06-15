@@ -68,6 +68,8 @@ automod = "1.0.8"
 clap_mangen = "0.2.11"
 clap = { version = "4.2.7", features = ["derive"] }
 timeout-readwrite = "0.3.3"
+xcb = { version = "1.2.1", features = ["xkb", "xtest"] }
+x11 = { version = "2.21.0", features = ["xlib"] }
 
 [profile.release]
 # Reducing binary size. Read the git commit with this change for detailed savings.

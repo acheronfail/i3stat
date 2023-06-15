@@ -15,7 +15,7 @@ use tokio_util::sync::CancellationToken;
 use crate::config::AppConfig;
 use crate::context::{BarEvent, CustomResponse};
 use crate::dispatcher::Dispatcher;
-use crate::i3::I3ClickEvent;
+use crate::i3::{I3ClickEvent, I3Item};
 use crate::theme::Theme;
 use crate::util::RcCell;
 
@@ -34,6 +34,7 @@ pub enum IpcBarEvent {
 pub enum IpcMessage {
     Info,
     RefreshAll,
+    GetBar,
     GetConfig,
     GetTheme,
     SetTheme(Value),
@@ -51,7 +52,7 @@ pub enum IpcReply {
     // NOTE: ANSI text
     Help(String),
     Info(IndexMap<usize, String>),
-    CustomResponse(Value),
+    Value(Value),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -108,16 +109,18 @@ pub async fn handle_ipc_events(
     listener: UnixListener,
     config: RcCell<AppConfig>,
     dispatcher: RcCell<Dispatcher>,
-    cancel_token: CancellationToken,
+    bar: RcCell<Vec<I3Item>>,
+    token: CancellationToken,
 ) -> Result<Infallible, Box<dyn Error>> {
     loop {
         match listener.accept().await {
             Ok((stream, _)) => {
                 let dispatcher = dispatcher.clone();
                 let config = config.clone();
-                let cancel_token = cancel_token.clone();
+                let bar = bar.clone();
+                let token = token.clone();
                 tokio::task::spawn_local(async move {
-                    match handle_ipc_client(stream, config, dispatcher, cancel_token).await {
+                    match handle_ipc_client(stream, config, dispatcher, bar, token).await {
                         Ok(_) => {}
                         Err(e) => log::error!("ipc error: {}", e),
                     }
@@ -132,7 +135,8 @@ async fn handle_ipc_client(
     stream: UnixStream,
     config: RcCell<AppConfig>,
     dispatcher: RcCell<Dispatcher>,
-    cancel_token: CancellationToken,
+    bar: RcCell<Vec<I3Item>>,
+    token: CancellationToken,
 ) -> Result<(), Box<dyn Error>> {
     // first read the length header of the IPC message
     let mut buf = [0; IPC_HEADER_LEN];
@@ -142,7 +146,7 @@ async fn handle_ipc_client(
             Ok(0) => break,
             Ok(IPC_HEADER_LEN) => {
                 let len = u64::from_le_bytes(buf);
-                handle_ipc_request(&stream, config, dispatcher, len as usize, cancel_token).await?;
+                handle_ipc_request(&stream, config, dispatcher, bar, len as usize, token).await?;
                 break;
             }
             Ok(n) => {
@@ -165,6 +169,7 @@ async fn handle_ipc_request(
     stream: &UnixStream,
     mut config: RcCell<AppConfig>,
     dispatcher: RcCell<Dispatcher>,
+    bar: RcCell<Vec<I3Item>>,
     len: usize,
     cancel_token: CancellationToken,
 ) -> Result<(), Box<dyn Error>> {
@@ -200,20 +205,19 @@ async fn handle_ipc_request(
             send_ipc_response(&stream, &IpcReply::Result(IpcResult::Success(None))).await?;
             cancel_token.cancel();
         }
+        IpcMessage::GetBar => {
+            send_ipc_response(&stream, &IpcReply::Value(serde_json::to_value(&*bar)?)).await?;
+        }
         IpcMessage::Info => {
             send_ipc_response(&stream, &IpcReply::Info(config.item_name_map())).await?;
         }
         IpcMessage::GetConfig => {
-            send_ipc_response(
-                &stream,
-                &IpcReply::CustomResponse(serde_json::to_value(&*config)?),
-            )
-            .await?;
+            send_ipc_response(&stream, &IpcReply::Value(serde_json::to_value(&*config)?)).await?;
         }
         IpcMessage::GetTheme => {
             send_ipc_response(
                 &stream,
-                &IpcReply::CustomResponse(serde_json::to_value(&config.theme)?),
+                &IpcReply::Value(serde_json::to_value(&config.theme)?),
             )
             .await?;
         }
@@ -272,7 +276,7 @@ async fn handle_ipc_request(
                 Ok(()) => match rx {
                     Some(rx) => match rx.await {
                         Ok(CustomResponse::Help(help)) => IpcReply::Help(help.ansi().to_string()),
-                        Ok(CustomResponse::Json(value)) => IpcReply::CustomResponse(value),
+                        Ok(CustomResponse::Json(value)) => IpcReply::Value(value),
                         Err(_) => {
                             IpcReply::Result(IpcResult::Failure("not listening for events".into()))
                         }
