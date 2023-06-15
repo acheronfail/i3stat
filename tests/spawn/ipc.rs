@@ -2,12 +2,12 @@ use istat::i3::{I3Button, I3ClickEvent};
 use istat::ipc::{IpcBarEvent, IpcMessage};
 use serde_json::{json, Value};
 
-use crate::util::TestProgram;
+use crate::spawn::SpawnedProgram;
 
 spawn_test!(
     shutdown,
     json!({ "items": [] }),
-    |mut istat: TestProgram| {
+    |mut istat: SpawnedProgram| {
         // request shutdown
         istat.send_shutdown();
         // there were no items in the config, so nothing should have been outputted
@@ -24,7 +24,7 @@ spawn_test!(
             { "type": "raw", "full_text": "2", "name": "custom_name" },
         ]
     }),
-    |mut istat: TestProgram| {
+    |mut istat: SpawnedProgram| {
         assert_eq!(
             istat.send_ipc(IpcMessage::Info),
             json!({
@@ -46,7 +46,7 @@ spawn_test!(
             { "type": "script", "command": "echo -n signal: ${I3_SIGNAL:-false}", "output": "simple" }
         ]
     }),
-    |mut istat: TestProgram| {
+    |mut istat: SpawnedProgram| {
         // initial state
         assert_eq!(
             istat.next_line_json().unwrap(),
@@ -85,7 +85,7 @@ spawn_test!(
             { "type": "script", "command": "echo -n signal: ${I3_SIGNAL:-false}", "output": "simple" },
         ]
     }),
-    |mut istat: TestProgram| {
+    |mut istat: SpawnedProgram| {
         assert_eq!(
             istat.next_line_json().unwrap(),
             json!([
@@ -123,7 +123,7 @@ spawn_test!(
             { "type": "script", "command": "echo -n signal: ${I3_SIGNAL:-false}", "output": "simple" },
         ]
     }),
-    |mut istat: TestProgram| {
+    |mut istat: SpawnedProgram| {
         assert_eq!(
             istat.next_line_json().unwrap(),
             json!([
@@ -161,7 +161,7 @@ spawn_test!(
             { "type": "script", "command": "echo -n signal: ${I3_SIGNAL:-false}", "output": "simple", "name": "foo" },
         ]
     }),
-    |mut istat: TestProgram| {
+    |mut istat: SpawnedProgram| {
         assert_eq!(
             istat.next_line_json().unwrap(),
             json!([
@@ -201,7 +201,7 @@ spawn_test!(
             }
         ]
     }),
-    |mut istat: TestProgram| {
+    |mut istat: SpawnedProgram| {
         assert_eq!(
             istat.next_line_json().unwrap(),
             json!([
@@ -252,7 +252,7 @@ spawn_test!(
 spawn_test!(
     get_config,
     json!({ "items": [{ "type": "raw", "full_text": "raw" }] }),
-    |mut istat: TestProgram| {
+    |mut istat: SpawnedProgram| {
         let reply = istat.send_ipc(IpcMessage::GetConfig);
         let config = reply.get("custom_response").unwrap();
         assert_eq!(config.get("items").unwrap().as_array().unwrap().len(), 1);
@@ -264,7 +264,7 @@ spawn_test!(
 spawn_test!(
     get_theme,
     json!({ "items": [] }),
-    |mut istat: TestProgram| {
+    |mut istat: SpawnedProgram| {
         let reply = istat.send_ipc(IpcMessage::GetConfig);
         let config = reply.get("custom_response").unwrap();
 
@@ -278,7 +278,7 @@ spawn_test!(
 spawn_test!(
     set_theme,
     json!({ "items": [] }),
-    |mut istat: TestProgram| {
+    |mut istat: SpawnedProgram| {
         // get theme
         let mut reply = istat.send_ipc(IpcMessage::GetTheme);
         let mut theme = reply

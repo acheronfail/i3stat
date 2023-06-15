@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use crate::util::TestProgram;
+use crate::spawn::SpawnedProgram;
 
 const TIME_LONG: &str = "%Y-%m-%d %H:%M:%S";
 const TIME_SHORT: &str = "%H:%M";
@@ -17,7 +17,7 @@ spawn_test!(
             }
         ]
     }),
-    |mut istat: TestProgram| {
+    |mut istat: SpawnedProgram| {
         assert_eq!(
             istat.next_line_json().unwrap(),
             json!([

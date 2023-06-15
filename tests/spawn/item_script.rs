@@ -1,7 +1,7 @@
 use istat::i3::I3Button;
 use serde_json::json;
 
-use crate::util::TestProgram;
+use crate::spawn::SpawnedProgram;
 
 spawn_test!(
     script_simple,
@@ -14,7 +14,7 @@ spawn_test!(
             }
         ]
     }),
-    |mut istat: TestProgram| {
+    |mut istat: SpawnedProgram| {
         assert_eq!(
             istat.next_line_json().unwrap(),
             json!([
@@ -64,7 +64,7 @@ spawn_test!(
             }
         ]
     }),
-    |mut istat: TestProgram| {
+    |mut istat: SpawnedProgram| {
         assert_eq!(
             istat.next_line_json().unwrap(),
             json!([

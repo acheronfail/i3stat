@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use crate::util::TestProgram;
+use crate::spawn::SpawnedProgram;
 
 spawn_test!(
     raw,
@@ -11,7 +11,7 @@ spawn_test!(
             { "type": "raw", "full_text": "2", "name": "custom_name" },
         ]
     }),
-    |mut istat: TestProgram| {
+    |mut istat: SpawnedProgram| {
         assert_eq!(
             istat.next_line_json().unwrap(),
             json!([
