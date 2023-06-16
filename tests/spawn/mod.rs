@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use istat::config::AppConfig;
 use istat::i3::{I3Button, I3ClickEvent, I3Modifier};
-use istat::ipc::{encode_ipc_msg, IpcMessage, IpcReply, IpcResult, IPC_HEADER_LEN};
+use istat::ipc::protocol::{encode_ipc_msg, IpcMessage, IpcReply, IpcResult, IPC_HEADER_LEN};
 use serde_json::Value;
 use timeout_readwrite::{TimeoutReadExt, TimeoutReader};
 

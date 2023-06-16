@@ -19,8 +19,6 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 
 * script to generate and resize screenshots to easily update readme
   * `scrot` + `convert` with `Xephyr`, etc
-* ipc functions have too many args - create an "ipc context" or something?
-* use i3bar's `urgent`?
 
 ## Tips
 

@@ -11,7 +11,7 @@ use istat::dispatcher::Dispatcher;
 use istat::i3::header::I3BarHeader;
 use istat::i3::ipc::handle_click_events;
 use istat::i3::{I3Item, I3Markup};
-use istat::ipc::{create_ipc_socket, handle_ipc_events};
+use istat::ipc::{create_ipc_socket, handle_ipc_events, IpcContext};
 use istat::signals::handle_signals;
 use istat::theme::Theme;
 use istat::util::{local_block_on, RcCell};
@@ -56,13 +56,21 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
     let signal_handle = handle_signals(config.clone(), dispatcher.clone())?;
 
     // used to handle app shutdown
-    let cancel = CancellationToken::new();
+    let token = CancellationToken::new();
+
+    // ipc context
+    let ipc_ctx = IpcContext::new(
+        bar.clone(),
+        token.clone(),
+        config.clone(),
+        dispatcher.clone(),
+    );
 
     // handle our inputs: i3's IPC and our own IPC
     let err = tokio::select! {
-        err = handle_ipc_events(socket, config.clone(), dispatcher.clone(), bar.clone(), cancel.clone()) => err,
+        err = handle_ipc_events(socket, ipc_ctx) => err,
         err = handle_click_events(dispatcher.clone()) => err,
-        _ = cancel.cancelled() => Err("cancelled".into()),
+        _ = token.cancelled() => Err("cancelled".into()),
     };
 
     // if we reach here, then something went wrong, so clean up

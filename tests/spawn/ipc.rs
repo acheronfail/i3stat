@@ -1,5 +1,5 @@
 use istat::i3::{I3Button, I3ClickEvent};
-use istat::ipc::{IpcBarEvent, IpcMessage};
+use istat::ipc::protocol::{IpcBarEvent, IpcMessage};
 use serde_json::{json, Value};
 
 use crate::spawn::SpawnedProgram;

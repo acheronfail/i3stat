@@ -7,14 +7,8 @@ use std::path::PathBuf;
 use clap::builder::PossibleValue;
 use clap::{ColorChoice, Parser, Subcommand, ValueEnum};
 use istat::i3::{I3Button, I3ClickEvent, I3Modifier};
-use istat::ipc::{
-    encode_ipc_msg,
-    get_socket_path,
-    IpcBarEvent,
-    IpcMessage,
-    IpcReply,
-    IPC_HEADER_LEN,
-};
+use istat::ipc::get_socket_path;
+use istat::ipc::protocol::{encode_ipc_msg, IpcBarEvent, IpcMessage, IpcReply, IPC_HEADER_LEN};
 use serde_json::Value;
 
 #[derive(Debug, Parser)]
