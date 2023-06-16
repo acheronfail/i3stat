@@ -19,10 +19,6 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 
 * script to generate and resize screenshots to easily update readme
   * `scrot` + `convert` with `Xephyr`, etc
-* tests
-  * unit tests for what makes sense
-  * xephyr tests for i3 interactions
-  * spawn tests for as many bar items as is feasible
 * ipc functions have too many args - create an "ipc context" or something?
 * use i3bar's `urgent`?
 
@@ -40,3 +36,10 @@ This is a compatibility for programs that don't support double-width characters,
 
 Unfortunately, as far as I can tell, i3's statusbar doesn't properly support the double-width character icons.
 So, if the normal font is used, sometimes the icons appear to overlap neighbouring characters.
+
+### Debugging integration tests
+
+The following environment variables are available:
+
+* `DEBUG=1`: increases logs when spawning processes (e.g., `DEBUG=1 cargo test -- --ncapture <test>`)
+* `XEPHYR=1`: run X tests with `Xephyr` rather than `Xvfb`
