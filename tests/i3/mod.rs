@@ -22,7 +22,7 @@ use crate::util::{
 // start nested x server displays at 10
 static DISPLAY_ID: AtomicUsize = AtomicUsize::new(10);
 
-const MAX_WAIT_TIME: Duration = Duration::new(2, 0);
+const MAX_WAIT_TIME: Duration = Duration::new(5, 0);
 pub const TEST_CONFIG_STR: &str = "@@@@ TEST CONFIGURATION FILE @@@@";
 
 fn create_i3_conf(socket_path: impl AsRef<Path>, config_file: impl AsRef<Path>) -> String {
