@@ -317,7 +317,7 @@ function formatLine(line: string) {
 
     const hasSeparator = !('separator' in item) || item.separator;
     if (item.markup !== 'pango') {
-      result.push(c(item.color, item.background)(text));
+      result.push(c(item.color, item.background, item.urgent)(text));
       if (hasSeparator) result.push(sep);
       continue;
     }
@@ -340,12 +340,12 @@ function formatLine(line: string) {
         }
 
         // color spans
-        node.innerHTML = c(foreground, background)(node.textContent);
+        node.innerHTML = c(foreground, background, item.urgent)(node.textContent);
       }
     }
 
-    // TODO: border? what does that even do
-    result.push(c(item.color, item.background)(root.textContent));
+    // TODO: is there even a way to draw a border in the terminal?
+    result.push(c(item.color, item.background, item.urgent)(root.textContent));
 
     if (hasSeparator && i < items.length - 1) result.push(sep);
   }
@@ -360,8 +360,14 @@ function replaceWithMap(s: string, map: Record<string, string>) {
     .join('');
 }
 
-function c(fg?: string, bg?: string) {
+function c(fg: string | undefined, bg: string | undefined, urgent: boolean) {
   let fmt = chalk;
+  if (urgent) {
+    fmt = fmt.bgRedBright;
+    fmt = fg ? fmt.hex(fg.startsWith('#') ? fg : cssColors[fg]) : fmt.black;
+    return fmt;
+  }
+
   if (fg) fmt = fmt.hex(fg.startsWith('#') ? fg : cssColors[fg]);
   if (bg) fmt = fmt.bgHex(bg.startsWith('#') ? bg : cssColors[bg]);
   return fmt;

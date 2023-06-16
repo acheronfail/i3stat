@@ -11,7 +11,7 @@ use istat::dispatcher::Dispatcher;
 use istat::i3::header::I3BarHeader;
 use istat::i3::ipc::handle_click_events;
 use istat::i3::{I3Item, I3Markup};
-use istat::ipc::{create_ipc_socket, handle_ipc_events};
+use istat::ipc::{create_ipc_socket, handle_ipc_events, IpcContext};
 use istat::signals::handle_signals;
 use istat::theme::Theme;
 use istat::util::{local_block_on, RcCell};
@@ -50,19 +50,27 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
     let socket = create_ipc_socket(&config).await?;
 
     // create i3 bar and spawn tasks for each bar item
-    let dispatcher = setup_i3_bar(&config)?;
+    let (bar, dispatcher) = setup_i3_bar(&config)?;
 
     // handle incoming signals
     let signal_handle = handle_signals(config.clone(), dispatcher.clone())?;
 
     // used to handle app shutdown
-    let cancel = CancellationToken::new();
+    let token = CancellationToken::new();
+
+    // ipc context
+    let ipc_ctx = IpcContext::new(
+        bar.clone(),
+        token.clone(),
+        config.clone(),
+        dispatcher.clone(),
+    );
 
     // handle our inputs: i3's IPC and our own IPC
     let err = tokio::select! {
-        err = handle_ipc_events(socket, config.clone(), dispatcher.clone(), cancel.clone()) => err,
+        err = handle_ipc_events(socket, ipc_ctx) => err,
         err = handle_click_events(dispatcher.clone()) => err,
-        _ = cancel.cancelled() => Err("cancelled".into()),
+        _ = token.cancelled() => Err("cancelled".into()),
     };
 
     // if we reach here, then something went wrong, so clean up
@@ -70,7 +78,9 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
     return err;
 }
 
-fn setup_i3_bar(config: &RcCell<AppConfig>) -> Result<RcCell<Dispatcher>, Box<dyn Error>> {
+fn setup_i3_bar(
+    config: &RcCell<AppConfig>,
+) -> Result<(RcCell<Vec<I3Item>>, RcCell<Dispatcher>), Box<dyn Error>> {
     let item_count = config.items.len();
 
     // shared state
@@ -122,13 +132,19 @@ fn setup_i3_bar(config: &RcCell<AppConfig>) -> Result<RcCell<Dispatcher>, Box<dy
                         break;
                     }
                     // since this item has terminated, remove its entry from the bar
-                    Ok(StopAction::Complete) => {
+                    action @ Ok(StopAction::Complete) | action @ Ok(StopAction::Remove) => {
                         log::info!("item[{}] finished running", idx);
-                        // NOTE: wait for all tasks in queue so any remaining item updates are flushed and processed
-                        // before we set it for the last time here
-                        tokio::task::yield_now().await;
-                        // replace with an empty item
-                        bar[idx] = I3Item::empty();
+                        dispatcher.remove(idx);
+
+                        // Remove this item if requested
+                        if matches!(action, Ok(StopAction::Remove)) {
+                            // NOTE: wait for all tasks in queue so any remaining item updates are flushed and processed
+                            // before we set it for the last time here
+                            tokio::task::yield_now().await;
+                            // replace with an empty item
+                            bar[idx] = I3Item::empty();
+                        }
+
                         break;
                     }
                     // unexpected error, log and display an error block
@@ -147,9 +163,9 @@ fn setup_i3_bar(config: &RcCell<AppConfig>) -> Result<RcCell<Dispatcher>, Box<dy
     }
 
     // setup listener for handling item updates and printing the bar to STDOUT
-    handle_item_updates(config.clone(), item_rx, bar)?;
+    handle_item_updates(config.clone(), item_rx, bar.clone())?;
 
-    Ok(dispatcher)
+    Ok((bar, dispatcher))
 }
 
 // task to manage updating the bar and printing it as JSON

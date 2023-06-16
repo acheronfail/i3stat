@@ -18,6 +18,10 @@ impl Dispatcher {
         }
     }
 
+    pub fn remove(&mut self, idx: usize) {
+        self.inner[idx] = None;
+    }
+
     pub fn set(&mut self, idx: usize, tx: Sender<BarEvent>) {
         self.inner[idx] = Some(tx);
     }

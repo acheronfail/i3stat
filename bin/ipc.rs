@@ -7,14 +7,8 @@ use std::path::PathBuf;
 use clap::builder::PossibleValue;
 use clap::{ColorChoice, Parser, Subcommand, ValueEnum};
 use istat::i3::{I3Button, I3ClickEvent, I3Modifier};
-use istat::ipc::{
-    encode_ipc_msg,
-    get_socket_path,
-    IpcBarEvent,
-    IpcMessage,
-    IpcReply,
-    IPC_HEADER_LEN,
-};
+use istat::ipc::get_socket_path;
+use istat::ipc::protocol::{encode_ipc_msg, IpcBarEvent, IpcMessage, IpcReply, IPC_HEADER_LEN};
 use serde_json::Value;
 
 #[derive(Debug, Parser)]
@@ -34,6 +28,8 @@ enum CliCommand {
     /// Sends a signal to all events to trigger a refresh. Note that some items completely ignore all
     /// events, and thus won't receive this refresh events.
     RefreshAll,
+    /// Returns the current bar as JSON.
+    GetBar,
     /// Returns the current configuration.
     GetConfig {
         /// JSON Pointer for the config https://datatracker.ietf.org/doc/html/rfc6901
@@ -180,16 +176,17 @@ fn send_and_print_response(
     socket_path: impl AsRef<OsStr>,
     msg: IpcMessage,
 ) -> Result<(), Box<dyn Error>> {
+    dbg!(socket_path.as_ref());
     let resp = match send_message(&socket_path, msg) {
         Ok(resp) => resp,
-        Err(e) => return Err(format!("failed to read ipc response: {}", e).into()),
+        Err(e) => return Err(format!("failed to send ipc message: {}", e).into()),
     };
 
     println!(
         "{}",
         match resp {
             IpcReply::Help(help) => help,
-            IpcReply::CustomResponse(value) => value.to_string(),
+            IpcReply::Value(value) => value.to_string(),
             x => serde_json::to_string(&x)?,
         }
     );
@@ -199,7 +196,7 @@ fn send_and_print_response(
 
 fn get_json_response(socket_path: &PathBuf, msg: IpcMessage) -> Result<Value, Box<dyn Error>> {
     Ok(match send_message(socket_path, msg)? {
-        IpcReply::CustomResponse(json) => json,
+        IpcReply::Value(json) => json,
         _ => unreachable!(),
     })
 }
@@ -211,6 +208,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     match args.cmd {
         CliCommand::Shutdown => send_and_print_response(&socket_path, IpcMessage::Shutdown)?,
         CliCommand::Info => send_and_print_response(&socket_path, IpcMessage::Info)?,
+        CliCommand::GetBar => send_and_print_response(&socket_path, IpcMessage::GetBar)?,
         CliCommand::RefreshAll => send_and_print_response(&socket_path, IpcMessage::RefreshAll)?,
         CliCommand::GetConfig { pointer: None } => {
             send_and_print_response(&socket_path, IpcMessage::GetConfig)?

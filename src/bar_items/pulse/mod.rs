@@ -294,6 +294,7 @@ impl RcCell<PulseState> {
                     .is_none()
                 {
                     log::error!("failed to decrease ChannelVolumes");
+                    self.fetch_server_state();
                 }
             }
             Vol::Incr(inc_pct) => {
@@ -305,6 +306,7 @@ impl RcCell<PulseState> {
                 .is_none()
                 {
                     log::error!("failed to increase ChannelVolumes");
+                    self.fetch_server_state();
                 }
             }
             Vol::Set(pct) => {

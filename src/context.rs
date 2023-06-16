@@ -112,8 +112,12 @@ impl Context {
 
 #[derive(Debug, Default, Copy, Clone)]
 pub enum StopAction {
+    /// The task finished, and the item will stay in the bar
     #[default]
     Complete,
+    /// The task finished, and the item should be removed from the bar
+    Remove,
+    /// The task finished, and should be restarted
     Restart,
 }
 
