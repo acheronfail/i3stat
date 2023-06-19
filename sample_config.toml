@@ -79,10 +79,10 @@ display = "bytes"
 # Up to 5 levels can be passed, and will affect the color of the item:
 #     0..1st: theme.dim
 #   1st..2nd: theme.normal
-#   2nd..3rd: theme.warning
-#   3rd..4th: theme.danger
-#   4th..5th: theme.error
-#   5th..MAX: theme.special
+#   2nd..3rd: theme.yellow
+#   3rd..4th: theme.orange
+#   4th..5th: theme.red
+#   5th..MAX: theme.purple
 thresholds = ["1kiB", "1MiB", "10MiB", "25MiB", "100MiB"]
 # Optionally provide a list of interface names to ignore when calculating usage
 # ignored_interfaces = ["vpn0"]
