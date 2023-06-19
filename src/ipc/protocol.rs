@@ -1,6 +1,5 @@
 use std::error::Error;
 
-use indexmap::IndexMap;
 use serde::Serialize;
 use serde_derive::Deserialize;
 use serde_json::Value;
@@ -39,7 +38,6 @@ pub enum IpcReply {
     Result(IpcResult),
     // NOTE: ANSI text
     Help(String),
-    Info(IndexMap<usize, String>),
     Value(Value),
 }
 

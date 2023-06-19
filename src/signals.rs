@@ -28,12 +28,11 @@ pub fn handle_signals(
             let translated_sig = min + sig as i32;
             // make sure all signals are valid
             if !realtime_signals.contains(&translated_sig) {
-                return Err(format!(
+                bail!(
                     "Invalid signal: {}. Valid signals range from 0 up to {} inclusive",
                     sig,
                     max - min
-                )
-                .into());
+                );
             }
 
             log::debug!(

@@ -32,7 +32,7 @@ bytesize = { version = "1.2.0", features = ["serde"] }
 chrono = "0.4.24"
 clap = { version = "4.2.7", features = ["derive"] }
 dirs = "5.0.1"
-figment = { version = "0.10.8", features = ["toml", "yaml", "json"] }
+figment = { version = "0.10.10", features = ["toml", "yaml", "json"] }
 futures = "0.3.28"
 hex_color = { version = "2.0.0", features = ["serde"] }
 humantime-serde = "1.1.1"
@@ -67,6 +67,7 @@ path = "tests/mod.rs"
 automod = "1.0.8"
 clap_mangen = "0.2.11"
 clap = { version = "4.2.7", features = ["derive"] }
+rand = "0.8.5"
 timeout-readwrite = "0.3.3"
 xcb = { version = "1.2.1", features = ["xkb", "xtest"] }
 x11 = { version = "2.21.0", features = ["xlib"] }

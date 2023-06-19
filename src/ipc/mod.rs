@@ -43,7 +43,7 @@ pub fn get_socket_path(socket_path: Option<&PathBuf>) -> Result<PathBuf, Box<dyn
         || {
             let i3_socket = PathBuf::from(match env::var("I3SOCK") {
                 Ok(v) => v,
-                Err(e) => return Err(format!("I3SOCK: {}", e).into()),
+                Err(e) => bail!("I3SOCK: {}", e),
             });
 
             let my_socket = PathBuf::from(&i3_socket).with_extension(

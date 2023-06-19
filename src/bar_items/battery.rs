@@ -177,7 +177,7 @@ impl BarItem for Battery {
         let mut show_watts = false;
         let mut p = Paginator::new();
         if batteries.len() == 0 {
-            return Err("no batteries found".into());
+            bail!("no batteries found");
         } else {
             p.set_len(batteries.len());
         }

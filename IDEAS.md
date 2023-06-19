@@ -7,6 +7,14 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 
 * conditionally include additional config files
   * i.e., different machines
+  * how to modify order of items across config files?
+    * `item_order` is concatenated, and this isn't very intuitive
+    * add something to `Common`?
+      * `index = n`
+        * if item exists at `n`, push to right
+        * what if it's past the end? shrink down?
+        * does it make sense if it's defined in the main config file?
+        * multiple items of same index, then in iteration order perform sort
 * conditionally disable bar items
 * a bin PKGBUILD for the AUR (would need to setup CI first)
 * man pages for all binaries

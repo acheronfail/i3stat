@@ -28,7 +28,7 @@ spawn_test!(
         assert_eq!(
             istat.send_ipc(IpcMessage::Info),
             json!({
-                "info": {
+                "value": {
                     "0": "raw",
                     "1": "raw",
                     "2": "custom_name",

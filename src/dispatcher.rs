@@ -48,24 +48,22 @@ impl Dispatcher {
                 // if the channel fills up (the bar never reads click events), since this is a bounded channel
                 // sending the event would block forever, so just drop the event
                 if tx.capacity() == 0 {
-                    return Err(format!(
+                    bail!(
                         "failed to send event to item[{}]: dropping event (channel is full)",
                         idx
-                    )
-                    .into());
+                    );
                 }
 
                 // send click event to its corresponding bar item
                 if let Err(SendError(_)) = tx.send(ev).await {
-                    return Err(format!(
+                    bail!(
                         "failed to send event to item[{}]: dropping event (receiver dropped)",
                         idx
-                    )
-                    .into());
+                    );
                 }
                 Ok(())
             }
-            None | Some(None) => Err(format!("no item found with index: {}", idx).into()),
+            None | Some(None) => bail!("no item found with index: {}", idx),
         }
     }
 }

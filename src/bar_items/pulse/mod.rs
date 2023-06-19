@@ -627,17 +627,14 @@ impl BarItem for Pulse {
             match main_loop.wait_for_ready(&pa_ctx).await {
                 Ok(State::Ready) => {}
                 Ok(state) => {
-                    return Err(format!(
+                    bail!(
                         "failed to connect: state={:?}, err={:?}",
                         state,
                         pa_ctx.errno().to_string()
-                    )
-                    .into());
+                    );
                 }
                 Err(_) => {
-                    return Err(
-                        "Pulse mainloop exited while waiting on context, not continuing".into(),
-                    );
+                    bail!("Pulse mainloop exited while waiting on context, not continuing",);
                 }
             }
 
