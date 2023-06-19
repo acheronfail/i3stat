@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use hex_color::HexColor;
 use serde_derive::{Deserialize, Serialize};
 
@@ -77,6 +79,14 @@ impl Default for Theme {
 }
 
 impl Theme {
+    pub fn validate(&self) -> Result<(), Box<dyn Error>> {
+        if self.powerline.len() <= 1 {
+            bail!("theme.powerline must contain at least two values");
+        }
+
+        Ok(())
+    }
+
     const DEFAULT_POWERLINE: &[ColorPair] = &[
         ColorPair::new(HexColor::rgb(216, 222, 233), HexColor::rgb(59, 66, 82)),
         ColorPair::new(HexColor::rgb(229, 233, 240), HexColor::rgb(67, 76, 94)),
