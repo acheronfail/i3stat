@@ -1,14 +1,13 @@
 # This file was included from main configuration file.
 
-# FIXME: is this nice? I'm not sure I like it... alternatives?
-item_order = [0, 1, 2, 3, 4, 5, 6, 15, 7, 8, 9, 10, 11, 12, 13, 14]
-
+# Example of adding an additional item.
 [[items]]
 type = "raw"
+# Specifying the index so we can insert this item in the already defined list of
+# items from the parent configuration file.
+index = 7
 full_text = "hello"
 
+# Example of updating the theme.
 [theme]
 powerline_enable = true
-
-# FIXME: how to insert items at positions?
-# on one machine an item might need to be between others in the base configuration

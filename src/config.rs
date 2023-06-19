@@ -9,7 +9,6 @@ use figment::providers::{Format, Json, Toml, Yaml};
 use figment::Figment;
 use indexmap::IndexMap;
 use serde_derive::{Deserialize, Serialize};
-use serde_json::Value;
 use strum::EnumIter;
 
 use crate::bar_items::*;
@@ -34,15 +33,7 @@ pub struct AppConfig {
     pub theme: Theme,
     /// List of the items for the bar
     pub items: Vec<Item>,
-    /// The order that the items should be displayed, left to right.
-    /// A list of either strings (item "name"s) or numbers (item indices).
-    /// If not specified, then they appear in the order defined in the configuration.
-    #[serde(rename = "item_order")]
-    item_order: Option<Vec<Value>>,
 
-    /// Runtime only cache for name to index item mappings
-    #[serde(skip)]
-    name_to_idx: OnceCell<IndexMap<String, usize>>,
     /// Runtime only cache for index to name item mappings
     #[serde(skip)]
     idx_to_name: OnceCell<IndexMap<usize, String>>,
@@ -62,20 +53,6 @@ impl AppConfig {
                 .enumerate()
                 .map(|(idx, item)| (idx, item.name().to_owned()))
                 .collect::<IndexMap<usize, String>>();
-
-            map.sort_keys();
-            map
-        })
-    }
-
-    fn item_name_to_idx(&self) -> &IndexMap<String, usize> {
-        self.name_to_idx.get_or_init(|| {
-            let mut map = self
-                .items
-                .iter()
-                .enumerate()
-                .map(|(idx, item)| (item.name().to_owned(), idx))
-                .collect::<IndexMap<String, usize>>();
 
             map.sort_keys();
             map
@@ -147,53 +124,19 @@ impl AppConfig {
 
         // config validation
         {
-            // convert user `item_order` to indices
-            let item_order = match cfg.item_order {
-                Some(ref user_order) => {
-                    if user_order.len() != cfg.items.len() {
-                        bail!(
-                            "`item_order` must have the same length as `items`; got length={}, but item count={}",
-                            user_order.len(),
-                            cfg.items.len()
-                        );
+            // sort items as defined in the configuration
+            {
+                // TODO: tests for this - including edge cases
+                let mut item_order = (0..cfg.items.len()).collect::<Vec<usize>>();
+                for (current_idx, item) in cfg.items.iter().enumerate() {
+                    if let Some(target_idx) = item.common.index {
+                        let idx = item_order.remove(current_idx);
+                        item_order.insert(target_idx, idx);
                     }
-
-                    let idx_to_name = cfg.item_idx_to_name();
-                    let name_to_idx = cfg.item_name_to_idx();
-                    let mut order = vec![];
-                    for value in user_order {
-                        let idx = match value {
-                            // parse string as item name
-                            Value::String(needle) => match name_to_idx.get(needle) {
-                                Some(idx) => *idx,
-                                None => bail!("no item found with name: {}", needle),
-                            },
-                            // parse number as item index
-                            Value::Number(idx) => match idx.as_u64() {
-                                Some(idx) => idx as usize,
-                                None => bail!("not a valid index"),
-                            },
-                            _ => bail!("only names (strings) or indices (numbers) are allowed"),
-                        };
-
-                        if order.contains(&idx) {
-                            bail!(
-                                "duplicate item defined in `item_order`; index={} and name={}",
-                                idx,
-                                idx_to_name[idx]
-                            );
-                        }
-
-                        order.push(idx);
-                    }
-
-                    order
                 }
-                None => (0..cfg.items.len()).collect(),
-            };
 
-            // reorder the items
-            sort_by_indices(&mut cfg.items, item_order);
+                sort_by_indices(&mut cfg.items, item_order);
+            }
 
             // check no duplicate names
             for (i, a) in cfg.items.iter().enumerate().rev() {
@@ -223,10 +166,11 @@ impl AppConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Common {
     pub signal: Option<u32>,
     pub name: Option<String>,
+    index: Option<usize>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, EnumIter)]

@@ -5,16 +5,11 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 
 ## Features
 
-* conditionally include additional config files
+* include additional config files
   * i.e., different machines
-  * how to modify order of items across config files?
-    * `item_order` is concatenated, and this isn't very intuitive
-    * add something to `Common`?
-      * `index = n`
-        * if item exists at `n`, push to right
-        * what if it's past the end? shrink down?
-        * does it make sense if it's defined in the main config file?
-        * multiple items of same index, then in iteration order perform sort
+  * how to conditionally include?
+    * `sway` uses globs (`eg/a/path/*`) and also commands ``something.`uname -n`.conf``
+    * use a `config.d/` convention and include everything under that with the right extension?
 * conditionally disable bar items
 * a bin PKGBUILD for the AUR (would need to setup CI first)
 * man pages for all binaries
@@ -25,6 +20,9 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 
 ## Improvements
 
+* split up `config.rs` mod into smaller files
+  * make things easier to test
+  * also make things easier to reason about, it's getting unwieldy
 * script to generate and resize screenshots to easily update readme
   * `scrot` + `convert` with `Xephyr`, etc
 

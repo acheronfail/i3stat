@@ -2,12 +2,6 @@
 # The paths are relative to the main configuration file's directory.
 include = ["sample_included_config.toml"]
 
-# Optionally provide the order that the bar items should be displayed, from left to right.
-# The values may be either a string (name of the item) or a number (index of the item in `items`).
-# If not provided, then it defaults to the order the items are defined in.
-# item_order = ["net_usage", "nic", ...]
-# item_order = [0, 1, 2, ...]
-
 # Optionally pass a path for the socket. This is really only useful if you have multiple bars and
 # need to make sure they don't attempt to bind to the same socket. If not provided a default will
 # be found.
@@ -57,6 +51,7 @@ powerline = [
 ## All items share the the following config options:
 # type:   required; the type of the item
 # name:   optional; a name for the item - makes some ipc operations easier
+# index:  optional; where to position this item in the bar - defaults to the current index in `items`
 # signal: optional; a real-time signal can be mapped to an item, and when istat receives this signal
 #                   the item will be refreshed - useful for manually triggering item updates.
 #                   The same signal can be used for multiple items.
