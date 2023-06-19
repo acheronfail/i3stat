@@ -3,6 +3,7 @@ mod custom;
 use std::error::Error;
 use std::fmt::Debug;
 use std::process;
+use std::rc::Rc;
 
 use async_trait::async_trait;
 use clap::ValueEnum;
@@ -39,9 +40,9 @@ pub enum Object {
     Sink,
 }
 
-impl ToString for Object {
-    fn to_string(&self) -> String {
-        match self {
+impl From<Object> for Rc<str> {
+    fn from(value: Object) -> Self {
+        match value {
             Object::Sink => "sink".into(),
             Object::Source => "source".into(),
         }
@@ -58,8 +59,8 @@ enum Vol {
 
 #[derive(Debug, Clone, PartialEq)]
 struct Port {
-    name: String,
-    description: String,
+    name: Rc<str>,
+    description: Rc<str>,
     available: PortAvailable,
     port_type: DevicePortType,
 }
@@ -69,8 +70,8 @@ macro_rules! impl_port_from {
         impl<'a> From<&'a $ty> for Port {
             fn from(value: &'a $ty) -> Self {
                 Port {
-                    name: value.name.as_deref().unwrap_or("").to_owned(),
-                    description: value.description.as_deref().unwrap_or("").to_owned(),
+                    name: value.name.as_deref().unwrap_or("").into(),
+                    description: value.description.as_deref().unwrap_or("").into(),
                     available: value.available,
                     port_type: value.r#type,
                 }
@@ -83,13 +84,13 @@ impl_port_from!(SinkPortInfo<'a>);
 impl_port_from!(SourcePortInfo<'a>);
 
 /// Information about a `Sink` or a `Source` (input or output)
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 struct InOut {
     index: u32,
-    name: String,
+    name: Rc<str>,
     volume: ChannelVolumes,
     mute: bool,
-    ports: Vec<Port>,
+    ports: Rc<[Port]>,
     active_port: Option<Port>,
 }
 
@@ -148,7 +149,7 @@ macro_rules! impl_io_from {
             fn from(value: &'a $ty) -> Self {
                 InOut {
                     index: value.index,
-                    name: value.name.as_deref().unwrap_or("").to_owned(),
+                    name: value.name.as_deref().unwrap_or("").into(),
                     volume: value.volume,
                     mute: value.mute,
                     ports: value.ports.iter().map(Port::from).collect(),
@@ -165,17 +166,17 @@ impl_io_from!(SourceInfo<'a>);
 enum Command {
     UpdateItem(Box<dyn FnOnce(&Theme) -> I3Item>),
     NotifyVolume {
-        name: String,
+        name: Rc<str>,
         volume: u32,
         mute: bool,
     },
     NotifyNewSourceSink {
-        name: String,
-        what: String,
+        name: Rc<str>,
+        what: Rc<str>,
     },
     NotifyDefaultsChange {
-        name: String,
-        what: String,
+        name: Rc<str>,
+        what: Rc<str>,
     },
 }
 
@@ -231,8 +232,8 @@ pub struct PulseState {
     increment: u32,
     max_volume: Option<u32>,
     pa_ctx: PAContext,
-    default_sink: String,
-    default_source: String,
+    default_sink: Rc<str>,
+    default_source: Rc<str>,
     sinks: Vec<InOut>,
     sources: Vec<InOut>,
 }
@@ -306,14 +307,14 @@ impl RcCell<PulseState> {
     fn default_sink(&self) -> Option<InOut> {
         self.sinks
             .iter()
-            .find(|s| s.name == *self.default_sink)
+            .find(|s| s.name == self.default_sink)
             .cloned()
     }
 
     fn default_source(&self) -> Option<InOut> {
         self.sources
             .iter()
-            .find(|s| s.name == *self.default_source)
+            .find(|s| s.name == self.default_source)
             .cloned()
     }
 
@@ -581,7 +582,7 @@ impl RcCell<PulseState> {
 
         let mut inner = self.clone();
         inspect.get_server_info(move |info| {
-            let update_if_needed = |me: &mut PulseState, what: Object, name: String| {
+            let update_if_needed = |me: &mut PulseState, what: Object, name: Rc<str>| {
                 match what {
                     Object::Sink if me.default_sink != name => me.default_sink = name.clone(),
                     Object::Source if me.default_source != name => me.default_source = name.clone(),
@@ -589,18 +590,18 @@ impl RcCell<PulseState> {
                 }
 
                 let _ = me.tx.send(Command::NotifyDefaultsChange {
-                    what: what.to_string(),
+                    what: what.into(),
                     name,
                 });
             };
 
             info.default_sink_name
                 .as_ref()
-                .map(|name| update_if_needed(&mut inner, Object::Sink, name.to_string()));
+                .map(|name| update_if_needed(&mut inner, Object::Sink, name.to_string().into()));
 
             info.default_source_name
                 .as_ref()
-                .map(|name| update_if_needed(&mut inner, Object::Source, name.to_string()));
+                .map(|name| update_if_needed(&mut inner, Object::Source, name.to_string().into()));
 
             inner.update_item();
         });

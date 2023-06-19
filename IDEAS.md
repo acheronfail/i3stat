@@ -41,3 +41,9 @@ The following environment variables are available:
 
 * `DEBUG=1`: increases logs when spawning processes (e.g., `DEBUG=1 cargo test -- --ncapture <test>`)
 * `XEPHYR=1`: run X tests with `Xephyr` rather than `Xvfb`
+
+### Why `Rc<str>` over `String`, or `Rc<[T]>` over `Vec<T>` in struct fields?
+
+It's a cheaper method of keeping immutable data around without having to reallocate the inner data every time.
+Since mutating the data isn't necessary, this can just point the the exiting data and we get cheap clones.
+See https://www.youtube.com/watch?v=A4cKi7PTJSs for a good explanation.
