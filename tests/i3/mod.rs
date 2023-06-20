@@ -54,6 +54,7 @@ pub struct X11Test {
     _x_server: LogOnDropChild,
     _i3: LogOnDropChild,
     i3_socket: PathBuf,
+    screenshot_dir: PathBuf,
 }
 
 impl X11Test {
@@ -132,11 +133,13 @@ impl X11Test {
         // wait for istat's socket to appear
         wait_for_file(&istat_socket, MAX_WAIT_TIME);
 
+        let screenshot_dir = PathBuf::from("screenshots").join(&test.name);
         X11Test {
             x_display,
             _x_server: x_server,
             _i3: i3,
             i3_socket,
+            screenshot_dir,
         }
     }
 
@@ -205,6 +208,31 @@ impl X11Test {
     pub fn click(&self, button: MouseButton, x: i16, y: i16) {
         x_click(&self.x_display, button, x, y)
     }
+
+    pub fn screenshot(&self, bar_id: impl AsRef<str>) {
+        fs::create_dir_all(&self.screenshot_dir).unwrap();
+
+        let (x, y, w, h) = self.i3_get_bar_position(&bar_id);
+        let file = self.screenshot_dir.join(format!("{}.png", bar_id.as_ref()));
+        self.cmd(format!(
+            "{scrot} | {convert} > {file}",
+            scrot = format!(
+                "scrot --autoselect {x},{y},{w},{h} --overwrite --file -",
+                x = x,
+                y = y,
+                w = w,
+                h = h
+            ),
+            convert = format!(
+                "convert - -crop {w}x{h}+{x}+{y} -",
+                w = w,
+                h = h,
+                x = w / 2,
+                y = y,
+            ),
+            file = file.display()
+        ));
+    }
 }
 
 macro_rules! x_test {
@@ -218,6 +246,7 @@ macro_rules! x_test {
             let mut test = crate::util::Test::new(stringify!($name), $config);
             $setup_fn(&mut test);
             let x_test = crate::i3::X11Test::new(&test);
+            // FIXME: if x_test is dropped here it'll break - make X11Test use a lifetime of Test
             $test_fn(x_test);
         }
     };

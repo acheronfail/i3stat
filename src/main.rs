@@ -20,6 +20,7 @@ use tokio_util::sync::CancellationToken;
 
 fn main() {
     if let Err(err) = start_runtime() {
+        // TODO: exit with 0 if `shutdown`
         log::error!("{}", err);
         process::exit(1);
     }

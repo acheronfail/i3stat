@@ -7,7 +7,7 @@ import chalk from 'chalk';
 import { createConnection } from 'net';
 import stripAnsi from 'strip-ansi';
 import cssColors from 'css-color-names';
-import { subscript, superscript } from './consts';
+import { Bin, subscript, superscript } from './consts';
 
 enum Display {
   Full = 'full',
@@ -32,8 +32,8 @@ let _input = '';
 
 // spawn, pipe stdout/err and write initial stdin
 process.chdir('../..');
-const { sigrtmin, sigrtmax } = JSON.parse((await $`./target/debug/istat-signals`).stdout);
-const child = execa(`./target/debug/istat`, ['--config=./sample_config.toml', `--socket=${SOCKET_PATH}`]);
+const { sigrtmin, sigrtmax } = JSON.parse((await $`${Bin.iStatSignals}`).stdout);
+const child = execa(Bin.iStat, ['--config=./sample_config.toml', `--socket=${SOCKET_PATH}`]);
 if (!child.stdin) throw new Error("Child's STDIN was not setup correctly!");
 if (!child.stdout) throw new Error("Child's STDOUT was not setup correctly!");
 if (!child.stderr) throw new Error("Child's STDERR was not setup correctly!");

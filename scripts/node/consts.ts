@@ -1,3 +1,12 @@
+const name = 'istat';
+const debug = './target/debug';
+export enum Bin {
+	iStat = `${debug}/${name}`,
+	iStatIpc = `${debug}/${name}-ipc`,
+	iStatSignals = `${debug}/${name}-signals`,
+	iStatSensors = `${debug}/${name}-sensors`,
+}
+
 export const superscript = {
 	'0': '⁰',
 	'1': '¹',

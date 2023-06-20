@@ -149,6 +149,7 @@ impl Drop for LogOnDropChild {
 static UNIQUE_ID: AtomicUsize = AtomicUsize::new(0);
 
 pub struct Test {
+    pub name: String,
     pub env: HashMap<String, String>,
     pub dir: PathBuf,
     pub bin_dir: PathBuf,
@@ -182,6 +183,7 @@ impl Test {
         );
 
         Test {
+            name: name.into(),
             dir,
             env,
             bin_dir,
