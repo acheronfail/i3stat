@@ -1,6 +1,6 @@
 [package]
 name = "istat"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 description = "A lightweight and batteries-included status_command for i3 and sway"
 license = "GPL-3.0-only"
