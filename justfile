@@ -19,7 +19,7 @@ _build:
 
 # run `istat` in the terminal and interact with it
 dev *args: _build
-  cd ./scripts/run && RUST_BACKTRACE=1 RUST_LOG=istat=trace yarn start "$@"
+  cd ./scripts/node && RUST_BACKTRACE=1 RUST_LOG=istat=trace yarn dev "$@"
 
 # send an ipc event to the running debug version of istat (either `just dev` or `just debug`)
 ipc *args: _build
