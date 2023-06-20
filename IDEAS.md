@@ -5,11 +5,6 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 
 ## Features
 
-* include additional config files
-  * i.e., different machines
-  * how to conditionally include?
-    * `sway` uses globs (`eg/a/path/*`) and also commands ``something.`uname -n`.conf``
-    * use a `config.d/` convention and include everything under that with the right extension?
 * conditionally disable bar items
 * a bin PKGBUILD for the AUR (would need to setup CI first)
 * man pages for all binaries

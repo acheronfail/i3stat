@@ -16,10 +16,11 @@ use crate::util::sort_by_indices;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
-    /// Optional list of other configuration files to parse.
-    /// The paths should be relative to the main configuration file's directory.
+    /// Optional list of paths of other configuration files to include.
+    /// The paths can be absolute or relative to the main configuration file's directory.
+    /// Shell syntax is also expanded (see **wordexp(3)** for details).
     #[serde(default)]
-    include: Vec<PathBuf>,
+    include: Vec<String>,
 
     /// Specify the colours of the theme
     #[serde(default)]

@@ -57,6 +57,7 @@ strum = { version = "0.24.1", features = ["derive"] }
 sysinfo = { version = "0.28.4", default-features = false }
 tokio = { version = "1.27.0", features = ["full"] }
 tokio-util = "0.7.8"
+wordexp = "0.1.0"
 zbus = { version = "3.13.1", default-features = false, features = ["tokio"] }
 
 [[test]]

@@ -975,6 +975,7 @@ dependencies = [
  "timeout-readwrite",
  "tokio",
  "tokio-util",
+ "wordexp",
  "x11",
  "xcb",
  "zbus",
@@ -2243,6 +2244,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ae8970b36c66498d8ff1d66685dc86b91b29db0c7739899012f63a63814b4b28"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "wordexp"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83b7ffac65b8db75e7b65d66fbacad6d9d91779518b7024d75108b9ce67266a6"
+dependencies = [
+ "libc",
 ]
 
 [[package]]
