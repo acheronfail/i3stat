@@ -1,104 +1,17 @@
 use std::cell::OnceCell;
-use std::error::Error;
-use std::path::PathBuf;
 
-use figment::providers::{Format, Json, Toml, Yaml};
-use figment::Figment;
-use indexmap::IndexMap;
 use serde_derive::{Deserialize, Serialize};
 use strum::EnumIter;
 
 use crate::bar_items::*;
-use crate::cli::Cli;
 use crate::context::BarItem;
 use crate::i3::I3Item;
-use crate::ipc::get_socket_path;
-use crate::theme::Theme;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AppConfig {
-    /// Path to the socket to use for ipc. Useful when having multiple bars to separate their sockets.
-    /// The CLI option takes precedence over this.
-    socket: Option<PathBuf>,
-    /// Specify the colours of the theme
-    #[serde(default)]
-    pub theme: Theme,
-    /// List of the items for the bar - ordered left to right.
-    pub items: Vec<Item>,
-}
-
-impl AppConfig {
-    pub fn socket(&self) -> PathBuf {
-        // SAFETY: when creating instances of `AppConfig` this option is always filled
-        self.socket.clone().unwrap()
-    }
-
-    pub fn item_name_map(&self) -> IndexMap<usize, String> {
-        let mut map = self
-            .items
-            .iter()
-            .enumerate()
-            .map(|(idx, item)| (idx, item.name().to_owned()))
-            .collect::<IndexMap<usize, String>>();
-
-        map.sort_keys();
-        map
-    }
-
-    pub async fn read(args: Cli) -> Result<AppConfig, Box<dyn Error>> {
-        let path = args
-            .config
-            .map(|p| p.with_extension(""))
-            .or_else(|| dirs::config_dir().map(|d| d.join("istat/config")))
-            .ok_or_else(|| "failed to find config dir")?;
-
-        let mut cfg = Figment::new()
-            .merge(Toml::file(path.with_extension("toml")))
-            .merge(Yaml::file(path.with_extension("yaml")))
-            .merge(Json::file(path.with_extension("json")))
-            .extract::<AppConfig>()?;
-
-        // set socket path
-        cfg.socket = Some(match args.socket {
-            Some(socket_path) => socket_path,
-            None => get_socket_path(cfg.socket.as_ref())?,
-        });
-
-        // config validation
-        {
-            // check no duplicate names
-            for (i, a) in cfg.items.iter().enumerate().rev() {
-                for (j, b) in cfg.items.iter().enumerate() {
-                    if i == j {
-                        continue;
-                    }
-
-                    if let (Some(a), Some(b)) = (&a.common.name, &b.common.name) {
-                        if a == b {
-                            return Err(format!(
-                                    "item names must be unique, item[{}] and item[{}] share the same name: {}",
-                                    i, j, a
-                                )
-                                .into());
-                        }
-                    }
-                }
-            }
-
-            // check no empty powerline config
-            if cfg.theme.powerline.len() <= 1 {
-                return Err("theme.powerline must contain at least two values".into());
-            }
-        }
-
-        Ok(cfg)
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Common {
     pub signal: Option<u32>,
     pub name: Option<String>,
+    pub index: Option<usize>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, EnumIter)]
@@ -190,6 +103,17 @@ mod tests {
     use strum::IntoEnumIterator;
 
     use super::*;
+
+    // only used in tests, in production code items are only created via deserialisation
+    impl Item {
+        pub fn new(common: Common, item: I3Item) -> Item {
+            Item {
+                common,
+                inner: ItemInner::Raw(item),
+                name: OnceCell::new(),
+            }
+        }
+    }
 
     #[test]
     fn item_tags() {

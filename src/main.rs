@@ -174,14 +174,14 @@ fn handle_item_updates(
     mut rx: Receiver<(I3Item, usize)>,
     mut bar: RcCell<Vec<I3Item>>,
 ) -> Result<(), Box<dyn Error>> {
-    let item_names = config.item_name_map();
-
     // output first parts of the i3 bar protocol - the header
     println!("{}", serde_json::to_string(&I3BarHeader::default())?);
     // and the opening bracket for the "infinite array"
     println!("[");
 
     tokio::task::spawn_local(async move {
+        let item_names = config.item_idx_to_name();
+
         while let Some((i3_item, idx)) = rx.recv().await {
             let i3_item = i3_item
                 // the name of the item

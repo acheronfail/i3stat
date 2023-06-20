@@ -91,11 +91,7 @@ impl Bat {
         Ok((current_pico as f64) * (voltage_pico as f64) / 1_000_000_000_000.0)
     }
 
-    async fn format(
-        &self,
-        theme: &Theme,
-        show_watts: bool,
-    ) -> Result<(String, String, Option<HexColor>), Box<dyn Error>> {
+    async fn format(&self, theme: &Theme, show_watts: bool) -> Result<I3Item, Box<dyn Error>> {
         let (charge, state) = match try_join!(self.percent(), self.get_state()) {
             Ok((charge, state)) => (charge, state),
             // Return unknown state: the files in sysfs aren't present at times, such as when connecting
@@ -103,22 +99,28 @@ impl Bat {
             // item retry on the next interval/acpi event.
             Err(e) => {
                 log::warn!("failed to read battery {}: {}", self.0.display(), e);
-                return Ok(("???".into(), "?".into(), Some(theme.red)));
+                return Ok(I3Item::new("???").color(theme.red));
             }
         };
 
-        let (icon, fg) = state.get_color(theme);
-        let (icon, fg) = match charge as u32 {
-            0..=15 => (icon.unwrap_or(""), fg.or(Some(theme.red))),
-            16..=25 => (icon.unwrap_or(""), fg.or(Some(theme.orange))),
-            26..=50 => (icon.unwrap_or(""), fg.or(Some(theme.yellow))),
-            51..=75 => (icon.unwrap_or(""), fg.or(None)),
-            76..=u32::MAX => (icon.unwrap_or(""), fg.or(Some(theme.green))),
+        let (charge_icon, charge_fg, urgent) = match charge as u32 {
+            0..=15 => {
+                let urgent = !matches!(state, BatState::Charging | BatState::NotCharging);
+                ("", Some(theme.red), urgent)
+            }
+            16..=25 => ("", Some(theme.orange), false),
+            26..=50 => ("", Some(theme.yellow), false),
+            51..=75 => ("", None, false),
+            76..=u32::MAX => ("", Some(theme.green), false),
         };
 
-        if show_watts {
+        let (state_icon, state_fg) = state.get_color(theme);
+        let icon = state_icon.unwrap_or(charge_icon);
+        let fg = state_fg.or(charge_fg);
+
+        let item = if show_watts {
             let watts = self.watts_now().await?;
-            Ok((format!("{:.2} W", watts), format!("{:.0}", watts), fg))
+            I3Item::new(format!("{:.2} W", watts)).short_text(format!("{:.0}", watts))
         } else {
             let name = self.name()?;
             let name = if name == "BAT0" {
@@ -126,12 +128,14 @@ impl Bat {
             } else {
                 name.as_str().into()
             };
-            Ok((
-                format!("{}  {:.0}%", name, charge),
-                format!("{:.0}%", charge),
-                fg,
-            ))
-        }
+            I3Item::new(format!("{}  {:.0}%", name, charge)).short_text(format!("{:.0}%", charge))
+        };
+
+        Ok(match (urgent, fg) {
+            (true, _) => item.urgent(true),
+            (false, Some(fg)) => item.color(fg),
+            (false, None) => item,
+        })
     }
 
     async fn find_all() -> Result<Vec<Bat>, Box<dyn Error>> {
@@ -173,7 +177,7 @@ impl BarItem for Battery {
         let mut show_watts = false;
         let mut p = Paginator::new();
         if batteries.len() == 0 {
-            return Err("no batteries found".into());
+            bail!("no batteries found");
         } else {
             p.set_len(batteries.len());
         }
@@ -183,14 +187,10 @@ impl BarItem for Battery {
         let mut on_acpi_event = battery_acpi_events().await?;
         loop {
             let theme = &ctx.config.theme;
-            let (full, short, fg) = batteries[p.idx()].format(theme, show_watts).await?;
-            let full = format!("{}{}", full, p.format(theme));
 
-            let mut item = I3Item::new(full).short_text(short).markup(I3Markup::Pango);
-            if let Some(color) = fg {
-                item = item.color(color);
-            }
-
+            let item = batteries[p.idx()].format(theme, show_watts).await?;
+            let full_text = format!("{}{}", item.get_full_text(), p.format(theme));
+            let item = item.full_text(full_text).markup(I3Markup::Pango);
             ctx.update_item(item).await?;
 
             // change delay if we're displaying watts

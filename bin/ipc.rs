@@ -6,6 +6,7 @@ use std::path::PathBuf;
 
 use clap::builder::PossibleValue;
 use clap::{ColorChoice, Parser, Subcommand, ValueEnum};
+use istat::bail;
 use istat::i3::{I3Button, I3ClickEvent, I3Modifier};
 use istat::ipc::get_socket_path;
 use istat::ipc::protocol::{encode_ipc_msg, IpcBarEvent, IpcMessage, IpcReply, IPC_HEADER_LEN};
@@ -158,14 +159,14 @@ fn send_message(
 
     let msg = encode_ipc_msg(msg)?;
     if let Err(e) = stream.write_all(&msg) {
-        return Err(format!("Error writing to socket: {}", e).into());
+        bail!("Error writing to socket: {}", e);
     }
 
     let mut buf = vec![];
     let n = match stream.read_to_end(&mut buf) {
         Ok(n) => n,
         Err(e) => {
-            return Err(format!("Error reading from socket: {}", e).into());
+            bail!("Error reading from socket: {}", e);
         }
     };
 
@@ -176,10 +177,9 @@ fn send_and_print_response(
     socket_path: impl AsRef<OsStr>,
     msg: IpcMessage,
 ) -> Result<(), Box<dyn Error>> {
-    dbg!(socket_path.as_ref());
     let resp = match send_message(&socket_path, msg) {
         Ok(resp) => resp,
-        Err(e) => return Err(format!("failed to send ipc message: {}", e).into()),
+        Err(e) => bail!("failed to send ipc message: {}", e),
     };
 
     println!(
@@ -222,7 +222,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let config = get_json_response(&socket_path, IpcMessage::GetConfig)?;
             match config.pointer(&pointer) {
                 Some(value) => println!("{}", value),
-                None => return Err(format!("No value found at: {}", pointer).into()),
+                None => bail!("No value found at: {}", pointer),
             }
         }
         CliCommand::GetTheme {
@@ -231,7 +231,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let theme = get_json_response(&socket_path, IpcMessage::GetTheme)?;
             match theme.pointer(&pointer) {
                 Some(value) => println!("{}", value),
-                None => return Err(format!("No value found at: {}", pointer).into()),
+                None => bail!("No value found at: {}", pointer),
             }
         }
         CliCommand::SetTheme {
@@ -260,7 +260,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     // send config back via IPC
                     send_and_print_response(&socket_path, IpcMessage::SetTheme(theme))?;
                 }
-                None => return Err(format!("No value found at: {}", pointer).into()),
+                None => bail!("No value found at: {}", pointer),
             }
         }
         CliCommand::Click {

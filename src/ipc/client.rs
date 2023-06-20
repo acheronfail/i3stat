@@ -23,15 +23,15 @@ pub async fn handle_ipc_client(stream: UnixStream, ctx: IpcContext) -> Result<()
                 break;
             }
             Ok(n) => {
-                return Err(format!(
+                bail!(
                     "failed reading ipc header, read {} bytes, expected {}",
-                    n, IPC_HEADER_LEN
+                    n,
+                    IPC_HEADER_LEN
                 )
-                .into())
             }
             // there may be false positives readiness events
             Err(ref e) if e.kind() == ErrorKind::WouldBlock => continue,
-            Err(e) => return Err(e.into()),
+            Err(e) => bail!(e),
         }
     }
 
@@ -50,11 +50,11 @@ async fn handle_ipc_request(
         stream.readable().await?;
         match stream.try_read(&mut buf) {
             Ok(0) => {
-                return Err(format!(
+                bail!(
                     "unexpected end of ipc stream, read {} bytes, expected: {}",
-                    idx, len
+                    idx,
+                    len
                 )
-                .into())
             }
             Ok(n) => {
                 idx += n;
@@ -64,7 +64,7 @@ async fn handle_ipc_request(
             }
             // there may be false positives readiness events
             Err(ref e) if e.kind() == ErrorKind::WouldBlock => continue,
-            Err(e) => return Err(e.into()),
+            Err(e) => bail!(e),
         }
     }
 
@@ -79,7 +79,8 @@ async fn handle_ipc_request(
             send_ipc_response(&stream, &IpcReply::Value(serde_json::to_value(&*ctx.bar)?)).await?;
         }
         IpcMessage::Info => {
-            send_ipc_response(&stream, &IpcReply::Info(ctx.config.item_name_map())).await?;
+            let info = serde_json::to_value(ctx.config.item_idx_to_name())?;
+            send_ipc_response(&stream, &IpcReply::Value(info)).await?;
         }
         IpcMessage::GetConfig => {
             send_ipc_response(
@@ -118,11 +119,11 @@ async fn handle_ipc_request(
                 Err(e) => {
                     match ctx
                         .config
-                        .item_name_map()
-                        .into_iter()
+                        .item_idx_to_name()
+                        .iter()
                         .find_map(
                             |(idx, name)| {
-                                if instance == name {
+                                if instance == *name {
                                     Some(idx)
                                 } else {
                                     None
@@ -130,13 +131,14 @@ async fn handle_ipc_request(
                             },
                         ) {
                         // ipc message contained a tag
-                        Some(idx) => idx,
+                        Some(idx) => *idx,
                         // error
                         None => {
                             let err = format!("failed to parse ipc instance property: {}", e);
                             log::warn!("{}", err);
                             send_ipc_response(&stream, &IpcReply::Result(IpcResult::Failure(err)))
                                 .await?;
+
                             return Ok(());
                         }
                     }

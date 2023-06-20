@@ -1,0 +1,13 @@
+# This file was included from main configuration file.
+
+# Example of adding an additional item.
+[[items]]
+type = "raw"
+# Specifying the index so we can insert this item in the already defined list of
+# items from the parent configuration file.
+index = 7
+full_text = "hello"
+
+# Example of updating the theme.
+[theme]
+powerline_enable = true

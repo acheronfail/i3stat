@@ -3,14 +3,21 @@ mod custom;
 use std::error::Error;
 use std::fmt::Debug;
 use std::process;
+use std::rc::Rc;
 
 use async_trait::async_trait;
 use clap::ValueEnum;
 use libpulse_binding::callbacks::ListResult;
-use libpulse_binding::context::introspect::{Introspector, SinkInfo, SourceInfo};
+use libpulse_binding::context::introspect::{
+    Introspector,
+    SinkInfo,
+    SinkPortInfo,
+    SourceInfo,
+    SourcePortInfo,
+};
 use libpulse_binding::context::subscribe::{Facility, InterestMaskSet, Operation};
 use libpulse_binding::context::{Context as PAContext, FlagSet, State};
-use libpulse_binding::def::DevicePortType;
+use libpulse_binding::def::{DevicePortType, PortAvailable};
 use libpulse_binding::error::{Code, PAErr};
 use libpulse_binding::proplist::properties::{APPLICATION_NAME, APPLICATION_PROCESS_ID};
 use libpulse_binding::proplist::Proplist;
@@ -33,9 +40,9 @@ pub enum Object {
     Sink,
 }
 
-impl ToString for Object {
-    fn to_string(&self) -> String {
-        match self {
+impl From<Object> for Rc<str> {
+    fn from(value: Object) -> Self {
+        match value {
             Object::Sink => "sink".into(),
             Object::Source => "source".into(),
         }
@@ -50,28 +57,58 @@ enum Vol {
     Set(u32),
 }
 
-/// Information about a `Sink` or a `Source`
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 struct Port {
-    index: u32,
-    name: String,
-    volume: ChannelVolumes,
-    mute: bool,
-    port_type: Option<DevicePortType>,
+    name: Rc<str>,
+    description: Rc<str>,
+    available: PortAvailable,
+    port_type: DevicePortType,
 }
 
-impl Port {
+macro_rules! impl_port_from {
+    ($ty:ty) => {
+        impl<'a> From<&'a $ty> for Port {
+            fn from(value: &'a $ty) -> Self {
+                Port {
+                    name: value.name.as_deref().unwrap_or("").into(),
+                    description: value.description.as_deref().unwrap_or("").into(),
+                    available: value.available,
+                    port_type: value.r#type,
+                }
+            }
+        }
+    };
+}
+
+impl_port_from!(SinkPortInfo<'a>);
+impl_port_from!(SourcePortInfo<'a>);
+
+/// Information about a `Sink` or a `Source` (input or output)
+#[derive(Debug, Clone)]
+struct InOut {
+    index: u32,
+    name: Rc<str>,
+    volume: ChannelVolumes,
+    mute: bool,
+    ports: Rc<[Port]>,
+    active_port: Option<Port>,
+}
+
+impl InOut {
     fn volume_pct(&self) -> u32 {
         let normal = Volume::NORMAL.0;
         (self.volume.max().0 * 100 + normal / 2) / normal
     }
 
     fn port_symbol(&self) -> Option<&str> {
-        match self.port_type {
-            Some(DevicePortType::Bluetooth) => Some("󰂰 "),
-            Some(DevicePortType::Headphones) => Some("󰋋 "),
-            Some(DevicePortType::Headset) => Some("󰋎 "),
-            _ => None,
+        match &self.active_port {
+            Some(port) => match port.port_type {
+                DevicePortType::Bluetooth => Some("󰂰 "),
+                DevicePortType::Headphones => Some("󰋋 "),
+                DevicePortType::Headset => Some("󰋎 "),
+                _ => None,
+            },
+            None => None,
         }
     }
 
@@ -106,39 +143,40 @@ impl Port {
     }
 }
 
-macro_rules! impl_port_from {
+macro_rules! impl_io_from {
     ($ty:ty) => {
-        impl<'a> From<&'a $ty> for Port {
+        impl<'a> From<&'a $ty> for InOut {
             fn from(value: &'a $ty) -> Self {
-                Port {
+                InOut {
                     index: value.index,
-                    name: value.name.as_deref().unwrap_or("").to_owned(),
+                    name: value.name.as_deref().unwrap_or("").into(),
                     volume: value.volume,
                     mute: value.mute,
-                    port_type: value.active_port.as_ref().map(|port| port.r#type),
+                    ports: value.ports.iter().map(Port::from).collect(),
+                    active_port: value.active_port.as_ref().map(|p| Port::from(p.as_ref())),
                 }
             }
         }
     };
 }
 
-impl_port_from!(SinkInfo<'a>);
-impl_port_from!(SourceInfo<'a>);
+impl_io_from!(SinkInfo<'a>);
+impl_io_from!(SourceInfo<'a>);
 
 enum Command {
     UpdateItem(Box<dyn FnOnce(&Theme) -> I3Item>),
     NotifyVolume {
-        name: String,
+        name: Rc<str>,
         volume: u32,
         mute: bool,
     },
     NotifyNewSourceSink {
-        name: String,
-        what: String,
+        name: Rc<str>,
+        what: Rc<str>,
     },
     NotifyDefaultsChange {
-        name: String,
-        what: String,
+        name: Rc<str>,
+        what: Rc<str>,
     },
 }
 
@@ -194,10 +232,10 @@ pub struct PulseState {
     increment: u32,
     max_volume: Option<u32>,
     pa_ctx: PAContext,
-    default_sink: String,
-    default_source: String,
-    sinks: Vec<Port>,
-    sources: Vec<Port>,
+    default_sink: Rc<str>,
+    default_source: Rc<str>,
+    sinks: Vec<InOut>,
+    sources: Vec<InOut>,
 }
 
 macro_rules! impl_pa_methods {
@@ -210,7 +248,7 @@ macro_rules! impl_pa_methods {
                             Some(s) => *s = info.into(),
                             None => {
                                 let obj = info.into();
-                                if matches!(obj, Port { .. }) {
+                                if matches!(obj, InOut { .. }) {
                                     if !obj.name.contains("auto_null") {
                                         let _ = self.tx.send(obj.notify_new(stringify!($name)));
                                     }
@@ -234,8 +272,8 @@ macro_rules! impl_pa_methods {
                 let mut inspect = self.pa_ctx.introspect();
                 inspect.[<set_ $name _mute_by_index>](idx, mute, Some(Box::new(move |success| {
                     if !success {
-                        let port = inner.get_port_by_idx(idx);
-                        log::error!("set_mute_{} failed: idx={}, port={:?}", stringify!(name), idx, port);
+                        let io = inner.get_io_by_idx(idx);
+                        log::error!("set_mute_{} failed: idx={}, io={:?}", stringify!(name), idx, io);
                     }
                 })));
             }
@@ -245,8 +283,8 @@ macro_rules! impl_pa_methods {
                 let mut inspect = self.pa_ctx.introspect();
                 inspect.[<set_ $name _volume_by_index>](idx, cv, Some(Box::new(move |success| {
                     if !success {
-                        let port = inner.get_port_by_idx(idx);
-                        log::error!("set_volume_{} failed: idx={}, port={:?}", stringify!(name), idx, port);
+                        let io = inner.get_io_by_idx(idx);
+                        log::error!("set_volume_{} failed: idx={}, io={:?}", stringify!(name), idx, io);
                     }
                 })));
             }
@@ -258,7 +296,7 @@ impl RcCell<PulseState> {
     impl_pa_methods!(sink);
     impl_pa_methods!(source);
 
-    fn get_port_by_idx(&self, idx: u32) -> Option<Port> {
+    fn get_io_by_idx(&self, idx: u32) -> Option<InOut> {
         self.sinks
             .iter()
             .chain(self.sources.iter())
@@ -266,18 +304,72 @@ impl RcCell<PulseState> {
             .cloned()
     }
 
-    fn default_sink(&self) -> Option<Port> {
+    fn default_sink(&self) -> Option<InOut> {
         self.sinks
             .iter()
-            .find(|s| s.name == *self.default_sink)
+            .find(|s| s.name == self.default_sink)
             .cloned()
     }
 
-    fn default_source(&self) -> Option<Port> {
+    fn default_source(&self) -> Option<InOut> {
         self.sources
             .iter()
-            .find(|s| s.name == *self.default_source)
+            .find(|s| s.name == self.default_source)
             .cloned()
+    }
+
+    fn cycle_port(&self, object: InOut, what: Object) {
+        if object.ports.is_empty() {
+            return;
+        }
+
+        // find index of current port
+        let current_port_idx = object.active_port.as_ref().map_or(0, |active| {
+            match object.ports.iter().position(|p| p == active) {
+                Some(idx) => idx,
+                None => {
+                    log::warn!(
+                        "failed to find active port: object={:?}, active_port={:?}",
+                        object,
+                        active
+                    );
+
+                    // default to 0
+                    0
+                }
+            }
+        });
+
+        // get name of next port
+        let next_port_name = object.ports[(current_port_idx + 1) % object.ports.len()]
+            .name
+            .clone();
+
+        let mut introspect = self.pa_ctx.introspect();
+        match what {
+            Object::Sink => {
+                introspect.set_sink_port_by_index(
+                    object.index,
+                    &next_port_name,
+                    Some(Box::new(move |success: bool| {
+                        if !success {
+                            log::error!("cycle_port failed: object={:?}", object);
+                        }
+                    })),
+                );
+            }
+            Object::Source => {
+                introspect.set_source_port_by_index(
+                    object.index,
+                    &next_port_name,
+                    Some(Box::new(move |success: bool| {
+                        if !success {
+                            log::error!("cycle_port failed: object={:?}", object);
+                        }
+                    })),
+                );
+            }
+        }
     }
 
     fn update_volume<'a, 'b>(
@@ -490,7 +582,7 @@ impl RcCell<PulseState> {
 
         let mut inner = self.clone();
         inspect.get_server_info(move |info| {
-            let update_if_needed = |me: &mut PulseState, what: Object, name: String| {
+            let update_if_needed = |me: &mut PulseState, what: Object, name: Rc<str>| {
                 match what {
                     Object::Sink if me.default_sink != name => me.default_sink = name.clone(),
                     Object::Source if me.default_source != name => me.default_source = name.clone(),
@@ -498,18 +590,18 @@ impl RcCell<PulseState> {
                 }
 
                 let _ = me.tx.send(Command::NotifyDefaultsChange {
-                    what: what.to_string(),
+                    what: what.into(),
                     name,
                 });
             };
 
             info.default_sink_name
                 .as_ref()
-                .map(|name| update_if_needed(&mut inner, Object::Sink, name.to_string()));
+                .map(|name| update_if_needed(&mut inner, Object::Sink, name.to_string().into()));
 
             info.default_source_name
                 .as_ref()
-                .map(|name| update_if_needed(&mut inner, Object::Source, name.to_string()));
+                .map(|name| update_if_needed(&mut inner, Object::Source, name.to_string().into()));
 
             inner.update_item();
         });
@@ -535,17 +627,14 @@ impl BarItem for Pulse {
             match main_loop.wait_for_ready(&pa_ctx).await {
                 Ok(State::Ready) => {}
                 Ok(state) => {
-                    return Err(format!(
+                    bail!(
                         "failed to connect: state={:?}, err={:?}",
                         state,
                         pa_ctx.errno().to_string()
-                    )
-                    .into());
+                    );
                 }
                 Err(_) => {
-                    return Err(
-                        "Pulse mainloop exited while waiting on context, not continuing".into(),
-                    );
+                    bail!("Pulse mainloop exited while waiting on context, not continuing",);
                 }
             }
 
@@ -588,12 +677,22 @@ impl BarItem for Pulse {
                     BarEvent::Custom { payload, responder } => inner.handle_custom_message(payload, responder),
                     BarEvent::Click(click) => match click.button {
                         // open control panel
-                        I3Button::Left => exec("i3-msg exec pavucontrol").await,
+                        I3Button::Left if click.modifiers.contains(&I3Modifier::Control) => exec("i3-msg exec pavucontrol").await,
+
+                        // cycle source ports
+                        I3Button::Left if click.modifiers.contains(&I3Modifier::Shift) => {
+                            inner.default_source().map(|io| inner.cycle_port(io, Object::Source));
+                        }
+
+                        // cycle sink ports
+                        I3Button::Left => {
+                            inner.default_sink().map(|io| inner.cycle_port(io, Object::Sink));
+                        }
 
                         // show a popup with information about the current state
                         I3Button::Right => {
                             let s = |s: &str| s.chars().filter(char::is_ascii).collect::<String>();
-                            let m = |p: Port| format!("name: {}\nvolume: {}\n", s(&p.name), p.volume_pct());
+                            let m = |p: InOut| format!("name: {}\nvolume: {}\n", s(&p.name), p.volume_pct());
                             let sink = inner.default_sink().map(m).unwrap_or("???".into());
                             let source = inner.default_source().map(m).unwrap_or("???".into());
                             exec(
@@ -615,6 +714,7 @@ impl BarItem for Pulse {
                         I3Button::ScrollDown if click.modifiers.contains(&I3Modifier::Shift) => {
                             inner.set_volume(Object::Source, Vol::Decr(inner.increment));
                         }
+
                         // sink
                         I3Button::Middle  => {
                             inner.toggle_mute(Object::Sink);

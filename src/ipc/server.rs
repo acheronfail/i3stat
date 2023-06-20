@@ -17,7 +17,7 @@ pub async fn create_ipc_socket(config: &RcCell<AppConfig>) -> Result<UnixListene
     match tokio::fs::remove_file(&socket_path).await {
         Ok(_) => {}
         Err(e) if e.kind() == ErrorKind::NotFound => {}
-        Err(e) => return Err(e.into()),
+        Err(e) => bail!(e),
     }
 
     Ok(UnixListener::bind(&socket_path)?)
@@ -38,7 +38,7 @@ pub async fn handle_ipc_events(
                     }
                 });
             }
-            Err(e) => return Err(format!("failed to setup ipc connection: {}", e).into()),
+            Err(e) => bail!("failed to setup ipc connection: {}", e),
         }
     }
 }
@@ -56,7 +56,7 @@ pub async fn send_ipc_response(stream: &UnixStream, resp: &IpcReply) -> Result<(
                 }
             }
             Err(ref e) if e.kind() == ErrorKind::WouldBlock => continue,
-            Err(e) => return Err(e.into()),
+            Err(e) => bail!(e),
         }
     }
 }

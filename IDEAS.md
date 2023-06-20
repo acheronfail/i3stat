@@ -5,8 +5,6 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 
 ## Features
 
-* conditionally include additional config files
-  * i.e., different machines
 * conditionally disable bar items
 * a bin PKGBUILD for the AUR (would need to setup CI first)
 * man pages for all binaries
@@ -17,6 +15,9 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 
 ## Improvements
 
+* split up `config.rs` mod into smaller files
+  * make things easier to test
+  * also make things easier to reason about, it's getting unwieldy
 * script to generate and resize screenshots to easily update readme
   * `scrot` + `convert` with `Xephyr`, etc
 
@@ -41,3 +42,9 @@ The following environment variables are available:
 
 * `DEBUG=1`: increases logs when spawning processes (e.g., `DEBUG=1 cargo test -- --ncapture <test>`)
 * `XEPHYR=1`: run X tests with `Xephyr` rather than `Xvfb`
+
+### Why `Rc<str>` over `String`, or `Rc<[T]>` over `Vec<T>` in struct fields?
+
+It's a cheaper method of keeping immutable data around without having to reallocate the inner data every time.
+Since mutating the data isn't necessary, this can just point the the exiting data and we get cheap clones.
+See https://www.youtube.com/watch?v=A4cKi7PTJSs for a good explanation.

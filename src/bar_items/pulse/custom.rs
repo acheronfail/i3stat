@@ -4,7 +4,7 @@ use serde_derive::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tokio::sync::oneshot;
 
-use super::{Object, Port, PulseState, Vol};
+use super::{InOut, Object, PulseState, Vol};
 use crate::context::CustomResponse;
 use crate::util::RcCell;
 
@@ -57,14 +57,14 @@ pub enum PulseResponse {
     Failure(String),
 }
 
-impl Port {
+impl InOut {
     fn to_value(&self) -> Value {
         json!({
             "index": self.index,
             "name": self.name,
             "volume": self.volume_pct(),
             "mute": self.mute,
-            "port_type": self.port_type.map(|t| t.to_i64()).flatten()
+            "port_type": self.active_port.as_ref().map(|t| t.port_type.to_i64()).flatten()
         })
     }
 }

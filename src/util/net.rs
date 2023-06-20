@@ -114,7 +114,7 @@ impl Interface {
     pub fn get_interfaces() -> Result<Vec<Interface>, Box<dyn Error>> {
         let if_addrs = match getifaddrs() {
             Ok(if_addrs) => if_addrs,
-            Err(e) => return Err(format!("call to `getifaddrs` failed: {}", e).into()),
+            Err(e) => bail!("call to `getifaddrs` failed: {}", e),
         };
 
         let mut interfaces = vec![];

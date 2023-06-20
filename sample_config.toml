@@ -1,3 +1,7 @@
+# Optionally include other config files to be merged with this one.
+# The paths are relative to the main configuration file's directory.
+include = ["sample_included_config.toml"]
+
 # Optionally pass a path for the socket. This is really only useful if you have multiple bars and
 # need to make sure they don't attempt to bind to the same socket. If not provided a default will
 # be found.
@@ -47,6 +51,7 @@ powerline = [
 ## All items share the the following config options:
 # type:   required; the type of the item
 # name:   optional; a name for the item - makes some ipc operations easier
+# index:  optional; where to position this item in the bar - defaults to the current index in `items`
 # signal: optional; a real-time signal can be mapped to an item, and when istat receives this signal
 #                   the item will be refreshed - useful for manually triggering item updates.
 #                   The same signal can be used for multiple items.
@@ -74,10 +79,10 @@ display = "bytes"
 # Up to 5 levels can be passed, and will affect the color of the item:
 #     0..1st: theme.dim
 #   1st..2nd: theme.normal
-#   2nd..3rd: theme.warning
-#   3rd..4th: theme.danger
-#   4th..5th: theme.error
-#   5th..MAX: theme.special
+#   2nd..3rd: theme.yellow
+#   3rd..4th: theme.orange
+#   4th..5th: theme.red
+#   5th..MAX: theme.purple
 thresholds = ["1kiB", "1MiB", "10MiB", "25MiB", "100MiB"]
 # Optionally provide a list of interface names to ignore when calculating usage
 # ignored_interfaces = ["vpn0"]

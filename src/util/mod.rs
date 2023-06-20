@@ -1,4 +1,4 @@
-use_and_export!(cell, enum_cycle, exec, format, net, netlink, paginator);
+use_and_export!(cell, enum_cycle, exec, format, net, netlink, paginator, vec);
 
 use std::error::Error;
 
