@@ -184,11 +184,15 @@ fn handle_item_updates(
         let item_names = config.item_idx_to_name();
 
         while let Some((i3_item, idx)) = rx.recv().await {
-            let i3_item = i3_item
+            let mut i3_item = i3_item
                 // the name of the item
                 .name(item_names[idx].clone())
                 // always override the bar item's `instance`, since we track that ourselves
                 .instance(idx.to_string());
+
+            if let Some(separator) = config.items[idx].common.separator {
+                i3_item = i3_item.separator(separator);
+            }
 
             // don't bother doing anything if the item hasn't changed
             if bar[idx] == i3_item {

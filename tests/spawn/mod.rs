@@ -10,7 +10,7 @@ use istat::ipc::protocol::{encode_ipc_msg, IpcMessage, IpcReply, IpcResult, IPC_
 use serde_json::Value;
 use timeout_readwrite::{TimeoutReadExt, TimeoutReader};
 
-use crate::util::{get_current_exe, get_faketime_lib, LogOnDropChild, Test, FAKE_TIME};
+use crate::util::{get_current_exe, get_exe, get_faketime_lib, LogOnDropChild, Test, FAKE_TIME};
 
 /// Convenience struct for running assertions on and communicating with a running instance of the program
 pub struct SpawnedProgram {
@@ -28,7 +28,14 @@ impl SpawnedProgram {
             Command::new(get_current_exe())
                 .envs(&test.env)
                 // setup faketime
-                .env("LD_PRELOAD", get_faketime_lib())
+                .env(
+                    "LD_PRELOAD",
+                    format!(
+                        "{}:{}",
+                        get_faketime_lib(),
+                        get_exe("libfs_hook.so").display()
+                    ),
+                )
                 .env("FAKETIME", format!("@{}", FAKE_TIME))
                 // setup logs
                 .env("RUST_LOG", "istat=trace")

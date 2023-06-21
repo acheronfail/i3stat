@@ -31,6 +31,7 @@ pub struct NetUsage {
     #[serde(with = "crate::human_time")]
     interval: Duration,
     minimum: Option<ByteSize>,
+    #[serde(default)]
     thresholds: Vec<ByteSize>,
     #[serde(default)]
     ignored_interfaces: Vec<String>,

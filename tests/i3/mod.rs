@@ -24,6 +24,7 @@ static DISPLAY_ID: AtomicUsize = AtomicUsize::new(10);
 
 const MAX_WAIT_TIME: Duration = Duration::new(5, 0);
 pub const TEST_CONFIG_STR: &str = "@@@@ TEST CONFIGURATION FILE @@@@";
+pub const SCREENSHOTS_DIR: &str = "screenshots";
 
 fn create_i3_conf(socket_path: impl AsRef<Path>, config_file: impl AsRef<Path>) -> String {
     format!(
@@ -37,9 +38,24 @@ ipc-socket {socket}
 
 bar {{
         font pango:IosevkaTerm Nerd Font 12
+        padding 0 0 0 0
         position top
         tray_output none
+        workspace_buttons yes
         status_command RUST_LOG=istat=trace {exe} --config {config}
+
+        colors {{
+            background #2e3440
+            statusline #d8dee9
+            separator  #4c566a
+
+            # colorclass       border  bg      text
+            focused_workspace  #81a1c1 #5e81ac #d8dee9
+            active_workspace   #4c566a #434c5e #d8dee9
+            inactive_workspace #3b4252 #2e3440 #7a869f
+            urgent_workspace   #d24b59 #bf616a #2e3440
+            binding_mode       #c67bb9 #b48ead #2e3440
+        }}
 }}
 "#,
         TEST_CONFIG_STR,
@@ -54,7 +70,7 @@ pub struct X11Test {
     _x_server: LogOnDropChild,
     _i3: LogOnDropChild,
     i3_socket: PathBuf,
-    screenshot_dir: PathBuf,
+    screenshot_file: PathBuf,
 }
 
 impl X11Test {
@@ -108,9 +124,17 @@ impl X11Test {
         let i3 = LogOnDropChild::log_all(
             Command::new("i3")
                 .envs(&test.env)
-                // setup faketime
-                .env("LD_PRELOAD", get_faketime_lib())
+                // setup faketime & our fs mocks
+                .env(
+                    "LD_PRELOAD",
+                    format!(
+                        "{}:{}",
+                        get_faketime_lib(),
+                        get_exe("libfs_hook.so").display()
+                    ),
+                )
                 .env("FAKETIME", format!("@{}", FAKE_TIME))
+                .env("FAKE_ROOT", &test.fake_root)
                 // setup logs
                 .env("RUST_LOG", "istat=trace")
                 // spawn in nested X server
@@ -133,13 +157,15 @@ impl X11Test {
         // wait for istat's socket to appear
         wait_for_file(&istat_socket, MAX_WAIT_TIME);
 
-        let screenshot_dir = PathBuf::from("screenshots").join(&test.name);
+        let screenshots_dir = PathBuf::from(SCREENSHOTS_DIR);
+        fs::create_dir_all(&screenshots_dir).unwrap();
+        let screenshot_file = screenshots_dir.join(&test.name);
         X11Test {
             x_display,
             _x_server: x_server,
             _i3: i3,
             i3_socket,
-            screenshot_dir,
+            screenshot_file,
         }
     }
 
@@ -210,14 +236,17 @@ impl X11Test {
     }
 
     pub fn screenshot(&self, bar_id: impl AsRef<str>) {
-        fs::create_dir_all(&self.screenshot_dir).unwrap();
-
         let (x, y, w, h) = self.i3_get_bar_position(&bar_id);
-        let file = self.screenshot_dir.join(format!("{}.png", bar_id.as_ref()));
+        let file = {
+            let p = self.screenshot_file.file_name().unwrap().to_str().unwrap();
+            self.screenshot_file
+                .with_file_name(format!("{}-{}.png", p, bar_id.as_ref()))
+        };
+
         self.cmd(format!(
             "{scrot} | {convert} > {file}",
             scrot = format!(
-                "scrot --autoselect {x},{y},{w},{h} --overwrite --file -",
+                "scrot --autoselect {x},{y},{w},{h} --file -",
                 x = x,
                 y = y,
                 w = w,

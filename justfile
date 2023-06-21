@@ -5,7 +5,7 @@ _default:
 
 # setup repository and install dev dependencies
 setup:
-  cd ./scripts/run && yarn
+  cd ./scripts/node && yarn
   if ! command -v cargo-lbuild >/dev/null 2>&1 /dev/null; then cargo install cargo-limit; fi
   if   command -v pacman       >/dev/null 2>&1 /dev/null; then sudo pacman -S --needed clang libfaketime libpulse i3-wm scrot xorg-server-xephyr xorg-server-xvfb yarn; fi
   if   command -v apt-get      >/dev/null 2>&1 /dev/null; then sudo apt-get install -y build-essential clang i3-wm libfaketime libiw-dev libpulse-dev libx11-dev scrot xserver-xephyr xvfb; fi
@@ -15,7 +15,7 @@ setup:
 
 # build the crate
 _build:
-  cargo lbuild --quiet
+  cargo lbuild --all --quiet
 
 # run `istat` in the terminal and interact with it
 dev *args: _build

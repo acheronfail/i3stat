@@ -1,0 +1,14 @@
+[package]
+name = "fs-hook"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "fs_hook"
+crate_type = ["dylib"]
+
+[dependencies]
+libc = "0.2.146"
+redhook = "2.0.0"
