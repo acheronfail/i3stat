@@ -132,6 +132,7 @@ impl X11Test {
                 )
                 .env("FAKETIME", format!("@{}", FAKE_TIME))
                 .env("FAKE_ROOT", &test.fake_root)
+                .env("FAKE_DIRS", "1")
                 // setup logs
                 .env("RUST_LOG", "istat=trace")
                 // spawn in nested X server

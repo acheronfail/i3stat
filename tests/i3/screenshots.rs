@@ -168,18 +168,35 @@ screenshot!(dunst, json!({ "type": "dunst" }));
 // screenshot!(bar, json!({}));
 
 // kbd -------------------------------------------------------------------------
-// TODO: mock for tests
 
 screenshot! {
     kbd,
     json!({
         "type": "kbd",
-        "show": ["caps_lock", "num_lock"]
+        "show": ["caps_lock", "num_lock", "scroll_lock"]
     }),
     [
         caps_on => {
-            // FIXME: need to be able to mock a read_dir request
-            // FIXME: or alternatively, be able to match a glob?
+            "/sys/class/leds/input0::capslock/brightness" => "1",
+            "/sys/class/leds/input0::numlock/brightness" => "0",
+            "/sys/class/leds/input0::scrolllock/brightness" => "0",
+        },
+        num_on => {
+            "/sys/class/leds/input0::capslock/brightness" => "0",
+            "/sys/class/leds/input0::numlock/brightness" => "1",
+            "/sys/class/leds/input0::scrolllock/brightness" => "0",
+        },
+        all_on => {
+            "/sys/class/leds/input0::capslock/brightness" => "1",
+            "/sys/class/leds/input0::numlock/brightness" => "1",
+            "/sys/class/leds/input0::scrolllock/brightness" => "1",
+        },
+        all_off => {
+            "/sys/class/leds/input0::capslock/brightness" => "0",
+            "/sys/class/leds/input0::numlock/brightness" => "0",
+            "/sys/class/leds/input0::scrolllock/brightness" => "0",
+        },
+        one_err => {
             "/sys/class/leds/input0::capslock/brightness" => "1",
             "/sys/class/leds/input0::numlock/brightness" => "0",
         }
