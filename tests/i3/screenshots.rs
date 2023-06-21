@@ -4,39 +4,50 @@ use crate::i3::X11Test;
 use crate::util::Test;
 
 // TODO: use these fake_root mocks in actual tests
+//  ie: re-use these in `spawn` tests and check json
 
 macro_rules! screenshot {
-    // shorthand for single case
-    ($test_name:ident, $item_json:expr) => {
-        screenshot!($test_name, $item_json, {});
-    };
-
     // batch case (many fake_root mocks)
     (
         $test_name:ident,
-        $item_json:expr,
-        [
-            $(
-                $case_name:ident => {
-                    $($fname:expr => $fdata:expr$(,)?)*
-                }$(,)?
-            )*
-        ]
+        $item_json:expr
+        $(,
+            [
+                $(
+                    $case_name:ident => {
+                        $(bin $bname:expr => $bdata:expr,)*
+                        $(r $fname:expr => $fdata:expr,)*
+                    }$(,)?
+                )+
+            ]
+        )+
     ) => {
         $(
-            paste::paste! {
-                screenshot!([<$test_name _ $case_name>], $item_json, {
-                    $($fname => $fdata)*
-                });
-            }
-        )*
+            $(
+                paste::paste! {
+                    screenshot!(
+                        [<$test_name _ $case_name>],
+                        $item_json,
+                        bins = {
+                            $($bname => $bdata)*
+                        },
+                        roots = {
+                            $($fname => $fdata)*
+                        }
+                    );
+                }
+            )*
+        )?
     };
 
     // single case
     (
         $test_name:ident,
         $item_json:expr,
-        {
+        bins = {
+            $($bname:expr => $bdata:expr$(,)?)*
+        },
+        roots = {
             $($fname:expr => $fdata:expr$(,)?)*
         }
     ) => {
@@ -53,6 +64,9 @@ macro_rules! screenshot {
                 json!({ "items": [obj, { "type": "raw", "full_text": "" }] })
             },
             |_test: &mut Test| {
+                $(
+                    _test.add_bin($bname, $bdata);
+                )*
                 $(
                     _test.add_fake_file($fname, $fdata);
                 )*
@@ -78,39 +92,39 @@ screenshot! {
     }),
     [
         at_100 => {
-            "/sys/class/power_supply/BAT0/charge_now" => "100",
-            "/sys/class/power_supply/BAT0/charge_full" => "100",
-            "/sys/class/power_supply/BAT0/status" => "Discharging",
+            r "/sys/class/power_supply/BAT0/charge_now" => "100",
+            r "/sys/class/power_supply/BAT0/charge_full" => "100",
+            r "/sys/class/power_supply/BAT0/status" => "Discharging",
         },
         at_60 => {
-            "/sys/class/power_supply/BAT0/charge_now" => "60",
-            "/sys/class/power_supply/BAT0/charge_full" => "100",
-            "/sys/class/power_supply/BAT0/status" => "Discharging",
+            r "/sys/class/power_supply/BAT0/charge_now" => "60",
+            r "/sys/class/power_supply/BAT0/charge_full" => "100",
+            r "/sys/class/power_supply/BAT0/status" => "Discharging",
         },
         at_40 => {
-            "/sys/class/power_supply/BAT0/charge_now" => "40",
-            "/sys/class/power_supply/BAT0/charge_full" => "100",
-            "/sys/class/power_supply/BAT0/status" => "Discharging",
+            r "/sys/class/power_supply/BAT0/charge_now" => "40",
+            r "/sys/class/power_supply/BAT0/charge_full" => "100",
+            r "/sys/class/power_supply/BAT0/status" => "Discharging",
         },
         at_20 => {
-            "/sys/class/power_supply/BAT0/charge_now" => "20",
-            "/sys/class/power_supply/BAT0/charge_full" => "100",
-            "/sys/class/power_supply/BAT0/status" => "Discharging",
+            r "/sys/class/power_supply/BAT0/charge_now" => "20",
+            r "/sys/class/power_supply/BAT0/charge_full" => "100",
+            r "/sys/class/power_supply/BAT0/status" => "Discharging",
         },
         at_5 => {
-            "/sys/class/power_supply/BAT0/charge_now" => "5",
-            "/sys/class/power_supply/BAT0/charge_full" => "100",
-            "/sys/class/power_supply/BAT0/status" => "Discharging",
+            r "/sys/class/power_supply/BAT0/charge_now" => "5",
+            r "/sys/class/power_supply/BAT0/charge_full" => "100",
+            r "/sys/class/power_supply/BAT0/status" => "Discharging",
         },
         charging => {
-            "/sys/class/power_supply/BAT0/charge_now" => "10",
-            "/sys/class/power_supply/BAT0/charge_full" => "100",
-            "/sys/class/power_supply/BAT0/status" => "Charging",
+            r "/sys/class/power_supply/BAT0/charge_now" => "10",
+            r "/sys/class/power_supply/BAT0/charge_full" => "100",
+            r "/sys/class/power_supply/BAT0/status" => "Charging",
         }
         full => {
-            "/sys/class/power_supply/BAT0/charge_now" => "100",
-            "/sys/class/power_supply/BAT0/charge_full" => "100",
-            "/sys/class/power_supply/BAT0/status" => "Full",
+            r "/sys/class/power_supply/BAT0/charge_now" => "100",
+            r "/sys/class/power_supply/BAT0/charge_full" => "100",
+            r "/sys/class/power_supply/BAT0/status" => "Full",
         }
     ]
 }
@@ -125,19 +139,20 @@ screenshot! {
     }),
     // /proc/stat's values are
     // cpu_id user nice system idle iowait irq softirq steal guest guest_nice
-    // for sysinfo's calculations, see: https://github.com/GuillaumeGomez/sysinfo/blob/master/src/linux/cpu.rs
+    // for sysinfo's calculations:
+    // see: https://github.com/GuillaumeGomez/sysinfo/blob/2fa03b052e92f4d8ce90e57c548b1732f848dbbd/src/linux/cpu.rs
     [
         at_0 => {
-            "/proc/stat" => "cpu  0 0 0 0 0 0 0 0 0 0",
+            r "/proc/stat" => "cpu  0 0 0 0 0 0 0 0 0 0",
         },
         at_50 => {
-            "/proc/stat" => "cpu  1 0 0 1 0 0 0 0 0 0",
+            r "/proc/stat" => "cpu  1 0 0 1 0 0 0 0 0 0",
         },
         at_67 => {
-            "/proc/stat" => "cpu  2 0 0 1 0 0 0 0 0 0",
+            r "/proc/stat" => "cpu  2 0 0 1 0 0 0 0 0 0",
         },
         at_100 => {
-            "/proc/stat" => "cpu  1 0 0 0 0 0 0 0 0 0",
+            r "/proc/stat" => "cpu  1 0 0 0 0 0 0 0 0 0",
         },
     ]
 }
@@ -152,6 +167,7 @@ screenshot! {
         "interval": "1s",
     }),
     [
+        todo => {}
         // TODO: first checks /proc/mounts, and then uses statvfs
         //  maybe add option to point to disk, and create virtual disk? rather than intercepting statvfs?
     ]
@@ -160,7 +176,7 @@ screenshot! {
 // dunst -----------------------------------------------------------------------
 // TODO: mock for tests
 
-screenshot!(dunst, json!({ "type": "dunst" }));
+screenshot!(dunst, json!({ "type": "dunst" }), [todo => {}]);
 
 // bar -------------------------------------------------------------------------
 // TODO: sample config ?
@@ -177,28 +193,28 @@ screenshot! {
     }),
     [
         caps_on => {
-            "/sys/class/leds/input0::capslock/brightness" => "1",
-            "/sys/class/leds/input0::numlock/brightness" => "0",
-            "/sys/class/leds/input0::scrolllock/brightness" => "0",
+            r "/sys/class/leds/input0::capslock/brightness" => "1",
+            r "/sys/class/leds/input0::numlock/brightness" => "0",
+            r "/sys/class/leds/input0::scrolllock/brightness" => "0",
         },
         num_on => {
-            "/sys/class/leds/input0::capslock/brightness" => "0",
-            "/sys/class/leds/input0::numlock/brightness" => "1",
-            "/sys/class/leds/input0::scrolllock/brightness" => "0",
+            r "/sys/class/leds/input0::capslock/brightness" => "0",
+            r "/sys/class/leds/input0::numlock/brightness" => "1",
+            r "/sys/class/leds/input0::scrolllock/brightness" => "0",
         },
         all_on => {
-            "/sys/class/leds/input0::capslock/brightness" => "1",
-            "/sys/class/leds/input0::numlock/brightness" => "1",
-            "/sys/class/leds/input0::scrolllock/brightness" => "1",
+            r "/sys/class/leds/input0::capslock/brightness" => "1",
+            r "/sys/class/leds/input0::numlock/brightness" => "1",
+            r "/sys/class/leds/input0::scrolllock/brightness" => "1",
         },
         all_off => {
-            "/sys/class/leds/input0::capslock/brightness" => "0",
-            "/sys/class/leds/input0::numlock/brightness" => "0",
-            "/sys/class/leds/input0::scrolllock/brightness" => "0",
+            r "/sys/class/leds/input0::capslock/brightness" => "0",
+            r "/sys/class/leds/input0::numlock/brightness" => "0",
+            r "/sys/class/leds/input0::scrolllock/brightness" => "0",
         },
         one_err => {
-            "/sys/class/leds/input0::capslock/brightness" => "1",
-            "/sys/class/leds/input0::numlock/brightness" => "0",
+            r "/sys/class/leds/input0::capslock/brightness" => "1",
+            r "/sys/class/leds/input0::numlock/brightness" => "0",
         }
     ]
 }
@@ -210,7 +226,15 @@ screenshot!(
     json!({
         "type": "krb",
         "interval": "1s",
-    })
+    }),
+    [
+        off => {
+            bin "klist" => "#!/usr/bin/env bash\nexit 0",
+        },
+        on => {
+            bin "klist" => "#!/usr/bin/env bash\nexit 1",
+        }
+    ]
 );
 
 // mem -------------------------------------------------------------------------
@@ -221,7 +245,76 @@ screenshot!(
     json!({
         "type": "mem",
         "interval": "1s",
-    })
+    }),
+    // for sysinfo calculations:
+    // see: https://github.com/GuillaumeGomez/sysinfo/blob/2fa03b052e92f4d8ce90e57c548b1732f848dbbd/src/linux/system.rs#L257
+    [
+        at_100 => {
+            r "/proc/meminfo" => r#"\
+MemTotal:      31250000 kB
+MemFree:              0 kB
+MemAvailable:  31250000 kB
+Buffers:              0 kB
+Cached:               0 kB
+Shmem:                0 kB
+SReclaimable:         0 kB
+SwapTotal:     31250000 kB
+SwapFree:      31250000 kB
+"#,
+        },
+        at_75 => {
+            r "/proc/meminfo" => r#"\
+MemTotal:      31250000 kB
+MemFree:              0 kB
+MemAvailable:  23437500 kB
+Buffers:              0 kB
+Cached:               0 kB
+Shmem:                0 kB
+SReclaimable:         0 kB
+SwapTotal:     31250000 kB
+SwapFree:      31250000 kB
+"#,
+        },
+        at_50 => {
+            r "/proc/meminfo" => r#"\
+MemTotal:      31250000 kB
+MemFree:              0 kB
+MemAvailable:  15625000 kB
+Buffers:              0 kB
+Cached:               0 kB
+Shmem:                0 kB
+SReclaimable:         0 kB
+SwapTotal:     31250000 kB
+SwapFree:      31250000 kB
+"#,
+        },
+        at_25 => {
+            r "/proc/meminfo" => r#"\
+MemTotal:      31250000 kB
+MemFree:              0 kB
+MemAvailable:   7812500 kB
+Buffers:              0 kB
+Cached:               0 kB
+Shmem:                0 kB
+SReclaimable:         0 kB
+SwapTotal:     31250000 kB
+SwapFree:      31250000 kB
+"#,
+        },
+        at_0 => {
+            r "/proc/meminfo" => r#"\
+MemTotal:      31250000 kB
+MemFree:              0 kB
+MemAvailable:         0 kB
+Buffers:              0 kB
+Cached:               0 kB
+Shmem:                0 kB
+SReclaimable:         0 kB
+SwapTotal:     31250000 kB
+SwapFree:     31250000 kB
+"#,
+        }
+    ]
 );
 
 // net_usage -------------------------------------------------------------------
@@ -233,18 +326,19 @@ screenshot!(
     json!({
         "type": "net_usage",
         "interval": "1s",
-    })
+    }),
+    [todo => {}]
 );
 
 // nic -------------------------------------------------------------------------
 // TODO: mock for tests
 
-screenshot!(nic, json!({ "type": "nic" }));
+screenshot!(nic, json!({ "type": "nic" }), [todo => {}]);
 
 // pulse -----------------------------------------------------------------------
 // TODO: mock for tests
 
-screenshot!(pulse, json!({ "type": "pulse" }));
+screenshot!(pulse, json!({ "type": "pulse" }), [todo => {}]);
 
 // raw -------------------------------------------------------------------------
 
@@ -254,7 +348,8 @@ screenshot!(
         "type": "raw",
         "full_text": "Hello, World!",
         "color": "#ff0000",
-    })
+    }),
+    [todo => {}]
 );
 
 // script ----------------------------------------------------------------------
@@ -265,7 +360,8 @@ screenshot!(
         "type": "script",
         "command": "echo -n hello",
         "output": "simple",
-    })
+    }),
+    [todo => {}]
 );
 
 // sensors ---------------------------------------------------------------------
@@ -278,7 +374,8 @@ screenshot!(
         "interval": "1s",
         // TODO: use istat-sensors and pick one
         "label": "coretemp Package id 0"
-    })
+    }),
+    [todo => {}]
 );
 
 // time ------------------------------------------------------------------------
@@ -290,5 +387,6 @@ screenshot!(
         "interval": "1 s",
         "format_long": "%Y-%m-%d %H:%M:%S",
         "format_short": "%H:%M"
-    })
+    }),
+    [todo => {}]
 );
