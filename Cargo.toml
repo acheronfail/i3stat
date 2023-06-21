@@ -1,6 +1,3 @@
-[workspace]
-members = ["tests/fs-hook"]
-
 [package]
 name = "istat"
 version = "0.5.0"
@@ -71,7 +68,7 @@ path = "tests/mod.rs"
 automod = "1.0.8"
 clap_mangen = "0.2.11"
 clap = { version = "4.2.7", features = ["derive"] }
-fs-hook = { path = "tests/fs-hook" }
+fakeroot = "0.1.0"
 rand = "0.8.5"
 timeout-readwrite = "0.3.3"
 xcb = { version = "1.2.1", features = ["xkb", "xtest"] }

@@ -33,6 +33,12 @@ pub fn get_faketime_lib() -> &'static str {
     panic!("failed to find libfaketime.so.1");
 }
 
+// fakeroot --------------------------------------------------------------------
+
+pub fn get_fakeroot_lib() -> String {
+    get_exe("libfakeroot.so").display().to_string()
+}
+
 // misc ------------------------------------------------------------------------
 
 fn get_exe_dir() -> PathBuf {

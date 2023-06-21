@@ -12,6 +12,7 @@ use crate::util::{
     find_object_containing,
     get_current_exe,
     get_exe,
+    get_fakeroot_lib,
     get_faketime_lib,
     wait_for_file,
     LogOnDropChild,
@@ -127,11 +128,7 @@ impl X11Test {
                 // setup faketime & our fs mocks
                 .env(
                     "LD_PRELOAD",
-                    format!(
-                        "{}:{}",
-                        get_faketime_lib(),
-                        get_exe("libfs_hook.so").display()
-                    ),
+                    format!("{}:{}", get_faketime_lib(), get_fakeroot_lib()),
                 )
                 .env("FAKETIME", format!("@{}", FAKE_TIME))
                 .env("FAKE_ROOT", &test.fake_root)
@@ -275,7 +272,7 @@ macro_rules! x_test {
             let mut test = crate::util::Test::new(stringify!($name), $config);
             $setup_fn(&mut test);
             let x_test = crate::i3::X11Test::new(&test);
-            // FIXME: if x_test is dropped here it'll break - make X11Test use a lifetime of Test
+            // FIXME: if test is dropped here it'll break - make X11Test use a lifetime of Test
             $test_fn(x_test);
         }
     };
