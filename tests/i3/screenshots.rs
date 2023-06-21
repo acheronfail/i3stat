@@ -1,5 +1,6 @@
 use serde_json::json;
 
+use crate::i3::MouseButton::*;
 use crate::i3::X11Test;
 use crate::util::Test;
 
@@ -17,6 +18,7 @@ macro_rules! screenshot {
                     $case_name:ident => {
                         $(bin $bname:expr => $bdata:expr,)*
                         $(r $fname:expr => $fdata:expr,)*
+                        $(($extra:expr))?
                     }$(,)?
                 )+
             ]
@@ -34,6 +36,7 @@ macro_rules! screenshot {
                         roots = {
                             $($fname => $fdata)*
                         }
+                        $(, $extra)?
                     );
                 }
             )*
@@ -50,6 +53,7 @@ macro_rules! screenshot {
         roots = {
             $($fname:expr => $fdata:expr$(,)?)*
         }
+        $(, $extra:expr)?
     ) => {
         x_test!(
             $test_name,
@@ -72,6 +76,7 @@ macro_rules! screenshot {
                 )*
             },
             |x_test: X11Test| {
+                $($extra(&x_test);)?
                 x_test.screenshot("bar-0");
             }
         );
@@ -238,7 +243,23 @@ screenshot!(
 );
 
 // mem -------------------------------------------------------------------------
-// TODO: mock for tests
+
+fn mem(total: u64, available: u64) -> String {
+    format!(
+        r#"\
+MemTotal:       {total} kB
+MemFree:              0 kB
+MemAvailable:   {available} kB
+Buffers:              0 kB
+Cached:               0 kB
+Shmem:                0 kB
+SReclaimable:         0 kB
+SwapTotal:      {total} kB
+SwapFree:       {total} kB"#,
+        total = total,
+        available = available
+    )
+}
 
 screenshot!(
     mem,
@@ -249,71 +270,32 @@ screenshot!(
     // for sysinfo calculations:
     // see: https://github.com/GuillaumeGomez/sysinfo/blob/2fa03b052e92f4d8ce90e57c548b1732f848dbbd/src/linux/system.rs#L257
     [
-        at_100 => {
-            r "/proc/meminfo" => r#"\
-MemTotal:      31250000 kB
-MemFree:              0 kB
-MemAvailable:  31250000 kB
-Buffers:              0 kB
-Cached:               0 kB
-Shmem:                0 kB
-SReclaimable:         0 kB
-SwapTotal:     31250000 kB
-SwapFree:      31250000 kB
-"#,
-        },
-        at_75 => {
-            r "/proc/meminfo" => r#"\
-MemTotal:      31250000 kB
-MemFree:              0 kB
-MemAvailable:  23437500 kB
-Buffers:              0 kB
-Cached:               0 kB
-Shmem:                0 kB
-SReclaimable:         0 kB
-SwapTotal:     31250000 kB
-SwapFree:      31250000 kB
-"#,
-        },
-        at_50 => {
-            r "/proc/meminfo" => r#"\
-MemTotal:      31250000 kB
-MemFree:              0 kB
-MemAvailable:  15625000 kB
-Buffers:              0 kB
-Cached:               0 kB
-Shmem:                0 kB
-SReclaimable:         0 kB
-SwapTotal:     31250000 kB
-SwapFree:      31250000 kB
-"#,
+        free_100 => { r "/proc/meminfo" => mem(31250000, 31250000), },
+        free_75 => { r "/proc/meminfo" => mem(31250000, 23437500), },
+        free_50 => { r "/proc/meminfo" => mem(31250000, 15625000), },
+        free_25 => { r "/proc/meminfo" => mem(31250000, 7812500), },
+        free_0 => { r "/proc/meminfo" => mem(31250000, 0), },
+
+        at_0 => {
+            r "/proc/meminfo" => mem(31250000, 31250000),
+            (|test: &X11Test| test.click_bar(Left, -20))
         },
         at_25 => {
-            r "/proc/meminfo" => r#"\
-MemTotal:      31250000 kB
-MemFree:              0 kB
-MemAvailable:   7812500 kB
-Buffers:              0 kB
-Cached:               0 kB
-Shmem:                0 kB
-SReclaimable:         0 kB
-SwapTotal:     31250000 kB
-SwapFree:      31250000 kB
-"#,
+            r "/proc/meminfo" => mem(31250000, 23437500),
+            (|test: &X11Test| test.click_bar(Left, -20))
         },
-        at_0 => {
-            r "/proc/meminfo" => r#"\
-MemTotal:      31250000 kB
-MemFree:              0 kB
-MemAvailable:         0 kB
-Buffers:              0 kB
-Cached:               0 kB
-Shmem:                0 kB
-SReclaimable:         0 kB
-SwapTotal:     31250000 kB
-SwapFree:     31250000 kB
-"#,
-        }
+        at_50 => {
+            r "/proc/meminfo" => mem(31250000, 15625000),
+            (|test: &X11Test| test.click_bar(Left, -20))
+        },
+        at_75 => {
+            r "/proc/meminfo" => mem(31250000, 7812500),
+            (|test: &X11Test| test.click_bar(Left, -20))
+        },
+        at_100 => {
+            r "/proc/meminfo" => mem(31250000, 0),
+            (|test: &X11Test| test.click_bar(Left, -20))
+         }
     ]
 );
 

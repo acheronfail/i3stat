@@ -233,6 +233,16 @@ impl X11Test {
         x_click(&self.x_display, button, x, y)
     }
 
+    /// `x` is relative - if it's `> 0` it's from the left of the bar, if it's `< 0` it's from the right.
+    pub fn click_bar(&self, button: MouseButton, x: i16) {
+        let (_, y, w, _) = self.i3_get_bar_position("bar-0");
+        if x < 0 {
+            self.click(button, x + w as i16, y);
+        } else {
+            self.click(button, x, y);
+        }
+    }
+
     pub fn screenshot(&self, bar_id: impl AsRef<str>) {
         let (x, y, w, h) = self.i3_get_bar_position(&bar_id);
         let file = {
