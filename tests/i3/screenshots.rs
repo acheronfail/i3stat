@@ -6,13 +6,42 @@ use crate::util::Test;
 // TODO: use these fake_root mocks in actual tests
 
 macro_rules! screenshot {
-    ($name:ident, $item_json:expr) => {
-        screenshot!($name, $item_json, {});
+    // shorthand for single case
+    ($test_name:ident, $item_json:expr) => {
+        screenshot!($test_name, $item_json, {});
     };
 
-    ($name:ident, $item_json:expr, {$($fname:expr => $fdata:expr$(,)?)*}) => {
+    // batch case (many fake_root mocks)
+    (
+        $test_name:ident,
+        $item_json:expr,
+        [
+            $(
+                $case_name:ident => {
+                    $($fname:expr => $fdata:expr$(,)?)*
+                }$(,)?
+            )*
+        ]
+    ) => {
+        $(
+            paste::paste! {
+                screenshot!([<$test_name _ $case_name>], $item_json, {
+                    $($fname => $fdata)*
+                });
+            }
+        )*
+    };
+
+    // single case
+    (
+        $test_name:ident,
+        $item_json:expr,
+        {
+            $($fname:expr => $fdata:expr$(,)?)*
+        }
+    ) => {
         x_test!(
-            $name,
+            $test_name,
             {
                 // disable separator
                 let mut obj = $item_json;
@@ -32,47 +61,101 @@ macro_rules! screenshot {
                 x_test.screenshot("bar-0");
             }
         );
-    }
+    };
 }
 
 // battery ---------------------------------------------------------------------
-// TODO: different states
 
 screenshot! {
     battery,
     json!({
         "type": "battery",
-        "interval": "1s"
+        "interval": "1s",
+        "batteries": [
+            "/sys/class/power_supply/BAT0",
+            "/sys/class/power_supply/BAT0"
+        ],
     }),
-    // fake root setup
-    {
-        "/sys/class/power_supply/BAT0/charge_now" => "7393000",
-        "/sys/class/power_supply/BAT0/charge_full" => "7393000",
-        "/sys/class/power_supply/BAT0/status" => "Charging",
-    }
+    [
+        at_100 => {
+            "/sys/class/power_supply/BAT0/charge_now" => "100",
+            "/sys/class/power_supply/BAT0/charge_full" => "100",
+            "/sys/class/power_supply/BAT0/status" => "Discharging",
+        },
+        at_60 => {
+            "/sys/class/power_supply/BAT0/charge_now" => "60",
+            "/sys/class/power_supply/BAT0/charge_full" => "100",
+            "/sys/class/power_supply/BAT0/status" => "Discharging",
+        },
+        at_40 => {
+            "/sys/class/power_supply/BAT0/charge_now" => "40",
+            "/sys/class/power_supply/BAT0/charge_full" => "100",
+            "/sys/class/power_supply/BAT0/status" => "Discharging",
+        },
+        at_20 => {
+            "/sys/class/power_supply/BAT0/charge_now" => "20",
+            "/sys/class/power_supply/BAT0/charge_full" => "100",
+            "/sys/class/power_supply/BAT0/status" => "Discharging",
+        },
+        at_5 => {
+            "/sys/class/power_supply/BAT0/charge_now" => "5",
+            "/sys/class/power_supply/BAT0/charge_full" => "100",
+            "/sys/class/power_supply/BAT0/status" => "Discharging",
+        },
+        charging => {
+            "/sys/class/power_supply/BAT0/charge_now" => "10",
+            "/sys/class/power_supply/BAT0/charge_full" => "100",
+            "/sys/class/power_supply/BAT0/status" => "Charging",
+        }
+        full => {
+            "/sys/class/power_supply/BAT0/charge_now" => "100",
+            "/sys/class/power_supply/BAT0/charge_full" => "100",
+            "/sys/class/power_supply/BAT0/status" => "Full",
+        }
+    ]
 }
 
 // cpu -------------------------------------------------------------------------
-// TODO: mock for tests
 
-screenshot!(
+screenshot! {
     cpu,
     json!({
         "type": "cpu",
-        "interval": "1s"
-    })
-);
+        "interval": "1s",
+    }),
+    // /proc/stat's values are
+    // cpu_id user nice system idle iowait irq softirq steal guest guest_nice
+    // for sysinfo's calculations, see: https://github.com/GuillaumeGomez/sysinfo/blob/master/src/linux/cpu.rs
+    [
+        at_0 => {
+            "/proc/stat" => "cpu  0 0 0 0 0 0 0 0 0 0",
+        },
+        at_50 => {
+            "/proc/stat" => "cpu  1 0 0 1 0 0 0 0 0 0",
+        },
+        at_67 => {
+            "/proc/stat" => "cpu  2 0 0 1 0 0 0 0 0 0",
+        },
+        at_100 => {
+            "/proc/stat" => "cpu  1 0 0 0 0 0 0 0 0 0",
+        },
+    ]
+}
 
 // disk ------------------------------------------------------------------------
 // TODO: mock for tests
 
-screenshot!(
+screenshot! {
     disk,
     json!({
         "type": "disk",
-        "interval": "1s"
-    })
-);
+        "interval": "1s",
+    }),
+    [
+        // TODO: first checks /proc/mounts, and then uses statvfs
+        //  maybe add option to point to disk, and create virtual disk? rather than intercepting statvfs?
+    ]
+}
 
 // dunst -----------------------------------------------------------------------
 // TODO: mock for tests
@@ -87,13 +170,21 @@ screenshot!(dunst, json!({ "type": "dunst" }));
 // kbd -------------------------------------------------------------------------
 // TODO: mock for tests
 
-screenshot!(
+screenshot! {
     kbd,
     json!({
         "type": "kbd",
         "show": ["caps_lock", "num_lock"]
-    })
-);
+    }),
+    [
+        caps_on => {
+            // FIXME: need to be able to mock a read_dir request
+            // FIXME: or alternatively, be able to match a glob?
+            "/sys/class/leds/input0::capslock/brightness" => "1",
+            "/sys/class/leds/input0::numlock/brightness" => "0",
+        }
+    ]
+}
 
 // krb -------------------------------------------------------------------------
 

@@ -236,8 +236,8 @@ impl X11Test {
         let (x, y, w, h) = self.i3_get_bar_position(&bar_id);
         let file = {
             let p = self.screenshot_file.file_name().unwrap().to_str().unwrap();
-            self.screenshot_file
-                .with_file_name(format!("{}-{}.png", p, bar_id.as_ref()))
+            let name = format!("{}.png", p);
+            self.screenshot_file.with_file_name(name)
         };
 
         self.cmd(format!(
