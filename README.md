@@ -21,13 +21,15 @@ So, I decided to write my own `status_command` generator, and what better langua
 
 ## Features
 
-* completely single threaded
-  * less resource usage - it's a status command, it shouldn't be heavy
-* ipc control
-  * send click events via a command
-  * refresh items with a command
-  * custom events for some integrations (e.g., controlling PulseAudio, etc)
-* many different bar items (continue reading for screenshots)
+* ⚡ completely single threaded (less resource usage)
+  * 🔎 it's a status command, it shouldn't be heavy
+* ⏩ powerline theming and customisability
+* 🎮 ipc control
+  * 🖱️ send click events via a command
+  * ♻️ refresh items with a command
+  * 📜 custom events for some integrations (e.g., controlling PulseAudio/PipeWire, etc)
+  * 🤯 runtime updates - no restart required
+* 🖇️ many different bar items (continue reading for screenshots)
 
 Each bar item is configurable, see [the sample config](./sample_config.toml) for options.
 
@@ -37,23 +39,28 @@ Here's an image of a bar in i3:
 
 ![screenshot of i3bar](./.github/assets/full.png)
 
+And another one which `powerline` mode set:
+
+![screenshot of i3bar with powerline](./.github/assets/full-powerline.png)
+
 This table contains screenshots of some bar items:
 
-| item        | description                                                    | screenshots                                                                                                                                                                                   |
-| ----------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `battery`   | Percentage, charging, etc. Supports multiple batteries.        | ![](./.github/assets/battery_1.png) ![](./.github/assets/battery_2.png) ![](./.github/assets/battery_3.png) ![](./.github/assets/battery_4.png) ![](./.github/assets/battery_5.png)           |
-| `cpu`       | Usage expressed as a percentage                                | ![](./.github/assets/cpu_1.png) ![](./.github/assets/cpu_2.png) ![](./.github/assets/cpu_3.png) ![](./.github/assets/cpu_4.png) ![](./.github/assets/cpu_5.png)                               |
-| `disk`      | Usage, shows free disk space                                   | ![](./.github/assets/disk_1.png) ![](./.github/assets/disk_2.png)                                                                                                                             |
-| `dunst`     | Displays "do not disturb" status (if it's paused or not)       | ![](./.github/assets/dunst_1.png)                                                                                                                                                             |
-| `kbd`       | Displays CapsLock/Numlock/etc states                           | ![](./.github/assets/kbd_1.png) ![](./.github/assets/kbd_2.png)                                                                                                                               |
-| `krb`       | Checks if a valid kerberos token exists (like `klist -s`)      | ![](./.github/assets/krb_1.png) ![](./.github/assets/krb_2.png)                                                                                                                               |
-| `mem`       | Display free memory as bytes or as a percentage                | ![](./.github/assets/mem_1.png) ![](./.github/assets/mem_2.png) ![](./.github/assets/mem_3.png) ![](./.github/assets/mem_4.png)                                                               |
-| `net_speed` | Upload and download statistics                                 | ![](./.github/assets/net_speed_1.png) ![](./.github/assets/net_speed_2.png) ![](./.github/assets/net_speed_3.png) ![](./.github/assets/net_speed_4.png) ![](./.github/assets/net_speed_5.png) |
-| `nic`       | Network interface status - connection state and ip addresses   | ![](./.github/assets/nic_1.png) ![](./.github/assets/nic_2.png) ![](./.github/assets/nic_3.png)                                                                                               |
-| `pulse`     | Input/output volume status, control and connected speaker type | ![](./.github/assets/pulse_1.png) ![](./.github/assets/pulse_2.png) ![](./.github/assets/pulse_3.png) ![](./.github/assets/pulse_4.png)                                                       |
-| `script`    | Run arbitrary scripts and show their output                    | ![](./.github/assets/script_1.png)                                                                                                                                                            |
-| `sensors`   | Temperature sensors                                            | ![](./.github/assets/sensors_1.png) ![](./.github/assets/sensors_2.png) ![](./.github/assets/sensors_3.png)                                                                                   |
-| `time`      | Displays the current date and/or time                          | ![](./.github/assets/time_1.png)                                                                                                                                                              |
+| item        | description                                                                       | screenshots                                                                                                                                                                                                                                                                                      |
+| ----------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `battery`   | Percentage, charging, etc. Supports multiple batteries.                           | ![](./.github/assets/battery_at_5.png) ![](./.github/assets/battery_at_20.png) ![](./.github/assets/battery_at_40.png) ![](./.github/assets/battery_at_60.png) ![](./.github/assets/battery_at_100.png) ![](./.github/assets/battery_charging.png) ![](./.github/assets/battery_full.png)        |
+| `cpu`       | Usage expressed as a percentage                                                   | ![](./.github/assets/cpu_at_0.png) ![](./.github/assets/cpu_at_50.png) ![](./.github/assets/cpu_at_67.png) ![](./.github/assets/cpu_at_100.png)                                                                                                                                                  |
+| `disk`      | Usage, shows free disk space. Supports multiple mount points.                     | ![](./.github/assets/disk_default.png)                                                                                                                                                                                                                                                           |
+| `dunst`     | Displays "do not disturb" status (if it's paused or not)                          | ![](./.github/assets/dunst_on.png) ![off (invisible)](./.github/assets/dunst_off.png)                                                                                                                                                                                                            |
+| `kbd`       | Displays CapsLock/Numlock/etc states                                              | ![](./.github/assets/kbd_all_off.png) ![](./.github/assets/kbd_all_on.png) ![](./.github/assets/kbd_caps_on.png) ![](./.github/assets/kbd_num_on.png)                                                                                                                                            |
+| `krb`       | Checks if a valid kerberos token exists (like `klist -s`)                         | ![](./.github/assets/krb_off.png) ![](./.github/assets/krb_on.png)                                                                                                                                                                                                                               |
+| `mem`       | Display free memory as bytes or as a percentage                                   | ![](./.github/assets/mem_at_100.png) ![](./.github/assets/mem_at_75.png) ![](./.github/assets/mem_free_50.png) ![](./.github/assets/mem_free_100.png)                                                                                                                                            |
+| `net_usage` | Upload and download statistics                                                    | ![](./.github/assets/net_usage_no_traffic.png) ![](./.github/assets/net_usage_threshold_1.png) ![](./.github/assets/net_usage_threshold_2.png) ![](./.github/assets/net_usage_threshold_3.png) ![](./.github/assets/net_usage_threshold_4.png) ![](./.github/assets/net_usage_threshold_max.png) |
+| `nic`       | Network interface status - connection state and ip addresses                      | ![](./.github/assets/nic_default.png)                                                                                                                                                                                                                                                            |
+| `pulse`     | Input/output volume status, full control and current speaker type (jack, bt, etc) | ![](./.github/assets/pulse_default.png)                                                                                                                                                                                                                                                          |
+| `script`    | Run arbitrary scripts and show their output                                       | ![](./.github/assets/script_default.png)                                                                                                                                                                                                                                                         |
+| `sensors`   | Temperature sensors                                                               | ![](./.github/assets/sensors_at_50.png) ![](./.github/assets/sensors_at_70.png) ![](./.github/assets/sensors_at_80.png) ![](./.github/assets/sensors_at_100.png)                                                                                                                                 |
+| `time`      | Displays the current date and/or time                                             | ![](./.github/assets/time_default.png)                                                                                                                                                                                                                                                           |
+
 
 
 ## Install
@@ -178,3 +185,5 @@ istat-ipc custom pulse mute-toggle sink
 ## Development
 
 See the [justfile](./justfile)!
+
+Also give [IDEAS.md](./IDEAS.md) a read too.

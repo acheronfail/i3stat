@@ -262,10 +262,10 @@ screenshot!(
         "interval": "1s",
     }),
     {
-        off: {
+        on: {
             bins => { "klist": "#!/usr/bin/env bash\nexit 0" };
         },
-        on: {
+        off: {
             bins => { "klist": "#!/usr/bin/env bash\nexit 1" };
         }
     }
@@ -452,8 +452,7 @@ screenshot!(
         "type": "script",
         "command": "echo -n hello",
         "output": "simple",
-    }),
-    {todo: {}}
+    })
 );
 
 // sensors ---------------------------------------------------------------------
