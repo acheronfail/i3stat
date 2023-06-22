@@ -3,9 +3,6 @@ use serde_json::json;
 use crate::i3::X11Test;
 use crate::util::Test;
 
-// TODO: use these fake_root mocks in actual tests
-//  ie: re-use these in `spawn` tests and check json
-
 macro_rules! screenshot {
     // shorthand when mocks aren't needed
     (
@@ -23,9 +20,10 @@ macro_rules! screenshot {
             {
                 $(
                     $case_name:ident: {
-                        $(bin => $bname:literal: $bdata:expr,)*
-                        $(file => $fname:literal: $fdata:expr,)*
-                        $(fn => $extra:expr)?
+                        $(bins => {$($bname:literal: $bdata:expr$(,)?)*};)?
+                        $(files => {$($fname:literal: $fdata:expr$(,)?)*};)?
+                        $(setup_fn => $setup_fn:expr;)?
+                        $(test_fn => $test_fn:expr;)?
                     }$(,)?
                 )+
             }
@@ -38,12 +36,13 @@ macro_rules! screenshot {
                         [<$test_name _ $case_name>],
                         $item_json,
                         bins = {
-                            $($bname => $bdata)*
+                            $($($bname => $bdata)*)?
                         },
                         roots = {
-                            $($fname => $fdata)*
+                            $($($fname => $fdata)*)?
                         }
-                        $(, $extra)?
+                        $(, setup_fn => $setup_fn)?
+                        $(, test_fn => $test_fn)?
                     );
                 }
             )*
@@ -60,7 +59,8 @@ macro_rules! screenshot {
         roots = {
             $($fname:expr => $fdata:expr$(,)?)*
         }
-        $(, $extra:expr)?
+        $(, setup_fn => $setup_fn:expr)?
+        $(, test_fn => $test_fn:expr)?
     ) => {
         x_test!(
             $test_name,
@@ -75,6 +75,7 @@ macro_rules! screenshot {
                 json!({ "items": [obj, { "type": "raw", "full_text": "" }] })
             },
             |_test: &mut Test| {
+                $($setup_fn(&_test);)?
                 $(
                     _test.add_bin($bname, $bdata);
                 )*
@@ -83,7 +84,7 @@ macro_rules! screenshot {
                 )*
             },
             |x_test: X11Test| {
-                $($extra(&x_test);)?
+                $($test_fn(&x_test);)?
                 x_test.screenshot("bar-0");
             }
         );
@@ -104,39 +105,53 @@ screenshot! {
     }),
     {
         at_100: {
-            file => "/sys/class/power_supply/BAT0/charge_now": "100",
-            file => "/sys/class/power_supply/BAT0/charge_full": "100",
-            file => "/sys/class/power_supply/BAT0/status": "Discharging",
+            files => {
+                "/sys/class/power_supply/BAT0/charge_now": "100",
+                "/sys/class/power_supply/BAT0/charge_full": "100",
+                "/sys/class/power_supply/BAT0/status": "Discharging",
+            };
         },
         at_60: {
-            file => "/sys/class/power_supply/BAT0/charge_now": "60",
-            file => "/sys/class/power_supply/BAT0/charge_full": "100",
-            file => "/sys/class/power_supply/BAT0/status": "Discharging",
+            files => {
+                "/sys/class/power_supply/BAT0/charge_now": "60",
+                "/sys/class/power_supply/BAT0/charge_full": "100",
+                "/sys/class/power_supply/BAT0/status": "Discharging",
+            };
         },
         at_40: {
-            file => "/sys/class/power_supply/BAT0/charge_now": "40",
-            file => "/sys/class/power_supply/BAT0/charge_full": "100",
-            file => "/sys/class/power_supply/BAT0/status": "Discharging",
+            files => {
+                "/sys/class/power_supply/BAT0/charge_now": "40",
+                "/sys/class/power_supply/BAT0/charge_full": "100",
+                "/sys/class/power_supply/BAT0/status": "Discharging",
+            };
         },
         at_20: {
-            file => "/sys/class/power_supply/BAT0/charge_now": "20",
-            file => "/sys/class/power_supply/BAT0/charge_full": "100",
-            file => "/sys/class/power_supply/BAT0/status": "Discharging",
+            files => {
+                "/sys/class/power_supply/BAT0/charge_now": "20",
+                "/sys/class/power_supply/BAT0/charge_full": "100",
+                "/sys/class/power_supply/BAT0/status": "Discharging",
+            };
         },
         at_5: {
-            file => "/sys/class/power_supply/BAT0/charge_now": "5",
-            file => "/sys/class/power_supply/BAT0/charge_full": "100",
-            file => "/sys/class/power_supply/BAT0/status": "Discharging",
+            files => {
+                "/sys/class/power_supply/BAT0/charge_now": "5",
+                "/sys/class/power_supply/BAT0/charge_full": "100",
+                "/sys/class/power_supply/BAT0/status": "Discharging",
+            };
         },
         charging: {
-            file => "/sys/class/power_supply/BAT0/charge_now": "10",
-            file => "/sys/class/power_supply/BAT0/charge_full": "100",
-            file => "/sys/class/power_supply/BAT0/status": "Charging",
+            files => {
+                "/sys/class/power_supply/BAT0/charge_now": "10",
+                "/sys/class/power_supply/BAT0/charge_full": "100",
+                "/sys/class/power_supply/BAT0/status": "Charging",
+            };
         }
         full: {
-            file => "/sys/class/power_supply/BAT0/charge_now": "100",
-            file => "/sys/class/power_supply/BAT0/charge_full": "100",
-            file => "/sys/class/power_supply/BAT0/status": "Full",
+            files => {
+                "/sys/class/power_supply/BAT0/charge_now": "100",
+                "/sys/class/power_supply/BAT0/charge_full": "100",
+                "/sys/class/power_supply/BAT0/status": "Full",
+            };
         }
     }
 }
@@ -155,34 +170,30 @@ screenshot! {
     // see: https://github.com/GuillaumeGomez/sysinfo/blob/2fa03b052e92f4d8ce90e57c548b1732f848dbbd/src/linux/cpu.rs
     {
         at_0: {
-            file => "/proc/stat": "cpu  0 0 0 0 0 0 0 0 0 0",
+            files => { "/proc/stat": "cpu  0 0 0 0 0 0 0 0 0 0" };
         },
         at_50: {
-            file => "/proc/stat": "cpu  1 0 0 1 0 0 0 0 0 0",
+            files => { "/proc/stat": "cpu  1 0 0 1 0 0 0 0 0 0" };
         },
         at_67: {
-            file => "/proc/stat": "cpu  2 0 0 1 0 0 0 0 0 0",
+            files => { "/proc/stat": "cpu  2 0 0 1 0 0 0 0 0 0" };
         },
         at_100: {
-            file => "/proc/stat": "cpu  1 0 0 0 0 0 0 0 0 0",
+            files => { "/proc/stat": "cpu  1 0 0 0 0 0 0 0 0 0" };
         },
     }
 }
 
 // disk ------------------------------------------------------------------------
-// TODO: mock for tests
 
+// NOTE: this one is difficult to mock, since it first reads `/proc/mount` and then
+// proceeds to call `statvfs` to get filesystem information.
 screenshot! {
     disk,
     json!({
         "type": "disk",
         "interval": "1s",
-    }),
-    {
-        todo: {}
-        // TODO: first checks /proc/mounts, and then uses statvfs
-        //  maybe add option to point to disk, and create virtual disk? rather than intercepting statvfs?
-    }
+    })
 }
 
 // dunst -----------------------------------------------------------------------
@@ -192,16 +203,9 @@ screenshot!(
     json!({ "type": "dunst" }),
     {
         off: {},
-        on: { fn => |t: &X11Test| t.i3_msg("exec 'dunstctl set-paused true'") }
+        on: { test_fn => |t: &X11Test| t.i3_msg("exec 'dunstctl set-paused true'"); }
     }
 );
-
-// bar -------------------------------------------------------------------------
-// TODO: sample config ?
-// TODO: powerline examples ?
-//  will need to change screenshot size
-
-// screenshot!(bar, json!({}));
 
 // kbd -------------------------------------------------------------------------
 
@@ -213,28 +217,38 @@ screenshot! {
     }),
     {
         caps_on: {
-            file => "/sys/class/leds/input0::capslock/brightness": "1",
-            file => "/sys/class/leds/input0::numlock/brightness": "0",
-            file => "/sys/class/leds/input0::scrolllock/brightness": "0",
+            files => {
+                "/sys/class/leds/input0::capslock/brightness": "1",
+                "/sys/class/leds/input0::numlock/brightness": "0",
+                "/sys/class/leds/input0::scrolllock/brightness": "0",
+            };
         },
         num_on: {
-            file => "/sys/class/leds/input0::capslock/brightness": "0",
-            file => "/sys/class/leds/input0::numlock/brightness": "1",
-            file => "/sys/class/leds/input0::scrolllock/brightness": "0",
+            files => {
+                "/sys/class/leds/input0::capslock/brightness": "0",
+                "/sys/class/leds/input0::numlock/brightness": "1",
+                "/sys/class/leds/input0::scrolllock/brightness": "0",
+            };
         },
         all_on: {
-            file => "/sys/class/leds/input0::capslock/brightness": "1",
-            file => "/sys/class/leds/input0::numlock/brightness": "1",
-            file => "/sys/class/leds/input0::scrolllock/brightness": "1",
+            files => {
+                "/sys/class/leds/input0::capslock/brightness": "1",
+                "/sys/class/leds/input0::numlock/brightness": "1",
+                "/sys/class/leds/input0::scrolllock/brightness": "1",
+            };
         },
         all_off: {
-            file => "/sys/class/leds/input0::capslock/brightness": "0",
-            file => "/sys/class/leds/input0::numlock/brightness": "0",
-            file => "/sys/class/leds/input0::scrolllock/brightness": "0",
+            files => {
+                "/sys/class/leds/input0::capslock/brightness": "0",
+                "/sys/class/leds/input0::numlock/brightness": "0",
+                "/sys/class/leds/input0::scrolllock/brightness": "0",
+            };
         },
         one_err: {
-            file => "/sys/class/leds/input0::capslock/brightness": "1",
-            file => "/sys/class/leds/input0::numlock/brightness": "0",
+            files => {
+                "/sys/class/leds/input0::capslock/brightness": "1",
+                "/sys/class/leds/input0::numlock/brightness": "0",
+            };
         }
     }
 }
@@ -249,10 +263,10 @@ screenshot!(
     }),
     {
         off: {
-            bin => "klist": "#!/usr/bin/env bash\nexit 0",
+            bins => { "klist": "#!/usr/bin/env bash\nexit 0" };
         },
         on: {
-            bin => "klist": "#!/usr/bin/env bash\nexit 1",
+            bins => { "klist": "#!/usr/bin/env bash\nexit 1" };
         }
     }
 );
@@ -285,31 +299,31 @@ screenshot!(
     // for sysinfo calculations:
     // see: https://github.com/GuillaumeGomez/sysinfo/blob/2fa03b052e92f4d8ce90e57c548b1732f848dbbd/src/linux/system.rs#L257
     {
-        free_100: { file => "/proc/meminfo": mem(31250000, 31250000), },
-        free_75: { file => "/proc/meminfo": mem(31250000, 23437500), },
-        free_50: { file => "/proc/meminfo": mem(31250000, 15625000), },
-        free_25: { file => "/proc/meminfo": mem(31250000, 7812500), },
-        free_0: { file => "/proc/meminfo": mem(31250000, 0), },
+        free_100: { files => { "/proc/meminfo": mem(31250000, 31250000) }; },
+        free_75: { files => { "/proc/meminfo": mem(31250000, 23437500) }; },
+        free_50: { files => { "/proc/meminfo": mem(31250000, 15625000) }; },
+        free_25: { files => { "/proc/meminfo": mem(31250000, 7812500) }; },
+        free_0: { files => { "/proc/meminfo": mem(31250000, 0) }; },
 
         at_0: {
-            file => "/proc/meminfo": mem(31250000, 31250000),
-            fn => |test: &X11Test| test.istat_ipc("click mem left")
+            files => { "/proc/meminfo": mem(31250000, 31250000) };
+            test_fn => |test: &X11Test| test.istat_ipc("click mem left");
         },
         at_25: {
-            file => "/proc/meminfo": mem(31250000, 23437500),
-            fn => |test: &X11Test| test.istat_ipc("click mem left")
+            files => { "/proc/meminfo": mem(31250000, 23437500) };
+            test_fn => |test: &X11Test| test.istat_ipc("click mem left");
         },
         at_50: {
-            file => "/proc/meminfo": mem(31250000, 15625000),
-            fn => |test: &X11Test| test.istat_ipc("click mem left")
+            files => { "/proc/meminfo": mem(31250000, 15625000) };
+            test_fn => |test: &X11Test| test.istat_ipc("click mem left");
         },
         at_75: {
-            file => "/proc/meminfo": mem(31250000, 7812500),
-            fn => |test: &X11Test| test.istat_ipc("click mem left")
+            files => { "/proc/meminfo": mem(31250000, 7812500) };
+            test_fn => |test: &X11Test| test.istat_ipc("click mem left");
         },
         at_100: {
-            file => "/proc/meminfo": mem(31250000, 0),
-            fn => |test: &X11Test| test.istat_ipc("click mem left")
+            files => { "/proc/meminfo": mem(31250000, 0) };
+            test_fn => |test: &X11Test| test.istat_ipc("click mem left");
          }
     }
 );
@@ -332,74 +346,89 @@ screenshot!(
     // https://github.com/GuillaumeGomez/sysinfo/blob/2fa03b052e92f4d8ce90e57c548b1732f848dbbd/src/linux/network.rs#L53
     {
         no_traffic: {
-            file => "/sys/class/net/wlan0/statistics/rx_bytes": "0",
-            file => "/sys/class/net/wlan0/statistics/tx_bytes": "0",
+            files => {
+                "/sys/class/net/wlan0/statistics/rx_bytes": "0",
+                "/sys/class/net/wlan0/statistics/tx_bytes": "0",
+            };
         },
         threshold_0: {
-            file => "/sys/class/net/wlan1/statistics/rx_bytes": "0",
-            file => "/sys/class/net/wlan1/statistics/tx_bytes": "0",
-            fn => |t: &X11Test| {
+            files => {
+                "/sys/class/net/wlan1/statistics/rx_bytes": "0",
+                "/sys/class/net/wlan1/statistics/tx_bytes": "0",
+            };
+            test_fn => |t: &X11Test| {
                 t.cmd("echo 1 > /sys/class/net/wlan1/statistics/rx_bytes");
                 t.cmd("echo 2 > /sys/class/net/wlan1/statistics/tx_bytes");
                 t.istat_ipc("click net_usage left");
-            }
+            };
         },
         threshold_1: {
-            file => "/sys/class/net/wlan1/statistics/rx_bytes": "0",
-            file => "/sys/class/net/wlan1/statistics/tx_bytes": "0",
-            fn => |t: &X11Test| {
+            files => {
+                "/sys/class/net/wlan1/statistics/rx_bytes": "0",
+                "/sys/class/net/wlan1/statistics/tx_bytes": "0",
+            };
+            test_fn => |t: &X11Test| {
                 t.cmd("echo 2048 > /sys/class/net/wlan1/statistics/rx_bytes");
                 t.cmd("echo 4096 > /sys/class/net/wlan1/statistics/tx_bytes");
                 t.istat_ipc("click net_usage left");
-            }
+            };
         },
         threshold_2: {
-            file => "/sys/class/net/wlan1/statistics/rx_bytes": "0",
-            file => "/sys/class/net/wlan1/statistics/tx_bytes": "0",
-            fn => |t: &X11Test| {
+            files => {
+                "/sys/class/net/wlan1/statistics/rx_bytes": "0",
+                "/sys/class/net/wlan1/statistics/tx_bytes": "0",
+            };
+            test_fn => |t: &X11Test| {
                 t.cmd("echo 4000000 > /sys/class/net/wlan1/statistics/rx_bytes");
                 t.cmd("echo 8000000 > /sys/class/net/wlan1/statistics/tx_bytes");
                 t.istat_ipc("click net_usage left");
-            }
+            };
         },
         threshold_3: {
-            file => "/sys/class/net/wlan1/statistics/rx_bytes": "0",
-            file => "/sys/class/net/wlan1/statistics/tx_bytes": "0",
-            fn => |t: &X11Test| {
+            files => {
+                "/sys/class/net/wlan1/statistics/rx_bytes": "0",
+                "/sys/class/net/wlan1/statistics/tx_bytes": "0",
+            };
+            test_fn => |t: &X11Test| {
                 t.cmd("echo 14000000 > /sys/class/net/wlan1/statistics/rx_bytes");
                 t.cmd("echo 18000000 > /sys/class/net/wlan1/statistics/tx_bytes");
                 t.istat_ipc("click net_usage left");
-            }
+            };
         },
         threshold_4: {
-            file => "/sys/class/net/wlan1/statistics/rx_bytes": "0",
-            file => "/sys/class/net/wlan1/statistics/tx_bytes": "0",
-            fn => |t: &X11Test| {
+            files => {
+                "/sys/class/net/wlan1/statistics/rx_bytes": "0",
+                "/sys/class/net/wlan1/statistics/tx_bytes": "0",
+            };
+            test_fn => |t: &X11Test| {
                 t.cmd("echo 31000000 > /sys/class/net/wlan1/statistics/rx_bytes");
                 t.cmd("echo 32000000 > /sys/class/net/wlan1/statistics/tx_bytes");
                 t.istat_ipc("click net_usage left");
-            }
+            };
         },
         threshold_max: {
-            file => "/sys/class/net/wlan1/statistics/rx_bytes": "0",
-            file => "/sys/class/net/wlan1/statistics/tx_bytes": "0",
-            fn => |t: &X11Test| {
+            files => {
+                "/sys/class/net/wlan1/statistics/rx_bytes": "0",
+                "/sys/class/net/wlan1/statistics/tx_bytes": "0",
+            };
+            test_fn => |t: &X11Test| {
                 t.cmd("echo 420000000 > /sys/class/net/wlan1/statistics/rx_bytes");
                 t.cmd("echo 430000000 > /sys/class/net/wlan1/statistics/tx_bytes");
                 t.istat_ipc("click net_usage left");
-            }
+            };
         },
     }
 );
 
 // nic -------------------------------------------------------------------------
-// TODO: mock (getifaddrs?) for tests
 
+// NOTE: this is difficult to mock, since it uses `getifaddrs` for interface information
+// and then also uses `iwlib` to read WiFi information
 screenshot!(nic, json!({ "type": "nic" }));
 
 // pulse -----------------------------------------------------------------------
-// TODO: mock (pulse/pipewire?) for tests
 
+// NOTE: I'm not about to spin up a pulse server just for a test...
 screenshot!(pulse, json!({ "type": "pulse" }));
 
 // raw -------------------------------------------------------------------------
@@ -438,24 +467,34 @@ screenshot!(
     }),
     {
         at_0: {
-            file => "/sys/class/hwmon/hwmon1/name": "name",
-            file => "/sys/class/hwmon/hwmon1/temp1_input": "0",
+            files => {
+                "/sys/class/hwmon/hwmon1/name": "name",
+                "/sys/class/hwmon/hwmon1/temp1_input": "0",
+            };
         },
         at_50: {
-            file => "/sys/class/hwmon/hwmon1/name": "name",
-            file => "/sys/class/hwmon/hwmon1/temp1_input": "50000",
+            files => {
+                "/sys/class/hwmon/hwmon1/name": "name",
+                "/sys/class/hwmon/hwmon1/temp1_input": "50000",
+            };
         },
         at_70: {
-            file => "/sys/class/hwmon/hwmon1/name": "name",
-            file => "/sys/class/hwmon/hwmon1/temp1_input": "70000",
+            files => {
+                "/sys/class/hwmon/hwmon1/name": "name",
+                "/sys/class/hwmon/hwmon1/temp1_input": "70000",
+            };
         },
         at_80: {
-            file => "/sys/class/hwmon/hwmon1/name": "name",
-            file => "/sys/class/hwmon/hwmon1/temp1_input": "80000",
+            files => {
+                "/sys/class/hwmon/hwmon1/name": "name",
+                "/sys/class/hwmon/hwmon1/temp1_input": "80000",
+            };
         },
         at_100: {
-            file => "/sys/class/hwmon/hwmon1/name": "name",
-            file => "/sys/class/hwmon/hwmon1/temp1_input": "100000",
+            files => {
+                "/sys/class/hwmon/hwmon1/name": "name",
+                "/sys/class/hwmon/hwmon1/temp1_input": "100000",
+            };
         }
     }
 );
