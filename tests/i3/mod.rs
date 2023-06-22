@@ -264,7 +264,7 @@ impl<'a> X11Test<'a> {
         self.cmd(format!(
             "{scrot} | {convert} > {file}",
             scrot = format!(
-                "scrot --autoselect {x},{y},{w},{h} --file -",
+                "scrot --autoselect {x},{y},{w},{h} -",
                 x = x,
                 y = y,
                 w = w,
