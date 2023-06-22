@@ -83,7 +83,7 @@ macro_rules! screenshot {
                     _test.add_fake_file($fname, $fdata);
                 )*
             },
-            |x_test: X11Test| {
+            |x_test: &X11Test| {
                 $($test_fn(&x_test);)?
                 x_test.screenshot("bar-0");
             }
@@ -198,12 +198,14 @@ screenshot! {
 
 // dunst -----------------------------------------------------------------------
 
+// FIXME: ensure this is run with `dbus-run-session` so it doesn't interfere with host
+//  or some alternative
 screenshot!(
     dunst,
     json!({ "type": "dunst" }),
     {
         off: {},
-        on: { test_fn => |t: &X11Test| t.i3_msg("exec 'dunstctl set-paused true'"); }
+        on: { test_fn => |t: &X11Test| t.cmd("i3-msg exec 'dunstctl set-paused true'"); }
     }
 );
 

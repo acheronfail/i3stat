@@ -139,16 +139,16 @@ impl Drop for LogOnDropChild {
 
             match self.log {
                 Log::All => {
-                    eprintln!("stdout: {}", get!(self.child.stdout).trim());
-                    eprintln!("stderr: {}", get!(self.child.stderr).trim());
+                    eprintln!("stdout: {}", get!(self.stdout).trim());
+                    eprintln!("stderr: {}", get!(self.stderr).trim());
                 }
                 Log::StdErrOnly => {
-                    eprintln!("stderr: {}", get!(self.child.stderr).trim());
+                    eprintln!("stderr: {}", get!(self.stderr).trim());
                 }
             }
         }
 
-        let _ = self.child.kill();
+        let _ = self.kill();
     }
 }
 

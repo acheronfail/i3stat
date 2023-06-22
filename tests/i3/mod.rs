@@ -1,5 +1,5 @@
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use std::{env, fs};
@@ -121,11 +121,8 @@ impl<'a> X11Test<'a> {
         );
 
         // spawn i3 in newly created X server
-        // wrapped in a new DBus session so we can mock out items that use dbus
         let i3 = LogOnDropChild::log_all(
-            Command::new("dbus-run-session")
-                .arg("--")
-                .arg("i3")
+            Command::new("i3")
                 // config
                 .arg("--config")
                 .arg(&i3_config)
@@ -171,8 +168,13 @@ impl<'a> X11Test<'a> {
         }
     }
 
-    fn cmd(&self, cmd: impl AsRef<str>) -> Vec<u8> {
-        let output = Command::new("sh")
+    pub fn exit(&self) {
+        let output = self._cmd("i3-msg exit");
+        assert_eq!(output.status.code(), Some(1));
+    }
+
+    fn _cmd(&self, cmd: impl AsRef<str>) -> Output {
+        Command::new("sh")
             .env("I3SOCK", &self.i3_socket)
             .env("DISPLAY", &self.x_display)
             .env("LD_PRELOAD", get_fakeroot_lib())
@@ -181,14 +183,17 @@ impl<'a> X11Test<'a> {
             .arg("-c")
             .arg(format!("{}", cmd.as_ref()))
             .output()
-            .unwrap();
+            .unwrap()
+    }
 
+    fn cmd(&self, cmd: impl AsRef<str>) -> Vec<u8> {
+        let output = self._cmd(cmd.as_ref());
         if !output.status.success() {
             panic!(
-                "{} failed, code={:?}\nstderr: {}",
+                "{} failed, code={:?}\ncmd_stderr: {}",
                 cmd.as_ref(),
                 output.status.code(),
-                String::from_utf8_lossy(&output.stderr)
+                String::from_utf8_lossy(&output.stderr).trim()
             );
         }
 
@@ -220,10 +225,6 @@ impl<'a> X11Test<'a> {
 
     pub fn i3_get_config(&self) -> String {
         String::from_utf8(self.cmd("i3-msg -t get_config")).unwrap()
-    }
-
-    pub fn i3_msg(&self, msg: impl AsRef<str>) -> String {
-        String::from_utf8(self.cmd(format!("i3-msg {}", msg.as_ref()))).unwrap()
     }
 
     pub fn istat_get_bar(&self) -> Value {
@@ -293,7 +294,8 @@ macro_rules! x_test {
             let mut test = crate::util::Test::new(stringify!($name), $config);
             $setup_fn(&mut test);
             let x_test = crate::i3::X11Test::new(&test);
-            $test_fn(x_test);
+            $test_fn(&x_test);
+            x_test.exit();
         }
     };
 }

@@ -19,7 +19,7 @@ x_test!(
             }
         ]
     }),
-    |x_test: X11Test| {
+    |x_test: &X11Test| {
         // get bar dimensions from i3
         let (x, y, w, _) = x_test.i3_get_bar_position("bar-0");
 

@@ -21,15 +21,17 @@ setup:
     echo {{CMDS}} | xargs -n1 sh -c 'if ! command -v $1 >/dev/null 2>&1 /dev/null; then echo "$1 is required!"; exit 1; fi' bash
 
 # build the crate
-_build:
+build:
+  cargo build --all --all-features
+_lbuild:
   cargo lbuild --all --quiet
 
 # run `istat` in the terminal and interact with it
-dev *args: _build
+dev *args: _lbuild
   cd ./scripts/node && RUST_BACKTRACE=1 RUST_LOG=istat=trace yarn dev "$@"
 
 # send an ipc event to the running debug version of istat (either `just dev` or `just debug`)
-ipc *args: _build
+ipc *args: _lbuild
   cargo lrun --quiet --bin istat-ipc -- --socket /tmp/istat-socket.dev "$@"
 
 # run a binary
@@ -44,12 +46,16 @@ install:
   i3-msg restart
 
 # start a nested X server with i3 and istat
-debug dimensions="3800x200": _build
+debug dimensions="3800x200": _lbuild
   Xephyr -ac -br -reset -terminate -screen {{dimensions}} :1 &
   until [ -e /tmp/.X11-unix/X1 ]; do sleep 0.1; done
   env -u I3SOCK DISPLAY=:1.0 i3-with-shmlog --config ./scripts/i3.conf
 
-# NOTE: requires `fd` and that `kitty` be used
+test:
+  dbus-run-session -- cargo test
+
+# `eval` this for an easy debug loop for screenshot tests
+# NOTE: requires `fd` be present, and the terminal is `kitty`
 @t_screens:
   echo 'function t_screens() {'
   echo '  DEBUG=1 cargo test -- --nocapture screenshots::${1};'

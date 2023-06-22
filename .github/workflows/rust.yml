@@ -21,7 +21,7 @@ jobs:
       - run: rustup show
 
       - run: just setup
-      - run: cargo build --all-features
-      - run: cargo test
+      - run: just build
+      - run: just test
 
   # TODO: build and upload to release tag
