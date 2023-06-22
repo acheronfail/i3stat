@@ -235,6 +235,7 @@ where
 {
     let len = theme.powerline.len();
     let mut powerline_bar = vec![];
+    let mut powerline_idx = 0;
     for i in 0..bar.len() {
         let item = &bar[i];
         if item.full_text.is_empty() {
@@ -245,8 +246,9 @@ where
         #[cfg(debug_assertions)]
         assert_eq!(item.get_instance().unwrap(), &instance);
 
-        let c1 = &theme.powerline[i % len];
-        let c2 = &theme.powerline[(i + 1) % len];
+        let c1 = &theme.powerline[powerline_idx % len];
+        let c2 = &theme.powerline[(powerline_idx + 1) % len];
+        powerline_idx += 1;
 
         // create the powerline separator
         let mut sep_item = I3Item::new(theme.powerline_separator.to_span())
