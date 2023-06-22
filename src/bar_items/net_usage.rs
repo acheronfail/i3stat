@@ -37,6 +37,9 @@ pub struct NetUsage {
     ignored_interfaces: Vec<String>,
     #[serde(default)]
     display: UsageDisplay,
+    /// Currently only surfaced for testing.
+    #[serde(default)]
+    _always_assume_interval: bool,
 }
 
 impl NetUsage {
@@ -134,7 +137,11 @@ impl BarItem for NetUsage {
                 let elapsed = last_check.elapsed().as_secs_f64();
                 last_check = Instant::now();
 
-                (div_as_u64(down, elapsed), div_as_u64(up, elapsed))
+                if self._always_assume_interval {
+                    (down, up)
+                } else {
+                    (div_as_u64(down, elapsed), div_as_u64(up, elapsed))
+                }
             };
 
             ctx.update_item(

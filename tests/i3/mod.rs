@@ -66,16 +66,17 @@ bar {{
     )
 }
 
-pub struct X11Test {
+pub struct X11Test<'a> {
     x_display: String,
     _x_server: LogOnDropChild,
     _i3: LogOnDropChild,
     i3_socket: PathBuf,
     screenshot_file: PathBuf,
+    test: &'a Test,
 }
 
-impl X11Test {
-    pub fn new(test: &Test) -> X11Test {
+impl<'a> X11Test<'a> {
+    pub fn new(test: &'a Test) -> X11Test<'a> {
         // spawn nested X server
         let x_id = DISPLAY_ID.fetch_add(1, Ordering::SeqCst);
         let x_display = format!(":{}", x_id);
@@ -164,6 +165,7 @@ impl X11Test {
             _i3: i3,
             i3_socket,
             screenshot_file,
+            test,
         }
     }
 
@@ -171,6 +173,9 @@ impl X11Test {
         let output = Command::new("sh")
             .env("I3SOCK", &self.i3_socket)
             .env("DISPLAY", &self.x_display)
+            .env("LD_PRELOAD", get_fakeroot_lib())
+            .env("FAKE_ROOT", &self.test.fake_root)
+            .env("FAKE_DIRS", "1")
             .arg("-c")
             .arg(format!("{}", cmd.as_ref()))
             .output()
@@ -216,8 +221,17 @@ impl X11Test {
     }
 
     pub fn istat_get_bar(&self) -> Value {
-        serde_json::from_slice(&self.cmd(format!("{} get-bar", get_exe("istat-ipc").display())))
-            .unwrap()
+        self.istat_ipc("get-bar")
+    }
+
+    pub fn istat_ipc(&self, ipc_cmd: impl AsRef<str>) -> Value {
+        let ipc = get_exe("istat-ipc");
+        serde_json::from_slice(&self.cmd(format!(
+            "{ipc} {cmd}",
+            ipc = ipc.display(),
+            cmd = ipc_cmd.as_ref()
+        )))
+        .unwrap()
     }
 
     pub fn i3_get_bars(&self) -> Vec<String> {
@@ -231,16 +245,6 @@ impl X11Test {
 
     pub fn click(&self, button: MouseButton, x: i16, y: i16) {
         x_click(&self.x_display, button, x, y)
-    }
-
-    /// `x` is relative - if it's `> 0` it's from the left of the bar, if it's `< 0` it's from the right.
-    pub fn click_bar(&self, button: MouseButton, x: i16) {
-        let (_, y, w, _) = self.i3_get_bar_position("bar-0");
-        if x < 0 {
-            self.click(button, x + w as i16, y);
-        } else {
-            self.click(button, x, y);
-        }
     }
 
     pub fn screenshot(&self, bar_id: impl AsRef<str>) {
@@ -283,7 +287,6 @@ macro_rules! x_test {
             let mut test = crate::util::Test::new(stringify!($name), $config);
             $setup_fn(&mut test);
             let x_test = crate::i3::X11Test::new(&test);
-            // FIXME: if test is dropped here it'll break - make X11Test use a lifetime of Test
             $test_fn(x_test);
         }
     };

@@ -42,6 +42,16 @@ debug dimensions="3800x200": _build
   until [ -e /tmp/.X11-unix/X1 ]; do sleep 0.1; done
   env -u I3SOCK DISPLAY=:1.0 i3-with-shmlog --config ./scripts/i3.conf
 
+# NOTE: requires `fd` and that `kitty` be used
+@t_screens:
+  echo 'function t_screens() {'
+  echo '  DEBUG=1 cargo test -- --nocapture screenshots::${1};'
+  echo '  for x in `fd --type f "${1}" ./screenshots`; do'
+  echo '    echo $x;'
+  echo '    kitty +kitten icat $x;'
+  echo '  done'
+  echo '}'
+
 # test, test package and test AUR with package
 test-publish:
   #!/usr/bin/env bash
