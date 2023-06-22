@@ -83,9 +83,7 @@ impl<'a> X11Test<'a> {
         let x_server = LogOnDropChild::log_all({
             let use_xephyr = env::var("XEPHYR").is_ok();
             let mut cmd = Command::new(if use_xephyr { "Xephyr" } else { "Xvfb" });
-            let cmd = cmd
-                // X display
-                .arg(&x_display)
+            cmd.arg(&x_display)
                 .arg("-ac") // disable access control restrictions
                 .arg("-br") // create root window with black background
                 .arg("-reset") // reset after last client exists
@@ -123,8 +121,15 @@ impl<'a> X11Test<'a> {
         );
 
         // spawn i3 in newly created X server
+        // wrapped in a new DBus session so we can mock out items that use dbus
         let i3 = LogOnDropChild::log_all(
-            Command::new("i3")
+            Command::new("dbus-run-session")
+                .arg("--")
+                .arg("i3")
+                // config
+                .arg("--config")
+                .arg(&i3_config)
+                // environment
                 .envs(&test.env)
                 // setup faketime & our fs mocks
                 .env(
@@ -139,9 +144,6 @@ impl<'a> X11Test<'a> {
                 // spawn in nested X server
                 .env_remove("I3SOCK")
                 .env("DISPLAY", &x_display)
-                // config
-                .arg("--config")
-                .arg(&i3_config)
                 // stdio
                 .stdin(Stdio::piped())
                 .stderr(Stdio::piped())
@@ -218,6 +220,10 @@ impl<'a> X11Test<'a> {
 
     pub fn i3_get_config(&self) -> String {
         String::from_utf8(self.cmd("i3-msg -t get_config")).unwrap()
+    }
+
+    pub fn i3_msg(&self, msg: impl AsRef<str>) -> String {
+        String::from_utf8(self.cmd(format!("i3-msg {}", msg.as_ref()))).unwrap()
     }
 
     pub fn istat_get_bar(&self) -> Value {

@@ -186,13 +186,20 @@ screenshot! {
 }
 
 // dunst -----------------------------------------------------------------------
-// TODO: mock for tests
 
-screenshot!(dunst, json!({ "type": "dunst" }));
+screenshot!(
+    dunst,
+    json!({ "type": "dunst" }),
+    {
+        off: {},
+        on: { fn => |t: &X11Test| t.i3_msg("exec 'dunstctl set-paused true'") }
+    }
+);
 
 // bar -------------------------------------------------------------------------
 // TODO: sample config ?
 // TODO: powerline examples ?
+//  will need to change screenshot size
 
 // screenshot!(bar, json!({}));
 
@@ -386,12 +393,12 @@ screenshot!(
 );
 
 // nic -------------------------------------------------------------------------
-// TODO: mock for tests
+// TODO: mock (getifaddrs?) for tests
 
 screenshot!(nic, json!({ "type": "nic" }));
 
 // pulse -----------------------------------------------------------------------
-// TODO: mock for tests
+// TODO: mock (pulse/pipewire?) for tests
 
 screenshot!(pulse, json!({ "type": "pulse" }));
 
