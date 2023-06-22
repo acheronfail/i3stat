@@ -1,4 +1,6 @@
+use std::collections::HashSet;
 use std::error::Error;
+use std::path::PathBuf;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -16,6 +18,8 @@ use crate::util::Paginator;
 pub struct Disk {
     #[serde(with = "crate::human_time")]
     interval: Duration,
+    #[serde(default)]
+    mounts: HashSet<PathBuf>,
 }
 
 struct DiskStats {
@@ -67,6 +71,13 @@ impl BarItem for Disk {
                     .sys
                     .disks()
                     .iter()
+                    .filter(|d| {
+                        if self.mounts.is_empty() {
+                            true
+                        } else {
+                            self.mounts.contains(d.mount_point())
+                        }
+                    })
                     .map(DiskStats::from_disk)
                     .collect()
             };
