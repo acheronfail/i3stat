@@ -1,6 +1,8 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Mutex, MutexGuard};
+use std::thread::sleep;
 use std::time::Duration;
 use std::{env, fs};
 
@@ -19,6 +21,8 @@ use crate::util::{
     Test,
     FAKE_TIME,
 };
+
+static TEST: Mutex<()> = Mutex::new(());
 
 // start nested x server displays at 10
 static DISPLAY_ID: AtomicUsize = AtomicUsize::new(10);
@@ -73,16 +77,25 @@ pub struct X11Test<'a> {
     i3_socket: PathBuf,
     screenshot_file: PathBuf,
     test: &'a Test,
+    dbus_lock: Option<MutexGuard<'static, ()>>,
 }
 
 impl<'a> X11Test<'a> {
-    pub fn new(test: &'a Test) -> X11Test<'a> {
+    pub fn spawn(test: &'a Test, nested_dbus: bool) -> X11Test<'a> {
         // spawn nested X server
         let x_id = DISPLAY_ID.fetch_add(1, Ordering::SeqCst);
         let x_display = format!(":{}", x_id);
-        let x_server = LogOnDropChild::log_all({
+        let (dbus_lock, x_server) = {
             let use_xephyr = env::var("XEPHYR").is_ok();
-            let mut cmd = Command::new(if use_xephyr { "Xephyr" } else { "Xvfb" });
+            let x_server = if use_xephyr { "Xephyr" } else { "Xvfb" };
+            let mut cmd = if nested_dbus {
+                let mut cmd = Command::new("dbus-run-session");
+                cmd.arg("--").arg(x_server);
+                cmd
+            } else {
+                Command::new(x_server)
+            };
+
             cmd.arg(&x_display)
                 .arg("-ac") // disable access control restrictions
                 .arg("-br") // create root window with black background
@@ -97,12 +110,16 @@ impl<'a> X11Test<'a> {
             };
 
             // stdio
-            cmd.stdin(Stdio::piped())
-                .stderr(Stdio::piped())
-                .stdout(Stdio::piped())
-                .spawn()
-                .unwrap()
-        });
+            (
+                nested_dbus.then_some(TEST.lock().unwrap()),
+                cmd.stdin(Stdio::piped())
+                    .stderr(Stdio::piped())
+                    .stdout(Stdio::piped())
+                    .spawn()
+                    .unwrap(),
+            )
+        };
+        let x_server = LogOnDropChild::log_all(x_server);
 
         // create i3 config file
         let i3_config = test.dir.join("i3.conf");
@@ -165,6 +182,7 @@ impl<'a> X11Test<'a> {
             i3_socket,
             screenshot_file,
             test,
+            dbus_lock,
         }
     }
 
@@ -283,17 +301,43 @@ impl<'a> X11Test<'a> {
     }
 }
 
+impl<'a> Drop for X11Test<'a> {
+    fn drop(&mut self) {
+        self._i3.kill().unwrap();
+
+        // HACK: I've noticed that the `dbus-daemon` that's started by `dbus-run-session` won't properly
+        // exit if there's another `dbus-daemon` still running, so we sleep here to ensure that the previous
+        // one closes before any other start.
+        if let Some(lock) = self.dbus_lock.take() {
+            sleep(Duration::from_millis(500));
+            drop(lock);
+        }
+    }
+}
+
 macro_rules! x_test {
     ($name:ident, $config:expr, $test_fn:expr) => {
-        x_test!($name, $config, |x| x, $test_fn);
+        x_test!($name, dbus = false, $config, |x| x, $test_fn);
+    };
+
+    (@dbus $name:ident, $config:expr, $test_fn:expr) => {
+        x_test!($name, dbus = true, $config, |x| x, $test_fn);
     };
 
     ($name:ident, $config:expr, $setup_fn:expr, $test_fn:expr) => {
+        x_test!($name, dbus = false, $config, $setup_fn, $test_fn);
+    };
+
+    (@dbus $name:ident, $config:expr, $setup_fn:expr, $test_fn:expr) => {
+        x_test!($name, dbus = true, $config, $setup_fn, $test_fn);
+    };
+
+    ($name:ident, dbus=$dbus:literal, $config:expr, $setup_fn:expr, $test_fn:expr) => {
         #[test]
         fn $name() {
             let mut test = crate::util::Test::new(stringify!($name), $config);
             $setup_fn(&mut test);
-            let x_test = crate::i3::X11Test::new(&test);
+            let x_test = crate::i3::X11Test::spawn(&test, $dbus);
             $test_fn(&x_test);
             x_test.exit();
         }
