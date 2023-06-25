@@ -12,6 +12,9 @@ spawn_test!(
         istat.send_shutdown();
         // there were no items in the config, so nothing should have been outputted
         assert_eq!(istat.next_line().unwrap(), None);
+        // check exit status
+        let status = istat.child.wait().unwrap();
+        assert_eq!(status.code(), Some(0));
     }
 );
 
