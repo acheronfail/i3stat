@@ -51,8 +51,9 @@ debug dimensions="3800x200": _lbuild
   until [ -e /tmp/.X11-unix/X1 ]; do sleep 0.1; done
   env -u I3SOCK DISPLAY=:1.0 i3-with-shmlog --config ./scripts/i3.conf
 
+# run tests in a nested dbus session so the host session isn't affected
 test:
-  dbus-run-session -- cargo test
+  dbus-run-session -- env ISTAT_TEST=1 cargo test --all
 
 # `eval` this for an easy debug loop for screenshot tests
 # NOTE: requires `fd` be present, and the terminal is `kitty`

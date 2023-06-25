@@ -6,11 +6,10 @@ use crate::util::Test;
 macro_rules! screenshot {
     // shorthand when mocks aren't needed
     (
-        $(@$dbus:ident$(,)?)?
         $test_name:ident,
         $item_json:expr
     ) => {
-        screenshot!($(@$dbus,)? $test_name, $item_json, { default: {} });
+        screenshot!($test_name, $item_json, { default: {} });
     };
 
     // batch case (many cases with bin/fake_root mocks)
@@ -21,7 +20,6 @@ macro_rules! screenshot {
             {
                 $(
                     $case_name:ident: {
-                        $(@$dbus:ident$(,)?)?
                         $(bins => {$($bname:literal: $bdata:expr$(,)?)*};)?
                         $(files => {$($fname:literal: $fdata:expr$(,)?)*};)?
                         $(setup_fn => $setup_fn:expr;)?
@@ -35,7 +33,6 @@ macro_rules! screenshot {
             $(
                 paste::paste! {
                     screenshot!(
-                        $(@$dbus,)?
                         [<$test_name _ $case_name>],
                         $item_json,
                         bins = {
@@ -54,7 +51,6 @@ macro_rules! screenshot {
 
     // single case
     (
-        $(@$dbus:ident$(,)?)?
         $test_name:ident,
         $item_json:expr,
         bins = {
@@ -67,7 +63,6 @@ macro_rules! screenshot {
         $(, test_fn => $test_fn:expr)?
     ) => {
         x_test!(
-            $(@$dbus)?
             $test_name,
             {
                 // disable separator
@@ -203,14 +198,20 @@ screenshot! {
 
 // dunst -----------------------------------------------------------------------
 
-// FIXME: ensure this is run with `dbus-run-session` so it doesn't interfere with host
-//  or some alternative
 screenshot!(
     dunst,
     json!({ "type": "dunst" }),
     {
-        off: { @dbus },
-        on: { @dbus, test_fn => |t: &X11Test| t.cmd("i3-msg exec 'dunstctl set-paused true'"); }
+        off: {
+            test_fn => |t: &X11Test| {
+                t.cmd("i3-msg exec 'dunstctl set-paused false'")
+            };
+        },
+        on: {
+            test_fn => |t: &X11Test| {
+                t.cmd("i3-msg exec 'dunstctl set-paused true'")
+            };
+        }
     }
 );
 

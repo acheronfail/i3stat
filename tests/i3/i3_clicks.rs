@@ -36,6 +36,10 @@ x_test!(
         x_test.click(Left, x + w as i16, y);
         x_test.click(Right, x + (w - 200) as i16, y);
 
+        // get the bar once before we check it - attempting to avoid flakes by
+        // delaying a little here to let istat process the click events
+        let _ = x_test.istat_get_bar();
+
         // check item received the click
         assert_json_contains!(
             x_test.istat_get_bar(),
