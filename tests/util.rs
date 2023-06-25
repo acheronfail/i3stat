@@ -148,7 +148,7 @@ impl Drop for LogOnDropChild {
             }
         }
 
-        self.kill().unwrap();
+        let _ = self.kill();
     }
 }
 

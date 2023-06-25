@@ -1,4 +1,3 @@
-use std::convert::Infallible;
 use std::error::Error;
 use std::process;
 
@@ -18,15 +17,21 @@ use istat::util::{local_block_on, RcCell};
 use tokio::sync::mpsc::{self, Receiver};
 use tokio_util::sync::CancellationToken;
 
+enum RuntimeStopReason {
+    Shutdown,
+}
+
 fn main() {
-    if let Err(err) = start_runtime() {
-        // TODO: exit with 0 if `shutdown`
-        log::error!("{}", err);
-        process::exit(1);
+    match start_runtime() {
+        Ok(RuntimeStopReason::Shutdown) => {}
+        Err(err) => {
+            log::error!("{}", err);
+            process::exit(1);
+        }
     }
 }
 
-fn start_runtime() -> Result<Infallible, Box<dyn Error>> {
+fn start_runtime() -> Result<RuntimeStopReason, Box<dyn Error>> {
     pretty_env_logger::try_init()?;
 
     let args = Cli::parse();
@@ -44,7 +49,7 @@ fn start_runtime() -> Result<Infallible, Box<dyn Error>> {
     result
 }
 
-async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
+async fn async_main(args: Cli) -> Result<RuntimeStopReason, Box<dyn Error>> {
     let config = RcCell::new(AppConfig::read(args).await?);
 
     // create socket first, so it's ready before anything is written to stdout
@@ -68,15 +73,15 @@ async fn async_main(args: Cli) -> Result<Infallible, Box<dyn Error>> {
     );
 
     // handle our inputs: i3's IPC and our own IPC
-    let err = tokio::select! {
-        err = handle_ipc_events(socket, ipc_ctx) => err,
-        err = handle_click_events(dispatcher.clone()) => err,
-        _ = token.cancelled() => Err("cancelled".into()),
+    let result = tokio::select! {
+        Err(err) = handle_ipc_events(socket, ipc_ctx) => Err(err),
+        Err(err) = handle_click_events(dispatcher.clone()) => Err(err),
+        _ = token.cancelled() => Ok(RuntimeStopReason::Shutdown),
     };
 
     // if we reach here, then something went wrong, so clean up
     signal_handle.close();
-    return err;
+    return result;
 }
 
 fn setup_i3_bar(
