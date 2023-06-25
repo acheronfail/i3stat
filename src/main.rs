@@ -15,6 +15,7 @@ use istat::signals::handle_signals;
 use istat::theme::Theme;
 use istat::util::{local_block_on, RcCell};
 use tokio::sync::mpsc::{self, Receiver};
+use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 
 enum RuntimeStopReason {
@@ -114,7 +115,9 @@ fn setup_i3_bar(
 
         tokio::task::spawn_local(async move {
             let mut retries = 0;
+            let mut last_start;
             loop {
+                last_start = Instant::now();
                 let (event_tx, event_rx) = mpsc::channel(32);
                 dispatcher.set(idx, event_tx);
 
@@ -128,13 +131,26 @@ fn setup_i3_bar(
 
                 let fut = bar_item.start(ctx);
                 match fut.await {
-                    Ok(StopAction::Restart) if retries < 3 => {
-                        log::error!("item[{}] requested restart...", idx);
-                        retries += 1;
-                        continue;
-                    }
                     Ok(StopAction::Restart) => {
+                        // reset retries if no retries have occurred in the last 5 minutes
+                        if last_start.elapsed().as_secs() > 60 * 5 {
+                            retries = 0;
+                        }
+
+                        // restart if we haven't exceeded limit
+                        if retries < 3 {
+                            log::warn!("item[{}] requested restart...", idx);
+                            retries += 1;
+                            continue;
+                        }
+
+                        // we exceeded the limit, so error out
                         log::error!("item[{}] stopped, exceeded max retries", idx);
+                        let theme = config.theme.clone();
+                        bar[idx] = I3Item::new("MAX RETRIES")
+                            .color(theme.bg)
+                            .background_color(theme.red);
+
                         break;
                     }
                     // since this item has terminated, remove its entry from the bar
