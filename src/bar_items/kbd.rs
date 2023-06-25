@@ -73,12 +73,22 @@ impl Keys {
     }
 
     async fn format(self, theme: &Theme) -> Result<String, Box<dyn Error>> {
-        let is_on = self.is_on().await?;
-        Ok(format!(
-            r#"<span foreground="{}">{}</span>"#,
-            if is_on { theme.fg } else { theme.dim },
-            self.symbol()
-        ))
+        Ok(match self.is_on().await {
+            Ok(is_on) => format!(
+                r#"<span foreground="{}">{}</span>"#,
+                if is_on { theme.fg } else { theme.dim },
+                self.symbol()
+            ),
+            Err(e) => {
+                log::error!("{}", e);
+                format!(
+                    r#"<span background="{}" foreground="{}">{}</span>"#,
+                    theme.red,
+                    theme.bg,
+                    self.symbol()
+                )
+            }
+        })
     }
 }
 

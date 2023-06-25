@@ -33,3 +33,14 @@ fn m(cmd: &Command, dir: &Path, parent_name: Option<&str>) -> Result<(), Box<dyn
 
     Ok(())
 }
+
+/// Simply checks if we're running the tests via the justfile (by checking the existence of an env var).
+/// This is because we spawn the tests in a nested dbus session - so any interactions with dbus don't
+/// affect the host environment.
+#[test]
+fn ensure_proper_test_env() {
+    assert!(
+        std::env::var("ISTAT_TEST").is_ok(),
+        "Please ensure you're running the tests via the justfile!"
+    );
+}

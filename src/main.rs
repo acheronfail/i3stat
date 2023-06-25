@@ -20,6 +20,7 @@ use tokio_util::sync::CancellationToken;
 
 fn main() {
     if let Err(err) = start_runtime() {
+        // TODO: exit with 0 if `shutdown`
         log::error!("{}", err);
         process::exit(1);
     }
@@ -183,11 +184,15 @@ fn handle_item_updates(
         let item_names = config.item_idx_to_name();
 
         while let Some((i3_item, idx)) = rx.recv().await {
-            let i3_item = i3_item
+            let mut i3_item = i3_item
                 // the name of the item
                 .name(item_names[idx].clone())
                 // always override the bar item's `instance`, since we track that ourselves
                 .instance(idx.to_string());
+
+            if let Some(separator) = config.items[idx].common.separator {
+                i3_item = i3_item.separator(separator);
+            }
 
             // don't bother doing anything if the item hasn't changed
             if bar[idx] == i3_item {
@@ -230,6 +235,7 @@ where
 {
     let len = theme.powerline.len();
     let mut powerline_bar = vec![];
+    let mut powerline_idx = 0;
     for i in 0..bar.len() {
         let item = &bar[i];
         if item.full_text.is_empty() {
@@ -240,8 +246,9 @@ where
         #[cfg(debug_assertions)]
         assert_eq!(item.get_instance().unwrap(), &instance);
 
-        let c1 = &theme.powerline[i % len];
-        let c2 = &theme.powerline[(i + 1) % len];
+        let c1 = &theme.powerline[powerline_idx % len];
+        let c2 = &theme.powerline[(powerline_idx + 1) % len];
+        powerline_idx += 1;
 
         // create the powerline separator
         let mut sep_item = I3Item::new(theme.powerline_separator.to_span())

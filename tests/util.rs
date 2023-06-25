@@ -11,7 +11,7 @@ use std::{env, fs, thread};
 use serde_json::Value;
 use timeout_readwrite::TimeoutReadExt;
 
-// misc ------------------------------------------------------------------------
+// faketime --------------------------------------------------------------------
 
 // mocked via libfaketime, see: https://github.com/wolfcw/libfaketime
 pub const FAKE_TIME: &str = "1985-10-26 01:35:00";
@@ -32,6 +32,14 @@ pub fn get_faketime_lib() -> &'static str {
 
     panic!("failed to find libfaketime.so.1");
 }
+
+// fakeroot --------------------------------------------------------------------
+
+pub fn get_fakeroot_lib() -> String {
+    get_exe("libfakeroot.so").display().to_string()
+}
+
+// misc ------------------------------------------------------------------------
 
 fn get_exe_dir() -> PathBuf {
     env::current_exe()
@@ -131,16 +139,16 @@ impl Drop for LogOnDropChild {
 
             match self.log {
                 Log::All => {
-                    eprintln!("stdout: {}", get!(self.child.stdout).trim());
-                    eprintln!("stderr: {}", get!(self.child.stderr).trim());
+                    eprintln!("stdout: {}", get!(self.stdout).trim());
+                    eprintln!("stderr: {}", get!(self.stderr).trim());
                 }
                 Log::StdErrOnly => {
-                    eprintln!("stderr: {}", get!(self.child.stderr).trim());
+                    eprintln!("stderr: {}", get!(self.stderr).trim());
                 }
             }
         }
 
-        let _ = self.child.kill();
+        self.kill().unwrap();
     }
 }
 
@@ -149,9 +157,11 @@ impl Drop for LogOnDropChild {
 static UNIQUE_ID: AtomicUsize = AtomicUsize::new(0);
 
 pub struct Test {
+    pub name: String,
     pub env: HashMap<String, String>,
     pub dir: PathBuf,
     pub bin_dir: PathBuf,
+    pub fake_root: PathBuf,
     pub istat_socket_file: PathBuf,
     pub istat_config_file: PathBuf,
 }
@@ -164,8 +174,12 @@ impl Test {
             name,
             UNIQUE_ID.fetch_add(1, Ordering::SeqCst)
         ));
+
         let bin_dir = dir.join("bin");
         fs::create_dir_all(&bin_dir).unwrap();
+
+        let fake_root = dir.canonicalize().unwrap().join("fake_root");
+        fs::create_dir_all(&fake_root).unwrap();
 
         let socket_file = dir.join("socket");
         let config_file = dir.join("config.json");
@@ -182,15 +196,17 @@ impl Test {
         );
 
         Test {
+            name: name.into(),
             dir,
             env,
             bin_dir,
+            fake_root,
             istat_config_file: config_file,
             istat_socket_file: socket_file,
         }
     }
 
-    pub fn add_bin(&mut self, name: impl AsRef<str>, contents: impl AsRef<str>) {
+    pub fn add_bin(&self, name: impl AsRef<str>, contents: impl AsRef<str>) {
         let mut file = File::create(self.bin_dir.join(name.as_ref())).unwrap();
         file.write_all(contents.as_ref().as_bytes()).unwrap();
 
@@ -198,6 +214,21 @@ impl Test {
         let mut perms = file.metadata().unwrap().permissions();
         perms.set_mode(0o777);
         file.set_permissions(perms).unwrap();
+    }
+
+    pub fn add_fake_file(&self, name: impl AsRef<str>, contents: impl AsRef<str>) {
+        let name = name.as_ref();
+        let name = if name.starts_with("/") {
+            &name[1..]
+        } else {
+            name
+        };
+
+        let path = self.fake_root.join(name);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+
+        let mut file = File::create(&path).unwrap();
+        file.write_all(contents.as_ref().as_bytes()).unwrap();
     }
 }
 

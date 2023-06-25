@@ -3,7 +3,7 @@ use serde_json::json;
 use crate::i3::{X11Test, TEST_CONFIG_STR};
 use crate::util::get_current_exe;
 
-x_test!(it_works, json!({ "items": [] }), |x_test: X11Test| {
+x_test!(it_works, json!({ "items": [] }), |x_test: &X11Test| {
     // assert i3's using the right config
     assert!(x_test.i3_get_config().contains(TEST_CONFIG_STR));
 

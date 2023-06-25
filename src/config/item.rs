@@ -9,9 +9,15 @@ use crate::i3::I3Item;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Common {
-    pub signal: Option<u32>,
+    /// Name of the item. Used in the IPC protocol.
+    /// Defaults to the item's type.
     pub name: Option<String>,
+    /// Override the index of the item.
     pub index: Option<usize>,
+    /// Provide a signal for the time.
+    pub signal: Option<u32>,
+    /// Optionally set or unset the separator for this item.
+    pub separator: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, EnumIter)]

@@ -14,8 +14,6 @@ jobs:
     steps:
       # git checkout
       - uses: actions/checkout@v3
-        with:
-          submodules: 'recursive'
       # install just
       - uses: extractions/setup-just@v1
       # setup rust toolchain
@@ -23,7 +21,7 @@ jobs:
       - run: rustup show
 
       - run: just setup
-      - run: cargo build --all-features
-      - run: cargo test
+      - run: just build
+      - run: just test
 
   # TODO: build and upload to release tag

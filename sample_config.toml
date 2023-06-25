@@ -122,6 +122,8 @@ type = "nic"
 type = "disk"
 # How often this item should refresh
 interval = "60s"
+# Optionally only include these specific mount points
+# mounts = ["/"]
 
 [[items]]
 # CPU usage item - provides updates of CPU usage expressed as a percentage

@@ -19,7 +19,7 @@ x_test!(
             }
         ]
     }),
-    |x_test: X11Test| {
+    |x_test: &X11Test| {
         // get bar dimensions from i3
         let (x, y, w, _) = x_test.i3_get_bar_position("bar-0");
 
@@ -35,6 +35,10 @@ x_test!(
         // click on the items
         x_test.click(Left, x + w as i16, y);
         x_test.click(Right, x + (w - 200) as i16, y);
+
+        // get the bar once before we check it - attempting to avoid flakes by
+        // delaying a little here to let istat process the click events
+        let _ = x_test.istat_get_bar();
 
         // check item received the click
         assert_json_contains!(
