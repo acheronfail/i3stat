@@ -73,7 +73,7 @@ test-publish:
   aur_target="./aur/target"
   rm -rf "$aur_target"
 
-  cargo test
+  just test
   cargo publish --dry-run --allow-dirty --target-dir "$aur_target"
 
   pushd aur
