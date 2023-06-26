@@ -1,16 +1,16 @@
-use std::error::Error;
 use std::io::ErrorKind;
 
 use tokio::net::UnixStream;
 use tokio::sync::oneshot;
 
 use crate::context::{BarEvent, CustomResponse};
+use crate::error::Result;
 use crate::ipc::protocol::{IpcBarEvent, IpcMessage, IpcReply, IpcResult, IPC_HEADER_LEN};
 use crate::ipc::server::send_ipc_response;
 use crate::ipc::IpcContext;
 use crate::theme::Theme;
 
-pub async fn handle_ipc_client(stream: UnixStream, ctx: IpcContext) -> Result<(), Box<dyn Error>> {
+pub async fn handle_ipc_client(stream: UnixStream, ctx: IpcContext) -> Result<()> {
     // first read the length header of the IPC message
     let mut buf = [0; IPC_HEADER_LEN];
     loop {
@@ -38,11 +38,7 @@ pub async fn handle_ipc_client(stream: UnixStream, ctx: IpcContext) -> Result<()
     Ok(())
 }
 
-async fn handle_ipc_request(
-    stream: &UnixStream,
-    mut ctx: IpcContext,
-    len: usize,
-) -> Result<(), Box<dyn Error>> {
+async fn handle_ipc_request(stream: &UnixStream, mut ctx: IpcContext, len: usize) -> Result<()> {
     // read ipc message entirely
     let mut buf = vec![0; len];
     let mut idx = 0;

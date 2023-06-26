@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::error::Error;
+use crate::error::Result;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -61,7 +61,7 @@ impl DiskStats {
 
 #[async_trait(?Send)]
 impl BarItem for Disk {
-    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction> {
         let mut p = Paginator::new();
         loop {
             let stats: Vec<DiskStats> = {

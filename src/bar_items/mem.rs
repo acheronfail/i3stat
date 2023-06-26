@@ -1,4 +1,4 @@
-use std::error::Error;
+use crate::error::Result;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -45,7 +45,7 @@ impl Mem {
 
 #[async_trait(?Send)]
 impl BarItem for Mem {
-    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction> {
         let mut total = None;
         let mut display = EnumCycle::new_at(self.display);
         loop {

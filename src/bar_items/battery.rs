@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
@@ -13,6 +12,7 @@ use tokio::sync::mpsc::Receiver;
 use crate::context::{BarEvent, BarItem, Context, StopAction};
 use crate::dbus::notifications::NotificationsProxy;
 use crate::dbus::{dbus_connection, BusType};
+use crate::error::Result;
 use crate::i3::{I3Button, I3Item, I3Markup};
 use crate::theme::Theme;
 use crate::util::ffi::AcpiGenericNetlinkEvent;
@@ -38,7 +38,7 @@ impl BatState {
 
 impl FromStr for BatState {
     type Err = String;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         // https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-power
         match s {
             "Unknown" => Ok(Self::Unknown),
@@ -55,27 +55,27 @@ impl FromStr for BatState {
 struct Bat(PathBuf);
 
 impl Bat {
-    async fn read(&self, file_name: impl AsRef<str>) -> Result<String, Box<dyn Error>> {
+    async fn read(&self, file_name: impl AsRef<str>) -> Result<String> {
         Ok(read_to_string(self.0.join(file_name.as_ref())).await?)
     }
 
-    async fn read_usize(&self, file_name: impl AsRef<str>) -> Result<usize, Box<dyn Error>> {
+    async fn read_usize(&self, file_name: impl AsRef<str>) -> Result<usize> {
         Ok(self.read(file_name).await?.trim().parse::<usize>()?)
     }
 
-    fn name(&self) -> Result<String, Box<dyn Error>> {
+    fn name(&self) -> Result<String> {
         match self.0.file_name() {
             Some(name) => Ok(name.to_string_lossy().into_owned()),
             None => Err(format!("failed to parse file name from: {}", self.0.display()).into()),
         }
     }
 
-    async fn get_state(&self) -> Result<BatState, Box<dyn Error>> {
+    async fn get_state(&self) -> Result<BatState> {
         Ok(BatState::from_str(self.read("status").await?.trim())?)
     }
 
     // NOTE: there is also `/capacity` which returns an integer percentage
-    async fn percent(&self) -> Result<f32, Box<dyn Error>> {
+    async fn percent(&self) -> Result<f32> {
         let (charge_now, charge_full) = try_join!(
             self.read_usize("charge_now"),
             self.read_usize("charge_full"),
@@ -83,7 +83,7 @@ impl Bat {
         Ok((charge_now as f32) / (charge_full as f32) * 100.0)
     }
 
-    async fn watts_now(&self) -> Result<f64, Box<dyn Error>> {
+    async fn watts_now(&self) -> Result<f64> {
         let (current_pico, voltage_pico) = try_join!(
             self.read_usize("current_now"),
             self.read_usize("voltage_now"),
@@ -91,7 +91,7 @@ impl Bat {
         Ok((current_pico as f64) * (voltage_pico as f64) / 1_000_000_000_000.0)
     }
 
-    async fn format(&self, theme: &Theme, show_watts: bool) -> Result<I3Item, Box<dyn Error>> {
+    async fn format(&self, theme: &Theme, show_watts: bool) -> Result<I3Item> {
         let (charge, state) = match try_join!(self.percent(), self.get_state()) {
             Ok((charge, state)) => (charge, state),
             // Return unknown state: the files in sysfs aren't present at times, such as when connecting
@@ -138,7 +138,7 @@ impl Bat {
         })
     }
 
-    async fn find_all() -> Result<Vec<Bat>, Box<dyn Error>> {
+    async fn find_all() -> Result<Vec<Bat>> {
         let battery_dir = PathBuf::from("/sys/class/power_supply");
         let mut entries = fs::read_dir(&battery_dir).await?;
 
@@ -168,7 +168,7 @@ pub struct Battery {
 
 #[async_trait(?Send)]
 impl BarItem for Battery {
-    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction> {
         let batteries = match self.batteries.clone() {
             Some(inner) => inner,
             None => Bat::find_all().await?,
@@ -233,7 +233,7 @@ enum BatteryAcpiEvent {
     AcAdapterPlugged(bool),
 }
 
-async fn battery_acpi_events() -> Result<Receiver<BatteryAcpiEvent>, Box<dyn Error>> {
+async fn battery_acpi_events() -> Result<Receiver<BatteryAcpiEvent>> {
     let mut acpi_event = netlink_acpi_listen().await?;
     let (tx, rx) = tokio::sync::mpsc::channel(1);
     tokio::task::spawn_local(async move {

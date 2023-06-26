@@ -1,9 +1,8 @@
-use std::error::Error;
-
 use serde::Serialize;
 use serde_derive::Deserialize;
 use serde_json::Value;
 
+use crate::error::Result;
 use crate::i3::I3ClickEvent;
 
 pub const IPC_HEADER_LEN: usize = std::mem::size_of::<u64>();
@@ -48,7 +47,7 @@ pub enum IpcResult {
     Failure(String),
 }
 
-pub fn encode_ipc_msg<T: Serialize>(t: T) -> Result<Vec<u8>, Box<dyn Error>> {
+pub fn encode_ipc_msg<T: Serialize>(t: T) -> Result<Vec<u8>> {
     let msg = serde_json::to_vec(&t)?;
     // header is a u64 of length
     let mut payload = (msg.len() as u64).to_le_bytes().to_vec();

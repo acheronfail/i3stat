@@ -1,9 +1,9 @@
-use std::error::Error;
 use std::str::FromStr;
 
 use serde::{de, Deserialize, Serialize};
 
 use super::interface::InterfaceKind;
+use crate::error::Error;
 use crate::util::net::Interface;
 
 /// This type is in the format of `interface[:type]`, where `interface` is the interface name, and
@@ -51,9 +51,9 @@ impl ToString for InterfaceFilter {
 }
 
 impl FromStr for InterfaceFilter {
-    type Err = Box<dyn Error>;
+    type Err = Error;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         let d = ':';
         if !s.contains(d) {
             return Ok(InterfaceFilter::new(s, None));
@@ -69,7 +69,7 @@ impl FromStr for InterfaceFilter {
 }
 
 impl Serialize for InterfaceFilter {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -78,7 +78,7 @@ impl Serialize for InterfaceFilter {
 }
 
 impl<'de> Deserialize<'de> for InterfaceFilter {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {

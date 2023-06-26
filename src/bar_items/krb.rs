@@ -1,4 +1,4 @@
-use std::error::Error;
+use crate::error::Result;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -20,12 +20,12 @@ pub struct Krb {
 }
 
 impl Krb {
-    async fn get_state(&self) -> Result<bool, Box<dyn Error>> {
+    async fn get_state(&self) -> Result<bool> {
         let output = Command::new("klist").arg("-s").output().await?;
         Ok(output.status.success())
     }
 
-    async fn item(&self, theme: &Theme) -> Result<I3Item, Box<dyn Error>> {
+    async fn item(&self, theme: &Theme) -> Result<I3Item> {
         Ok(I3Item::new("󱕵")
             .markup(I3Markup::Pango)
             .color(if self.get_state().await? {
@@ -38,7 +38,7 @@ impl Krb {
 
 #[async_trait(?Send)]
 impl BarItem for Krb {
-    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction> {
         let mut net = net_subscribe().await?;
         let mut disabled = !self.only_on.is_empty();
         loop {

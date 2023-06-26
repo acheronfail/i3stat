@@ -1,8 +1,7 @@
-use std::error::Error;
-
+use istat::error::Result;
 use istat::util::{local_block_on, netlink_acpi_listen};
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<()> {
     let (output, _) = local_block_on(async {
         let mut acpi = netlink_acpi_listen().await?;
         while let Some(event) = acpi.recv().await {

@@ -11,6 +11,7 @@ pub mod config;
 pub mod context;
 pub mod dbus;
 pub mod dispatcher;
+pub mod error;
 pub mod human_time;
 pub mod i3;
 pub mod ipc;

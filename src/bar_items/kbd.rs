@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -7,6 +6,7 @@ use strum::{EnumIter, IntoEnumIterator};
 use tokio::fs;
 
 use crate::context::{BarEvent, BarItem, Context, StopAction};
+use crate::error::Result;
 use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
 
@@ -42,7 +42,7 @@ impl Keys {
         }
     }
 
-    async fn is_on(&self) -> Result<bool, Box<dyn Error>> {
+    async fn is_on(&self) -> Result<bool> {
         let mut entries = fs::read_dir("/sys/class/leds/").await?;
         let suffix = self.sys_dir_suffix();
 
@@ -72,7 +72,7 @@ impl Keys {
         }
     }
 
-    async fn format(self, theme: &Theme) -> Result<String, Box<dyn Error>> {
+    async fn format(self, theme: &Theme) -> Result<String> {
         Ok(match self.is_on().await {
             Ok(is_on) => format!(
                 r#"<span foreground="{}">{}</span>"#,
@@ -94,14 +94,14 @@ impl Keys {
 
 #[async_trait(?Send)]
 impl BarItem for Kbd {
-    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction> {
         let keys = self.show.clone().unwrap_or_else(|| Keys::iter().collect());
 
         'outer: loop {
             let text = futures::future::join_all(keys.iter().map(|k| k.format(&ctx.config.theme)))
                 .await
                 .into_iter()
-                .collect::<Result<Vec<_>, _>>()?
+                .collect::<Result<Vec<_>>>()?
                 .join("");
 
             let item = I3Item::new(text).markup(I3Markup::Pango);

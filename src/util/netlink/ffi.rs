@@ -1,7 +1,7 @@
-use std::error::Error;
-
 use ::std::os::raw::{c_char, c_uint};
 use serde_derive::{Deserialize, Serialize};
+
+use crate::error::{Error, Result};
 
 // https://github.com/torvalds/linux/blob/f8dba31b0a826e691949cd4fdfa5c30defaac8c5/drivers/acpi/event.c#L77
 pub const ACPI_EVENT_FAMILY_NAME: &str = "acpi_event";
@@ -49,24 +49,24 @@ impl AcpiGenericNetlinkEvent {
 
 /// Checks a slice of C's chars to ensure they're not signed, needed because C's `char` type could
 /// be either signed or unsigned unless specified. See: https://stackoverflow.com/a/2054941/5552584
-fn get_u8_bytes(slice: &[c_char]) -> Result<Vec<u8>, Box<dyn Error>> {
+fn get_u8_bytes(slice: &[c_char]) -> Result<Vec<u8>> {
     slice
         .into_iter()
         .take_while(|c| **c != 0)
-        .map(|c| -> Result<u8, Box<dyn Error>> {
+        .map(|c| -> Result<u8> {
             if *c < 0 {
                 Err(format!("slice contained signed char: {}", c).into())
             } else {
                 Ok(*c as u8)
             }
         })
-        .collect::<Result<Vec<_>, _>>()
+        .collect::<Result<Vec<_>>>()
 }
 
 impl<'a> TryFrom<&'a acpi_genl_event> for AcpiGenericNetlinkEvent {
-    type Error = Box<dyn Error>;
+    type Error = Error;
 
-    fn try_from(value: &'a acpi_genl_event) -> Result<Self, Self::Error> {
+    fn try_from(value: &'a acpi_genl_event) -> std::result::Result<Self, Self::Error> {
         Ok(AcpiGenericNetlinkEvent {
             device_class: String::from_utf8(get_u8_bytes(&value.device_class)?)?,
             bus_id: String::from_utf8(get_u8_bytes(&value.bus_id)?)?,

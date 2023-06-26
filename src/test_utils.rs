@@ -13,7 +13,11 @@ pub fn generate_manpage(cmd: Command) {
     m(&cmd, &dir, None).expect("failed to generate manpage");
 }
 
-fn m(cmd: &Command, dir: &Path, parent_name: Option<&str>) -> Result<(), Box<dyn Error>> {
+fn m(
+    cmd: &Command,
+    dir: &Path,
+    parent_name: Option<&str>,
+) -> std::result::Result<(), Box<dyn Error>> {
     let man = Man::new(cmd.clone());
     let mut buf = Vec::new();
     man.render(&mut buf)?;

@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::process;
 
 use clap::Parser;
@@ -7,6 +6,7 @@ use istat::cli::Cli;
 use istat::config::AppConfig;
 use istat::context::{Context, SharedState, StopAction};
 use istat::dispatcher::Dispatcher;
+use istat::error::Result;
 use istat::i3::header::I3BarHeader;
 use istat::i3::ipc::handle_click_events;
 use istat::i3::{I3Item, I3Markup};
@@ -32,7 +32,7 @@ fn main() {
     }
 }
 
-fn start_runtime() -> Result<RuntimeStopReason, Box<dyn Error>> {
+fn start_runtime() -> Result<RuntimeStopReason> {
     pretty_env_logger::try_init()?;
 
     let args = Cli::parse();
@@ -50,7 +50,7 @@ fn start_runtime() -> Result<RuntimeStopReason, Box<dyn Error>> {
     result
 }
 
-async fn async_main(args: Cli) -> Result<RuntimeStopReason, Box<dyn Error>> {
+async fn async_main(args: Cli) -> Result<RuntimeStopReason> {
     let config = RcCell::new(AppConfig::read(args).await?);
 
     // create socket first, so it's ready before anything is written to stdout
@@ -85,9 +85,7 @@ async fn async_main(args: Cli) -> Result<RuntimeStopReason, Box<dyn Error>> {
     return result;
 }
 
-fn setup_i3_bar(
-    config: &RcCell<AppConfig>,
-) -> Result<(RcCell<Vec<I3Item>>, RcCell<Dispatcher>), Box<dyn Error>> {
+fn setup_i3_bar(config: &RcCell<AppConfig>) -> Result<(RcCell<Vec<I3Item>>, RcCell<Dispatcher>)> {
     let item_count = config.items.len();
 
     // shared state
@@ -195,7 +193,7 @@ fn handle_item_updates(
     config: RcCell<AppConfig>,
     mut rx: Receiver<(I3Item, usize)>,
     mut bar: RcCell<Vec<I3Item>>,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<()> {
     // output first parts of the i3 bar protocol - the header
     println!("{}", serde_json::to_string(&I3BarHeader::default())?);
     // and the opening bracket for the "infinite array"
