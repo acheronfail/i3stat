@@ -174,7 +174,10 @@ function handleInput(input: string) {
       const payload = Buffer.concat([header, message]);
       socket.write(payload);
       socket.on('data', (data) => {
-        process.stdout.write(c.green(`Refreshed all items. IPC response: ${data.toString()}\n`));
+        // first 8 bytes are the header
+        const message = data.subarray(8);
+        process.stdout.clearLine(0);
+        process.stdout.write(c.green(`Refreshed all items. IPC response: ${message.toString()}\n`));
       });
     });
   }
