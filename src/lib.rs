@@ -1,3 +1,5 @@
+#![feature(ip)]
+
 // NOTE: this exists only so `/bin/*.rs` files can access the same modules
 
 #[macro_use]

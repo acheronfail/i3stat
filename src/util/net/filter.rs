@@ -3,8 +3,16 @@ use std::str::FromStr;
 
 use serde::{de, Deserialize, Serialize};
 
-use crate::util::net::{Interface, InterfaceKind};
+use super::interface::InterfaceKind;
+use crate::util::net::Interface;
 
+/// This type is in the format of `interface[:type]`, where `interface` is the interface name, and
+/// `type` is an optional part which is either `ipv4` or `ipv6`.
+///
+/// If `interface` is an empty string, then all interfaces are matched, for example:
+/// - `vpn0:ipv4` will match ip4 addresses for the `vpn` interface
+/// - `:ipv6`     will match all interfaces which have an ip6 address
+// TODO: better filtering? don't match docker interfaces, or libvirtd ones, etc?
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InterfaceFilter {
     name: String,

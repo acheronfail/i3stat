@@ -8,11 +8,15 @@ use tokio::process::Command;
 use crate::context::{BarItem, Context, StopAction};
 use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
+use crate::util::filter::InterfaceFilter;
+use crate::util::net_subscribe;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Krb {
     #[serde(default, with = "crate::human_time::option")]
     interval: Option<Duration>,
+    #[serde(default)]
+    only_on: Vec<InterfaceFilter>,
 }
 
 impl Krb {
@@ -35,9 +39,37 @@ impl Krb {
 #[async_trait(?Send)]
 impl BarItem for Krb {
     async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
+        let mut net = net_subscribe().await?;
+        let mut disabled = !self.only_on.is_empty();
         loop {
+            tokio::select! {
+                // any bar event
+                _ = ctx.wait_for_event(self.interval) => {
+                    // don't update if disabled
+                    if disabled {
+                        continue;
+                    }
+                },
+                // network update - check update disabled state
+                Ok(interfaces) = net.wait_for_change() => {
+                    // if none of the filters matched
+                    if interfaces.filtered(&self.only_on).is_empty() {
+                        // if the item wasn't disabled, then empty it out
+                        if !disabled {
+                            ctx.update_item(I3Item::empty()).await?;
+                        }
+
+                        // and set it to disabled
+                        disabled = true;
+
+                        // reset loop and wait to be enabled
+                        continue;
+                    }
+                }
+            }
+
+            // update item
             ctx.update_item(self.item(&ctx.config.theme).await?).await?;
-            ctx.wait_for_event(self.interval).await;
         }
     }
 }
