@@ -1,7 +1,7 @@
-use std::error::Error;
-
 use hex_color::HexColor;
 use serde_derive::{Deserialize, Serialize};
+
+use crate::error::Result;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ColorPair {
@@ -79,7 +79,7 @@ impl Default for Theme {
 }
 
 impl Theme {
-    pub fn validate(&self) -> Result<(), Box<dyn Error>> {
+    pub fn validate(&self) -> Result<()> {
         if self.powerline.len() <= 1 {
             bail!("theme.powerline must contain at least two values");
         }

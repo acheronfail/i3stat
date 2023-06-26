@@ -1,4 +1,4 @@
-use std::error::Error;
+use crate::error::Result;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -37,7 +37,7 @@ impl Cpu {
 
 #[async_trait(?Send)]
 impl BarItem for Cpu {
-    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction> {
         loop {
             let pct = {
                 // refresh cpu usage

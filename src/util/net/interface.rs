@@ -1,10 +1,11 @@
-use std::error::Error;
 use std::net::{SocketAddrV4, SocketAddrV6};
 use std::str::FromStr;
 
 use iwlib::{get_wireless_info, WirelessInfo};
 use nix::ifaddrs::getifaddrs;
 use nix::net::if_::InterfaceFlags;
+
+use crate::error::{Error, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum InterfaceKind {
@@ -22,9 +23,9 @@ impl ToString for InterfaceKind {
 }
 
 impl FromStr for InterfaceKind {
-    type Err = Box<dyn Error>;
+    type Err = Error;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s {
             "v4" => Ok(Self::V4),
             "v6" => Ok(Self::V6),
@@ -67,7 +68,7 @@ impl Interface {
         get_wireless_info(&self.name)
     }
 
-    pub fn get_interfaces() -> Result<Vec<Interface>, Box<dyn Error>> {
+    pub fn get_interfaces() -> Result<Vec<Interface>> {
         let if_addrs = match getifaddrs() {
             Ok(if_addrs) => if_addrs,
             Err(e) => bail!("call to `getifaddrs` failed: {}", e),

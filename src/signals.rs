@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::error::Error;
 
 use libc::{SIGRTMAX, SIGRTMIN, SIGTERM};
 use signal_hook_tokio::{Handle, Signals};
@@ -7,16 +6,14 @@ use signal_hook_tokio::{Handle, Signals};
 use crate::config::AppConfig;
 use crate::context::BarEvent;
 use crate::dispatcher::Dispatcher;
+use crate::error::Result;
 use crate::util::RcCell;
 
 // NOTE: the `signal_hook` crate isn't designed to be used with realtime signals, because
 // they may be lost due to its internal buffering, etc. For our use case, I think this is
 // fine as is, but if not, we may have to use `signal_hook_register` to do it ourselves.
 // See: https://docs.rs/signal-hook/latest/signal_hook/index.html#limitations
-pub fn handle_signals(
-    config: RcCell<AppConfig>,
-    dispatcher: RcCell<Dispatcher>,
-) -> Result<Handle, Box<dyn Error>> {
+pub fn handle_signals(config: RcCell<AppConfig>, dispatcher: RcCell<Dispatcher>) -> Result<Handle> {
     let min = SIGRTMIN();
     let max = SIGRTMAX();
     let realtime_signals = min..=max;

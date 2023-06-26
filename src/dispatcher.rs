@@ -1,10 +1,9 @@
-use std::error::Error;
-
 use futures::future::join_all;
 use tokio::sync::mpsc::error::SendError;
 use tokio::sync::mpsc::Sender;
 
 use crate::context::BarEvent;
+use crate::error::Result;
 
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
@@ -26,7 +25,7 @@ impl Dispatcher {
         self.inner[idx] = Some(tx);
     }
 
-    pub async fn signal_all(&self) -> Result<(), Box<dyn Error>> {
+    pub async fn signal_all(&self) -> Result<()> {
         Ok(join_all(
             self.inner
                 .iter()
@@ -42,7 +41,7 @@ impl Dispatcher {
         }))
     }
 
-    pub async fn send_bar_event(&self, idx: usize, ev: BarEvent) -> Result<(), Box<dyn Error>> {
+    pub async fn send_bar_event(&self, idx: usize, ev: BarEvent) -> Result<()> {
         match self.inner.get(idx) {
             Some(Some(tx)) => {
                 // if the channel fills up (the bar never reads click events), since this is a bounded channel

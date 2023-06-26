@@ -1,4 +1,4 @@
-use std::error::Error;
+use crate::error::Result;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -59,7 +59,7 @@ pub struct Nic {
 
 #[async_trait(?Send)]
 impl BarItem for Nic {
-    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction> {
         let mut net = net_subscribe().await?;
         let mut p = Paginator::new();
 

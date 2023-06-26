@@ -1,4 +1,4 @@
-use std::error::Error;
+use crate::error::Result;
 
 use async_trait::async_trait;
 use futures::StreamExt;
@@ -28,7 +28,7 @@ impl Dunst {
 
 #[async_trait(?Send)]
 impl BarItem for Dunst {
-    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction> {
         // get initial state
         let connection = dbus_connection(BusType::Session).await?;
         let dunst_proxy = DunstProxy::new(&connection).await?;

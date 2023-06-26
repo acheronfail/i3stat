@@ -1,6 +1,6 @@
 mod custom;
 
-use std::error::Error;
+use crate::error::Result;
 use std::fmt::Debug;
 use std::process;
 use std::rc::Rc;
@@ -610,7 +610,7 @@ impl RcCell<PulseState> {
 
 #[async_trait(?Send)]
 impl BarItem for Pulse {
-    async fn start(&self, mut ctx: Context) -> Result<crate::context::StopAction, Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<crate::context::StopAction> {
         // setup pulse main loop
         let (mut main_loop, pa_ctx) = {
             let mut main_loop = TokioMain::new();

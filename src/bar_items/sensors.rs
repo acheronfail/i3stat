@@ -1,4 +1,4 @@
-use std::error::Error;
+use crate::error::Result;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -35,7 +35,7 @@ impl Sensors {
 
 #[async_trait(?Send)]
 impl BarItem for Sensors {
-    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction> {
         {
             ctx.state.sys.refresh_components_list();
         }

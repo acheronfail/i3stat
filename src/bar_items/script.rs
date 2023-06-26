@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::error::Error;
+use crate::error::Result;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -31,7 +31,7 @@ pub struct Script {
 
 impl Script {
     // returns stdout
-    async fn run(&self, env: &HashMap<&str, String>) -> Result<String, Box<dyn Error>> {
+    async fn run(&self, env: &HashMap<&str, String>) -> Result<String> {
         let output = Command::new("sh")
             .arg("-c")
             .arg(&self.command)
@@ -45,7 +45,7 @@ impl Script {
 
 #[async_trait(?Send)]
 impl BarItem for Script {
-    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction> {
         // update script environment on any click event
         let mut script_env = HashMap::new();
         let handle_event = |event: BarEvent, env: &mut HashMap<_, _>| match event {

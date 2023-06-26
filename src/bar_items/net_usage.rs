@@ -1,4 +1,4 @@
-use std::error::Error;
+use crate::error::Result;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -89,7 +89,7 @@ fn format_bytes(bytes: u64, si: bool, as_bits: bool) -> String {
 
 #[async_trait(?Send)]
 impl BarItem for NetUsage {
-    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction> {
         let fg = |bytes: u64, theme: &Theme| {
             self.get_color(&theme, bytes)
                 .map(|c| format!(r#" foreground="{}""#, c))

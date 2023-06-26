@@ -1,4 +1,4 @@
-use std::error::Error;
+use crate::error::Result;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -19,7 +19,7 @@ pub struct Time {
 
 #[async_trait(?Send)]
 impl BarItem for Time {
-    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction> {
         loop {
             let now = Local::now();
             let item = I3Item::new(format!("󰥔 {}", now.format(&self.format_long)))

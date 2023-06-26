@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::error::Error;
 
 use async_trait::async_trait;
 use hex_color::HexColor;
@@ -8,6 +7,7 @@ use serde_derive::Deserialize;
 use serde_json::Value;
 
 use crate::context::{BarItem, Context, StopAction};
+use crate::error::Result;
 
 #[derive(Debug, Default, Serialize, Deserialize, Copy, Clone, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -44,7 +44,7 @@ pub enum I3MinWidth {
 }
 
 impl Serialize for I3MinWidth {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -218,7 +218,7 @@ impl I3Item {
 
 #[async_trait(?Send)]
 impl BarItem for I3Item {
-    async fn start(&self, ctx: Context) -> Result<StopAction, Box<dyn Error>> {
+    async fn start(&self, ctx: Context) -> Result<StopAction> {
         ctx.update_item(self.clone()).await?;
         Ok(StopAction::Complete)
     }

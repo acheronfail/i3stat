@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::error::Error;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
@@ -10,15 +9,13 @@ use wordexp::{wordexp, Wordexp};
 
 use crate::cli::Cli;
 use crate::config::AppConfig;
+use crate::error::Result;
 
-fn expand_include_path(
-    s: impl AsRef<str>,
-    cfg_dir: impl AsRef<Path>,
-) -> Result<Vec<PathBuf>, Box<dyn Error>> {
+fn expand_include_path(s: impl AsRef<str>, cfg_dir: impl AsRef<Path>) -> Result<Vec<PathBuf>> {
     let cfg_dir = cfg_dir.as_ref();
     // perform expansion, see: man 3 wordexp
     Ok(wordexp(s.as_ref(), Wordexp::new(0), 0)?
-        .map(|path| -> Result<_, Box<dyn Error>> {
+        .map(|path| -> Result<_> {
             // convert expansion to path
             let path = PathBuf::from(path);
             if path.is_absolute() {
@@ -33,10 +30,10 @@ fn expand_include_path(
                 }
             }
         })
-        .collect::<Result<_, _>>()?)
+        .collect::<Result<_>>()?)
 }
 
-pub fn parse(args: &Cli) -> Result<AppConfig, Box<dyn Error>> {
+pub fn parse(args: &Cli) -> Result<AppConfig> {
     let cfg_file = args
         .config
         .as_ref()

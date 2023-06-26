@@ -1,8 +1,6 @@
 pub mod acpi;
 pub mod ffi;
 
-use std::error::Error;
-
 use neli::consts::socket::NlFamily;
 use neli::err::RouterError;
 use neli::genl::Genlmsghdr;
@@ -12,12 +10,13 @@ use neli::utils::Groups;
 use tokio::sync::mpsc::{self, Receiver};
 
 use self::ffi::{acpi_genl_event, AcpiAttrType, AcpiGenericNetlinkEvent};
+use crate::error::{Error, Result};
 
-pub async fn netlink_acpi_listen() -> Result<Receiver<AcpiGenericNetlinkEvent>, Box<dyn Error>> {
+pub async fn netlink_acpi_listen() -> Result<Receiver<AcpiGenericNetlinkEvent>> {
     // open netlink socket
     let (socket, mut multicast) = NlRouter::connect(NlFamily::Generic, None, Groups::empty())
         .await
-        .map_err(|e| -> Box<dyn Error> { format!("failed to open socket: {}", e).into() })?;
+        .map_err(|e| -> Error { format!("failed to open socket: {}", e).into() })?;
 
     // fetch acpi ids
     let family_id = acpi::event_family_id().await?;
@@ -31,7 +30,7 @@ pub async fn netlink_acpi_listen() -> Result<Receiver<AcpiGenericNetlinkEvent>, 
     tokio::task::spawn_local(async move {
         // rust-analyzer has trouble figuring this type out, so we help it here a little
         type Payload = Genlmsghdr<u8, u16>;
-        type Next = Option<Result<Nlmsghdr<u16, Payload>, RouterError<u16, Payload>>>;
+        type Next = Option<std::result::Result<Nlmsghdr<u16, Payload>, RouterError<u16, Payload>>>;
 
         loop {
             match multicast.next::<u16, Payload>().await as Next {

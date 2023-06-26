@@ -1,16 +1,16 @@
 use std::convert::Infallible;
-use std::error::Error;
 use std::io::ErrorKind;
 
 use tokio::net::{UnixListener, UnixStream};
 
 use super::client::handle_ipc_client;
 use crate::config::AppConfig;
+use crate::error::Result;
 use crate::ipc::protocol::{encode_ipc_msg, IpcReply};
 use crate::ipc::IpcContext;
 use crate::util::RcCell;
 
-pub async fn create_ipc_socket(config: &RcCell<AppConfig>) -> Result<UnixListener, Box<dyn Error>> {
+pub async fn create_ipc_socket(config: &RcCell<AppConfig>) -> Result<UnixListener> {
     let socket_path = config.socket();
 
     // try to remove socket if one exists
@@ -23,10 +23,7 @@ pub async fn create_ipc_socket(config: &RcCell<AppConfig>) -> Result<UnixListene
     Ok(UnixListener::bind(&socket_path)?)
 }
 
-pub async fn handle_ipc_events(
-    listener: UnixListener,
-    ctx: IpcContext,
-) -> Result<Infallible, Box<dyn Error>> {
+pub async fn handle_ipc_events(listener: UnixListener, ctx: IpcContext) -> Result<Infallible> {
     loop {
         match listener.accept().await {
             Ok((stream, _)) => {
@@ -43,7 +40,7 @@ pub async fn handle_ipc_events(
     }
 }
 
-pub async fn send_ipc_response(stream: &UnixStream, resp: &IpcReply) -> Result<(), Box<dyn Error>> {
+pub async fn send_ipc_response(stream: &UnixStream, resp: &IpcReply) -> Result<()> {
     let data = encode_ipc_msg(resp)?;
     let mut idx = 0;
     loop {

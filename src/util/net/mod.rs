@@ -1,7 +1,6 @@
 pub mod filter;
 pub mod interface;
 
-use std::error::Error;
 use std::ops::Deref;
 
 use futures::StreamExt;
@@ -11,6 +10,7 @@ use self::filter::InterfaceFilter;
 pub use self::interface::Interface;
 use crate::dbus::network_manager::NetworkManagerProxy;
 use crate::dbus::{dbus_connection, BusType};
+use crate::error::Result;
 
 // FIXME: I don't like this interface list thing
 #[derive(Debug, Clone)]
@@ -54,15 +54,15 @@ impl Net {
         Net { tx, rx }
     }
 
-    pub async fn wait_for_change(&mut self) -> Result<InterfaceList, Box<dyn Error>> {
+    pub async fn wait_for_change(&mut self) -> Result<InterfaceList> {
         Ok(self.rx.recv().await?)
     }
 
-    pub async fn trigger_update(&self) -> Result<(), Box<dyn Error>> {
+    pub async fn trigger_update(&self) -> Result<()> {
         Ok(self.tx.send(()).await?)
     }
 
-    pub async fn update_now(&mut self) -> Result<InterfaceList, Box<dyn Error>> {
+    pub async fn update_now(&mut self) -> Result<InterfaceList> {
         self.trigger_update().await?;
         self.wait_for_change().await
     }
@@ -77,22 +77,22 @@ impl Clone for Net {
     }
 }
 
-pub async fn net_subscribe() -> Result<Net, Box<dyn Error>> {
+pub async fn net_subscribe() -> Result<Net> {
     Ok(NET_RX.get_or_try_init(start_task).await?.clone())
 }
 
-async fn start_task() -> Result<Net, Box<dyn Error>> {
+async fn start_task() -> Result<Net> {
     let (iface_tx, iface_rx) = broadcast::channel(2);
     let (manual_tx, manual_rx) = mpsc::channel(1);
     tokio::task::spawn_local(watch_net_updates(iface_tx, manual_rx));
 
-    Ok::<_, Box<dyn Error>>(Net::new(manual_tx, iface_rx))
+    Ok(Net::new(manual_tx, iface_rx))
 }
 
 async fn watch_net_updates(
     tx: broadcast::Sender<InterfaceList>,
     mut rx: mpsc::Receiver<()>,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<()> {
     // TODO: investigate effort of checking network state with netlink rather than dbus
     let connection = dbus_connection(BusType::System).await?;
     let nm = NetworkManagerProxy::new(&connection).await?;
