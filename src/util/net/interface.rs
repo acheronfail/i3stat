@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::error::Error;
 use std::net::{SocketAddrV4, SocketAddrV6};
 use std::str::FromStr;
@@ -7,7 +6,7 @@ use iwlib::{get_wireless_info, WirelessInfo};
 use nix::ifaddrs::getifaddrs;
 use nix::net::if_::InterfaceFlags;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum InterfaceKind {
     V4,
     V6,
@@ -34,33 +33,14 @@ impl FromStr for InterfaceKind {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+// TODO: cache these? pass them all around by reference? interior mutability for wireless or not?
+//  cache list of wireless ones?
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Interface {
     pub name: String,
     pub addr: String,
     pub kind: InterfaceKind,
     pub flags: InterfaceFlags,
-    pub is_wireless: Option<bool>,
-}
-
-impl PartialOrd for Interface {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        match self.name.partial_cmp(&other.name) {
-            Some(Ordering::Equal) => {}
-            ord => return ord,
-        }
-        match self.addr.partial_cmp(&other.addr) {
-            Some(Ordering::Equal) => {}
-            ord => return ord,
-        }
-        self.flags.partial_cmp(&other.flags)
-    }
-}
-
-impl Ord for Interface {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap_or(Ordering::Equal)
-    }
 }
 
 impl Interface {
@@ -75,7 +55,6 @@ impl Interface {
             addr: addr.as_ref().into(),
             kind,
             flags,
-            is_wireless: None,
         }
     }
 
@@ -83,32 +62,9 @@ impl Interface {
         self.flags.contains(InterfaceFlags::IFF_TAP) || self.flags.contains(InterfaceFlags::IFF_TUN)
     }
 
-    pub fn is_wireless(&mut self) -> bool {
-        match self.is_wireless {
-            Some(b) => b,
-            None => self.get_wireless_info().is_some(),
-        }
-    }
-
-    pub fn get_wireless_info(&mut self) -> Option<WirelessInfo> {
-        // check if this is a wireless network
-        match self.is_wireless {
-            // not a wireless interface, just return defaults
-            Some(false) => None,
-            // SAFETY: we've previously checked if this is a wireless network
-            Some(true) => get_wireless_info(&self.name),
-            // check if we're a wireless network and remember for next time
-            None => match get_wireless_info(&self.name) {
-                Some(i) => {
-                    self.is_wireless = Some(true);
-                    Some(i)
-                }
-                None => {
-                    self.is_wireless = Some(false);
-                    None
-                }
-            },
-        }
+    /// If this is a wireless network, then return info from `iwlib`
+    pub fn get_wireless_info(&self) -> Option<WirelessInfo> {
+        get_wireless_info(&self.name)
     }
 
     pub fn get_interfaces() -> Result<Vec<Interface>, Box<dyn Error>> {
@@ -141,10 +97,17 @@ impl Interface {
                     format!("{}", SocketAddrV4::from(*ipv4).ip()),
                     InterfaceKind::V4,
                 ),
-                (_, Some(ipv6)) => (
-                    format!("{}", SocketAddrV6::from(*ipv6).ip()),
-                    InterfaceKind::V6,
-                ),
+                (_, Some(ipv6)) => {
+                    // filter out non-global ipv6 addresses
+                    if !ipv6.ip().is_global() {
+                        continue;
+                    }
+
+                    (
+                        format!("{}", SocketAddrV6::from(*ipv6).ip()),
+                        InterfaceKind::V6,
+                    )
+                }
                 (None, None) => continue,
             };
 

@@ -92,6 +92,9 @@ thresholds = ["1kiB", "1MiB", "10MiB", "25MiB", "100MiB"]
 type = "krb"
 # How often this item should refresh
 interval = "2m"
+# Optionally enable this item only when specific networks are active.
+# This is the same format as the `filter` property in the `nic` item.
+only_on = ["vpn0:v4"]
 
 [[items]]
 # a raw item - these are static items that don't change, and display the values here
