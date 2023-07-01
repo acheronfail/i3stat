@@ -616,9 +616,9 @@ checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 
 [[package]]
 name = "fakeroot"
-version = "0.3.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0e51568d2ffb1a39dedb2c73fce7cc90244bdf531f01e0a3a1cab13d748ca72"
+checksum = "25f6b8b411dcb5303e9cc5514bd09f2f9b301a196def84ead194b379de5e3b18"
 dependencies = [
  "libc",
  "redhook",
