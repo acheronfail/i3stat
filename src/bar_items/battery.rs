@@ -15,7 +15,7 @@ use crate::dbus::{dbus_connection, BusType};
 use crate::error::Result;
 use crate::i3::{I3Button, I3Item, I3Markup};
 use crate::theme::Theme;
-use crate::util::ffi::AcpiGenericNetlinkEvent;
+use crate::util::acpi::ffi::AcpiGenericNetlinkEvent;
 use crate::util::{netlink_acpi_listen, Paginator};
 
 enum BatState {
