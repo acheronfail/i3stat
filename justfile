@@ -53,7 +53,7 @@ debug dimensions="3800x200": _lbuild
 
 # run tests in a nested dbus session so the host session isn't affected
 test *args:
-  dbus-run-session -- env RUST_LOG=trace ISTAT_TEST=1 cargo test --all "$@"
+  dbus-run-session -- env RUST_LOG=istat=trace ISTAT_TEST=1 cargo test --all "$@"
 
 # `eval` this for an easy debug loop for screenshot tests
 # NOTE: requires `fd` be present, and the terminal is `kitty`
