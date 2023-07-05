@@ -1,68 +1,38 @@
 pub mod filter;
 pub mod interface;
 
-use std::ops::Deref;
-
-use futures::StreamExt;
 use tokio::sync::{broadcast, mpsc, OnceCell};
 
 use self::filter::InterfaceFilter;
-pub use self::interface::Interface;
-use crate::dbus::network_manager::NetworkManagerProxy;
-use crate::dbus::{dbus_connection, BusType};
+use super::route::InterfaceUpdate;
+use super::NetlinkInterface;
 use crate::error::Result;
-
-// FIXME: I don't like this interface list thing
-#[derive(Debug, Clone)]
-pub struct InterfaceList {
-    inner: Vec<Interface>,
-}
-
-impl InterfaceList {
-    pub fn filtered(self, filter: &[InterfaceFilter]) -> Vec<Interface> {
-        self.inner
-            .into_iter()
-            .filter(|i| {
-                if filter.is_empty() {
-                    true
-                } else {
-                    filter.iter().any(|filter| filter.matches(i))
-                }
-            })
-            .collect()
-    }
-}
-
-impl Deref for InterfaceList {
-    type Target = Vec<Interface>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
+use crate::util::netlink_ipaddr_listen;
 
 static NET_RX: OnceCell<Net> = OnceCell::const_new();
+
+// structs ---------------------------------------------------------------------
 
 #[derive(Debug)]
 pub struct Net {
     tx: mpsc::Sender<()>,
-    rx: broadcast::Receiver<InterfaceList>,
+    rx: broadcast::Receiver<InterfaceUpdate>,
 }
 
 impl Net {
-    fn new(tx: mpsc::Sender<()>, rx: broadcast::Receiver<InterfaceList>) -> Net {
+    fn new(tx: mpsc::Sender<()>, rx: broadcast::Receiver<InterfaceUpdate>) -> Net {
         Net { tx, rx }
     }
 
-    pub async fn wait_for_change(&mut self) -> Result<InterfaceList> {
-        Ok(self.rx.recv().await?)
+    pub async fn wait_for_change(&mut self) -> Result<Interfaces> {
+        Ok(self.rx.recv().await?.into())
     }
 
     pub async fn trigger_update(&self) -> Result<()> {
         Ok(self.tx.send(()).await?)
     }
 
-    pub async fn update_now(&mut self) -> Result<InterfaceList> {
+    pub async fn update_now(&mut self) -> Result<Interfaces> {
         self.trigger_update().await?;
         self.wait_for_change().await
     }
@@ -77,6 +47,42 @@ impl Clone for Net {
     }
 }
 
+#[derive(Debug)]
+pub struct Interfaces {
+    inner: Vec<NetlinkInterface>,
+}
+
+impl Interfaces {
+    pub fn filtered(self, filters: &[InterfaceFilter]) -> Vec<NetlinkInterface> {
+        if filters.is_empty() {
+            return self.inner;
+        }
+
+        let mut filtered = vec![];
+        for mut interface in self.inner {
+            interface
+                .ip_addresses
+                .retain(|addr| filters.iter().any(|f| f.matches(&interface.name, addr)));
+
+            if !interface.ip_addresses.is_empty() {
+                filtered.push(interface);
+            }
+        }
+
+        filtered
+    }
+}
+
+impl From<InterfaceUpdate> for Interfaces {
+    fn from(value: InterfaceUpdate) -> Self {
+        let mut inner = value.into_values().collect::<Vec<_>>();
+        inner.sort_unstable_by_key(|int| int.index);
+        Interfaces { inner }
+    }
+}
+
+// subscribe -------------------------------------------------------------------
+
 pub async fn net_subscribe() -> Result<Net> {
     Ok(NET_RX.get_or_try_init(start_task).await?.clone())
 }
@@ -84,49 +90,26 @@ pub async fn net_subscribe() -> Result<Net> {
 async fn start_task() -> Result<Net> {
     let (iface_tx, iface_rx) = broadcast::channel(2);
     let (manual_tx, manual_rx) = mpsc::channel(1);
+
+    // spawn task to watch for network updates
     tokio::task::spawn_local(watch_net_updates(iface_tx, manual_rx));
+
+    // trigger an initial update
+    manual_tx.send(()).await?;
 
     Ok(Net::new(manual_tx, iface_rx))
 }
 
 async fn watch_net_updates(
-    tx: broadcast::Sender<InterfaceList>,
-    mut rx: mpsc::Receiver<()>,
+    tx: broadcast::Sender<InterfaceUpdate>,
+    manual_trigger: mpsc::Receiver<()>,
 ) -> Result<()> {
-    // TODO: investigate effort of checking network state with netlink rather than dbus
-    let connection = dbus_connection(BusType::System).await?;
-    let nm = NetworkManagerProxy::new(&connection).await?;
-    // this captures all network connect/disconnect events
-    let mut state_changed = nm.receive_state_changed().await?;
-    // this captures all vpn interface connect/disconnect events
-    let mut active_con_change = nm.receive_active_connections_objpath_changed().await;
-
-    let mut force_update = true;
-    let mut last_value = vec![];
+    let mut rx = netlink_ipaddr_listen(manual_trigger).await?;
     loop {
-        // check current interfaces
-        let interfaces = Interface::get_interfaces()?;
-
-        // send updates to subscribers only if it's changed since last time
-        if force_update || last_value != interfaces {
-            force_update = false;
-            last_value = interfaces.clone();
-            tx.send(InterfaceList { inner: interfaces })?;
-        }
-
-        tokio::select! {
-            // callers can manually trigger updates
-            Some(()) = rx.recv() => {
-                force_update = true;
-                continue;
-            },
-            // catch updates from NetworkManager via dbus
-            opt = state_changed.next() => if opt.is_none() {
-                bail!("unexpected end of NetworkManagerProxy::receive_state_changed stream");
-            },
-            opt = active_con_change.next() => if opt.is_none() {
-                bail!("unexpected end of NetworkManagerProxy::receive_active_connections_objpath_changed stream");
-            }
+        if let Some(mut interfaces) = rx.recv().await {
+            // filter out loopback
+            interfaces.retain(|_, int| int.name.as_ref() != "lo");
+            tx.send(interfaces)?;
         }
     }
 }
