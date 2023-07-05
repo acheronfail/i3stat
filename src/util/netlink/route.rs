@@ -1,16 +1,17 @@
-//! TODO: get notified of network change events from netlink rather than dbus + network manager
+//! Use rtnetlink (route netlink) for the following:
+//!     - fetching information about all current network interfaces
+//!     - be notified when ip addresses change
 //!
-//! TODO: another, separate (generic) listener for nl80211 events?
-//!
-//! Useful things:
-//!     `genl-ctrl-list` returns generic families
-//!     `ip a add 10.0.0.254 dev wlan0 && sleep 1 && ip a del 10.0.0.254/32 dev wlan0`
-//!     `ip -6 addr add 2001:0db8:0:f101::1/64 dev wlan1 && sleep 1 && ip -6 addr del 2001:0db8:0:f101::1/64 dev wlan1`
+//! Useful things when developing this:
+//!     - https://man7.org/linux/man-pages/man7/rtnetlink.7.html
+//!     - https://docs.kernel.org/userspace-api/netlink/intro.html
+//!     - `genl-ctrl-list` returns generic families
+//!     - simulate ipv4 activity: `ip a add 10.0.0.254 dev wlan0 && sleep 1 && ip a del 10.0.0.254/32 dev wlan0`
+//!     - simulate ipv6 activity: `ip -6 addr add 2001:0db8:0:f101::1/64 dev lo && sleep 1 && ip -6 addr del 2001:0db8:0:f101::1/64 dev lo`
 
 use std::collections::{HashMap, HashSet};
 use std::convert::Infallible;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::rc::Rc;
 
 use libc::{RTNLGRP_IPV4_IFADDR, RTNLGRP_IPV6_IFADDR};
 use neli::consts::nl::NlmF;
@@ -24,20 +25,10 @@ use neli::rtnl::{Ifaddrmsg, IfaddrmsgBuilder, Ifinfomsg, IfinfomsgBuilder};
 use neli::utils::Groups;
 use tokio::sync::mpsc::{self, Receiver, Sender};
 
+use super::NetlinkInterface;
 use crate::error::Result;
 
-pub type InterfaceUpdate = HashMap<i32, InterfaceInfo>;
-
-// TODO: move this file elsewhere (util::net ?) since it's not really netlink specific
-// TODO: genl nl80211 checks to see if this interface is wireless? +remove iwlib dep?
-//  - http://lists.infradead.org/pipermail/hostap/2004-March/006231.html
-//  - https://blog.onethinglab.com/how-to-check-if-wireless-adapter-supports-monitor-mode/
-#[derive(Debug, Clone)]
-pub struct InterfaceInfo {
-    pub name: Rc<str>,
-    pub mac_address: Option<[u8; 6]>,
-    pub ip_addresses: HashSet<IpAddr>,
-}
+pub type InterfaceUpdate = HashMap<i32, NetlinkInterface>;
 
 pub async fn netlink_ipaddr_listen() -> Result<Receiver<InterfaceUpdate>> {
     // setup socket for netlink route
@@ -110,8 +101,8 @@ async fn handle_netlink_route_messages(
 }
 
 /// Request all interfaces with their addresses from rtnetlink(7)
-async fn get_all_interfaces(socket: &NlRouter) -> Result<HashMap<i32, InterfaceInfo>> {
-    let mut interface_map = HashMap::<i32, InterfaceInfo>::new();
+async fn get_all_interfaces(socket: &NlRouter) -> Result<HashMap<i32, NetlinkInterface>> {
+    let mut interface_map = HashMap::<i32, NetlinkInterface>::new();
 
     // first, get all the interfaces: we need this for the interface names
     {
@@ -140,17 +131,17 @@ async fn get_all_interfaces(socket: &NlRouter) -> Result<HashMap<i32, InterfaceI
             };
 
             if let NlPayload::Payload(ifinfomsg) = header.nl_payload() {
-                dbg!(ifinfomsg);
                 // handle to the attributes of this message
                 let attr_handle = ifinfomsg.rtattrs().get_attr_handle();
 
                 // extract interface name
-                let mut interface_info = InterfaceInfo {
+                let mut interface_info = NetlinkInterface {
+                    index: *ifinfomsg.ifi_index(),
                     name: match attr_handle.get_attr_payload_as_with_len::<String>(Ifla::Ifname) {
                         Ok(interface) => interface.into(),
                         Err(e) => {
                             log::error!(
-                                "failed to parse interface from ifinfomsg: {} :: {:?}",
+                                "failed to parse interface name from ifinfomsg: {} :: {:?}",
                                 e,
                                 ifinfomsg
                             );
@@ -246,15 +237,4 @@ async fn get_all_interfaces(socket: &NlRouter) -> Result<HashMap<i32, InterfaceI
     }
 
     Ok(interface_map)
-}
-
-#[test]
-fn asdf() {
-    crate::util::local_block_on(async {
-        let mut rx = netlink_ipaddr_listen().await.unwrap();
-        while let Some(ev) = rx.recv().await {
-            dbg!(ev);
-        }
-    })
-    .unwrap();
 }
