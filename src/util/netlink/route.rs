@@ -12,6 +12,7 @@
 use std::collections::{HashMap, HashSet};
 use std::convert::Infallible;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::rc::Rc;
 
 use libc::{RTNLGRP_IPV4_IFADDR, RTNLGRP_IPV6_IFADDR};
 use neli::consts::nl::NlmF;
@@ -30,7 +31,9 @@ use crate::error::Result;
 
 pub type InterfaceUpdate = HashMap<i32, NetlinkInterface>;
 
-pub async fn netlink_ipaddr_listen() -> Result<Receiver<InterfaceUpdate>> {
+pub async fn netlink_ipaddr_listen(
+    manual_trigger: mpsc::Receiver<()>,
+) -> Result<Receiver<InterfaceUpdate>> {
     // setup socket for netlink route
     let (socket, multicast) = NlRouter::connect(NlFamily::Route, None, Groups::empty()).await?;
 
@@ -47,20 +50,47 @@ pub async fn netlink_ipaddr_listen() -> Result<Receiver<InterfaceUpdate>> {
         .unwrap();
 
     let (tx, rx) = mpsc::channel(8);
+
+    // wrap socket in an `Rc` to prevent it from being cleaned up earlier than expected
+    // and also to share it between tasks
+    let socket = Rc::new(socket);
+
+    // spawn task to listen for manual requests to update
+    tokio::task::spawn_local({
+        let tx = tx.clone();
+        let socket = socket.clone();
+        async move {
+            if let Err(e) = handle_manual_trigger(socket, manual_trigger, tx).await {
+                log::error!("fatal error while handling manual network updates: {}", e);
+            }
+        }
+    });
+
+    // spawn task to listen for network address updates
     tokio::task::spawn_local(async move {
-        if let Err(e) = handle_netlink_route_messages(&socket, multicast, tx).await {
+        if let Err(e) = handle_netlink_route_messages(socket, multicast, tx).await {
             log::error!("fatal error handling netlink route messages: {}", e);
         }
-
-        // make sure socket is kept alive while we're reading messages
-        drop(socket);
     });
 
     Ok(rx)
 }
 
+async fn handle_manual_trigger(
+    socket: Rc<NlRouter>,
+    mut manual_trigger: mpsc::Receiver<()>,
+    tx: Sender<InterfaceUpdate>,
+) -> Result<Infallible> {
+    while let Some(()) = manual_trigger.recv().await {
+        log::debug!("manual network update requested");
+        tx.send(get_all_interfaces(&socket).await?).await?;
+    }
+
+    bail!("unexpected drop of manual trigger senders");
+}
+
 async fn handle_netlink_route_messages(
-    socket: &NlRouter,
+    socket: Rc<NlRouter>,
     mut multicast: NlRouterReceiverHandle<u16, Genlmsghdr<u8, u16>>,
     tx: Sender<InterfaceUpdate>,
 ) -> Result<Infallible> {
@@ -101,7 +131,7 @@ async fn handle_netlink_route_messages(
 }
 
 /// Request all interfaces with their addresses from rtnetlink(7)
-async fn get_all_interfaces(socket: &NlRouter) -> Result<HashMap<i32, NetlinkInterface>> {
+async fn get_all_interfaces(socket: &Rc<NlRouter>) -> Result<HashMap<i32, NetlinkInterface>> {
     let mut interface_map = HashMap::<i32, NetlinkInterface>::new();
 
     // first, get all the interfaces: we need this for the interface names

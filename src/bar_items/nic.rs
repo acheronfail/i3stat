@@ -1,52 +1,76 @@
-use crate::error::Result;
 use std::time::Duration;
 
 use async_trait::async_trait;
 use hex_color::HexColor;
-use iwlib::WirelessInfo;
 use serde_derive::{Deserialize, Serialize};
 
 use crate::context::{BarEvent, BarItem, Context, StopAction};
+use crate::error::Result;
 use crate::i3::{I3Item, I3Markup, I3Modifier};
 use crate::theme::Theme;
 use crate::util::filter::InterfaceFilter;
-use crate::util::net::Interface;
-use crate::util::{net_subscribe, Paginator};
+use crate::util::{net_subscribe, NetlinkInterface, Paginator};
 
-impl Interface {
-    fn format_wireless(&self, i: WirelessInfo, theme: &Theme) -> (String, Option<HexColor>) {
-        let fg = match i.wi_quality {
-            100..=u8::MAX => theme.green,
-            80..=99 => theme.green,
-            60..=79 => theme.yellow,
-            40..=59 => theme.orange,
-            _ => theme.red,
-        };
+struct Connection {
+    // TODO: borrow?
+    name: String,
+    addr: String,
+    // TODO: if wireless, refresh at an interval?
+    // FIXME: compute only when needed, not all the time
+    detail: Option<String>,
+    fg: HexColor,
+}
 
+impl Connection {
+    pub fn format(&self, _theme: &Theme) -> (String, String) {
+        let fg = format!(r#" foreground="{}""#, self.fg);
         (
-            format!("({}) {}% at {}", self.addr, i.wi_quality, i.wi_essid),
-            Some(fg),
-        )
-    }
-
-    fn format_normal(&self, theme: &Theme) -> (String, Option<HexColor>) {
-        (format!("({})", self.addr), Some(theme.green))
-    }
-
-    fn format(&self, theme: &Theme) -> (String, String) {
-        let (addr, fg) = match self.get_wireless_info() {
-            Some(info) => self.format_wireless(info, theme),
-            None => self.format_normal(theme),
-        };
-
-        let fg = fg
-            .map(|c| format!(r#" foreground="{}""#, c))
-            .unwrap_or("".into());
-        (
-            format!(r#"<span{}>{}{}</span>"#, fg, self.name, addr),
+            format!(
+                r#"<span{}>{}({}){}</span>"#,
+                fg,
+                self.name,
+                self.addr,
+                match &self.detail {
+                    Some(detail) => format!(" {}", detail),
+                    None => "".into(),
+                }
+            ),
             format!(r#"<span{}>{}</span>"#, fg, self.name),
         )
     }
+}
+
+async fn connections_from_interfaces(
+    theme: &Theme,
+    interfaces: Vec<NetlinkInterface>,
+) -> Result<Vec<Connection>> {
+    let mut result = vec![];
+    for interface in interfaces {
+        for addr in &interface.ip_addresses {
+            let wireless_info = interface.wireless_info().await;
+            result.push(Connection {
+                fg: wireless_info
+                    .as_ref()
+                    .and_then(|info| info.signal.as_ref())
+                    .map_or(theme.green, |signal| match signal.quality as u8 {
+                        100..=u8::MAX => theme.green,
+                        80..=99 => theme.green,
+                        60..=79 => theme.yellow,
+                        40..=59 => theme.orange,
+                        _ => theme.red,
+                    }),
+                name: interface.name.to_string(),
+                addr: addr.to_string(),
+                detail: wireless_info.map(|info| match (info.ssid, info.signal) {
+                    (Some(ssid), Some(signal)) => format!("{:.0}% at {}", signal.quality, ssid),
+                    (Some(ssid), None) => ssid.to_string(),
+                    _ => "".into(),
+                }),
+            });
+        }
+    }
+
+    Ok(result)
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -68,7 +92,7 @@ impl BarItem for Nic {
             tokio::select! {
                 // wait for network changes
                 Ok(list) = net.wait_for_change() => {
-                    interfaces = list.filtered(&self.filter);
+                    interfaces = connections_from_interfaces(&ctx.config.theme, list.filtered(&self.filter)).await?;
                 },
                 // on any bar event
                 Some(event) = ctx.wait_for_event(self.interval) => {

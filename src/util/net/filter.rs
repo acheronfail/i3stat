@@ -1,10 +1,10 @@
+use std::net::IpAddr;
 use std::str::FromStr;
 
 use serde::{de, Deserialize, Serialize};
 
 use super::interface::InterfaceKind;
 use crate::error::Error;
-use crate::util::net::Interface;
 
 /// This type is in the format of `interface[:type]`, where `interface` is the interface name, and
 /// `type` is an optional part which is either `ipv4` or `ipv6`.
@@ -27,16 +27,22 @@ impl InterfaceFilter {
         }
     }
 
-    pub fn matches(&self, interface: &Interface) -> bool {
+    pub fn matches(&self, name: impl AsRef<str>, addr: &IpAddr) -> bool {
         let name_match = if self.name.is_empty() {
             true
         } else {
-            self.name == interface.name
+            self.name == name.as_ref()
         };
 
         match self.kind {
             None => name_match,
-            Some(k) => name_match && k == interface.kind,
+            Some(k) => {
+                name_match
+                    && match k {
+                        InterfaceKind::V4 => addr.is_ipv4(),
+                        InterfaceKind::V6 => addr.is_ipv6(),
+                    }
+            }
         }
     }
 }

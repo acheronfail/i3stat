@@ -55,17 +55,17 @@ async fn init_family(socket: &NlRouter) -> Res<u16> {
 #[derive(Debug)]
 pub struct WirelessInfo {
     /// Wireless interface index
-    index: i32,
+    pub index: i32,
     /// Wireless interface name
-    interface: Rc<str>,
+    pub interface: Rc<str>,
     /// MAC address of the wireless interface
-    mac_addr: MacAddr,
+    pub mac_addr: MacAddr,
     /// SSID of the network; only set when connected to a wireless network
-    ssid: Option<Rc<str>>,
+    pub ssid: Option<Rc<str>>,
     /// BSSID of the network; only set when connected to a wireless network
-    bssid: Option<MacAddr>,
+    pub bssid: Option<MacAddr>,
     /// Signal strength of the connection; only set when connected to a wireless network
-    signal: Option<SignalStrength>,
+    pub signal: Option<SignalStrength>,
 }
 
 type Payload = Genlmsghdr<Nl80211Command, Nl80211Attribute>;
@@ -197,14 +197,14 @@ impl NetlinkInterface {
 }
 
 #[derive(Debug, Clone)]
-struct SignalStrength {
+pub struct SignalStrength {
     /// Signal strength in decibels
-    dbm: i8,
+    pub dbm: i8,
     /// I'm not really sure what this is, but it matches whatever `link` is in `/proc/net/wireless`
     // TODO: find out what it actually is
-    link: u8,
+    pub link: u8,
     /// Best guess of a percentage of network quality
-    quality: f32,
+    pub quality: f32,
 }
 
 /// Get the current BSSID of the connected network (if any) for the given interface

@@ -6,9 +6,10 @@ use std::array::TryFromSliceError;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::net::IpAddr;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub use acpi::netlink_acpi_listen;
+pub use route::netlink_ipaddr_listen;
 
 #[derive(Clone)]
 pub struct MacAddr {
@@ -75,7 +76,8 @@ impl TryFrom<&str> for MacAddr {
 #[derive(Debug, Clone)]
 pub struct NetlinkInterface {
     pub index: i32,
-    pub name: Rc<str>,
+    // NOTE: `Arc` rather than `Rc` here because `Send` is needed by `tokio::sync::broadcast`
+    pub name: Arc<str>,
     pub mac_address: Option<MacAddr>,
     pub ip_addresses: HashSet<IpAddr>,
 }
