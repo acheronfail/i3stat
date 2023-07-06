@@ -3,8 +3,34 @@ use std::str::FromStr;
 
 use serde::{de, Deserialize, Serialize};
 
-use super::interface::InterfaceKind;
 use crate::error::Error;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum InterfaceKind {
+    V4,
+    V6,
+}
+
+impl ToString for InterfaceKind {
+    fn to_string(&self) -> String {
+        match self {
+            InterfaceKind::V4 => "v4".into(),
+            InterfaceKind::V6 => "v6".into(),
+        }
+    }
+}
+
+impl TryFrom<&str> for InterfaceKind {
+    type Error = Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "v4" => Ok(Self::V4),
+            "v6" => Ok(Self::V6),
+            s => bail!("unrecognised InterfaceKind, expected v4 or v6, got: {}", s),
+        }
+    }
+}
 
 /// This type is in the format of `interface[:type]`, where `interface` is the interface name, and
 /// `type` is an optional part which is either `ipv4` or `ipv6`.
@@ -67,10 +93,7 @@ impl FromStr for InterfaceFilter {
 
         // SAFETY: we just checked for the delimiter above
         let (name, kind) = s.split_once(d).unwrap();
-        match kind.parse() {
-            Ok(kind) => Ok(InterfaceFilter::new(name, Some(kind))),
-            Err(e) => Err(e),
-        }
+        Ok(InterfaceFilter::new(name, Some(kind.try_into()?)))
     }
 }
 

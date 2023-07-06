@@ -1,5 +1,4 @@
 pub mod filter;
-pub mod interface;
 
 use tokio::sync::{broadcast, mpsc, OnceCell};
 
@@ -75,9 +74,10 @@ impl Interfaces {
 
 impl From<InterfaceUpdate> for Interfaces {
     fn from(value: InterfaceUpdate) -> Self {
-        let mut inner = value.into_values().collect::<Vec<_>>();
-        inner.sort_unstable_by_key(|int| int.index);
-        Interfaces { inner }
+        Interfaces {
+            // TODO: since index map is used, we don't really need to convert to vec here
+            inner: value.into_values().collect::<Vec<_>>(),
+        }
     }
 }
 
@@ -107,7 +107,7 @@ async fn watch_net_updates(
     let mut rx = netlink_ipaddr_listen(manual_trigger).await?;
     loop {
         if let Some(mut interfaces) = rx.recv().await {
-            // filter out loopback
+            // filter out loopback interfaces
             interfaces.retain(|_, int| int.name.as_ref() != "lo");
             tx.send(interfaces)?;
         }
