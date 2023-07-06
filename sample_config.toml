@@ -105,9 +105,12 @@ short_text = "!"
 
 [[items]]
 # "Network Interfaces" item, provides an interactive list of interfaces and ip addresses, as well as
-# WiFi signal strength and SSIDs if found. Supports updating itself automatically on network changes
-# (via NetworkManager).
+# WiFi signal strength and SSIDs if found. Supports updating itself automatically on network changes.
 type = "nic"
+
+# Optionally pass an `interval` to force updates - since it updates automatically this shouldn't be
+# needed.
+# interval = "60s"
 
 # Optionally define how connection details will be displayed when connected to a WiFi network
 # Values are:
@@ -118,9 +121,6 @@ wireless_display = "percent"
 # The `wireless_display` setting can be optionally paired with this one to refresh the WiFi details
 # at a desired interval. If unset, it only updates when the item itself updates.
 wireless_refresh_interval = "2m"
-
-# Optionally pass an `interval` to force updates (useful if you don't use NetworkManager)
-# interval = "60s"
 
 # Optionally pass a filter. Filters are formatted as `name[:type]`, where `name` is the interface
 # name, and `type` is an optional part which is either `v4` or `v6`.
