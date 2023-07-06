@@ -1,5 +1,4 @@
 pub mod dunst;
-pub mod network_manager;
 pub mod notifications;
 
 use tokio::sync::OnceCell;
