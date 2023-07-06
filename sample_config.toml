@@ -109,6 +109,16 @@ short_text = "!"
 # (via NetworkManager).
 type = "nic"
 
+# Optionally define how connection details will be displayed when connected to a WiFi network
+# Values are:
+# - `percent`: e.g., "80% at <ssid>"     (default)
+# - `dbm`:     e.g., "-65 dBm at <ssid>"
+# - `hidden`:  nothing is shown
+wireless_display = "percent"
+# The `wireless_display` setting can be optionally paired with this one to refresh the WiFi details
+# at a desired interval. If unset, it only updates when the item itself updates.
+wireless_refresh_interval = "2m"
+
 # Optionally pass an `interval` to force updates (useful if you don't use NetworkManager)
 # interval = "60s"
 

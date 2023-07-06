@@ -9,11 +9,11 @@
 //!     - simulate ipv4 activity: `ip a add 10.0.0.254 dev wlan0 && sleep 1 && ip a del 10.0.0.254/32 dev wlan0`
 //!     - simulate ipv6 activity: `ip -6 addr add 2001:0db8:0:f101::1/64 dev lo && sleep 1 && ip -6 addr del 2001:0db8:0:f101::1/64 dev lo`
 
-use std::collections::{HashMap, HashSet};
 use std::convert::Infallible;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::rc::Rc;
 
+use indexmap::{IndexMap, IndexSet};
 use libc::{RTNLGRP_IPV4_IFADDR, RTNLGRP_IPV6_IFADDR};
 use neli::consts::nl::NlmF;
 use neli::consts::rtnl::{Arphrd, Ifa, Ifla, RtAddrFamily, RtScope, Rtm};
@@ -29,7 +29,7 @@ use tokio::sync::mpsc::{self, Receiver, Sender};
 use super::NetlinkInterface;
 use crate::error::Result;
 
-pub type InterfaceUpdate = HashMap<i32, NetlinkInterface>;
+pub type InterfaceUpdate = IndexMap<i32, NetlinkInterface>;
 
 pub async fn netlink_ipaddr_listen(
     manual_trigger: mpsc::Receiver<()>,
@@ -131,8 +131,8 @@ async fn handle_netlink_route_messages(
 }
 
 /// Request all interfaces with their addresses from rtnetlink(7)
-async fn get_all_interfaces(socket: &Rc<NlRouter>) -> Result<HashMap<i32, NetlinkInterface>> {
-    let mut interface_map = HashMap::<i32, NetlinkInterface>::new();
+async fn get_all_interfaces(socket: &Rc<NlRouter>) -> Result<InterfaceUpdate> {
+    let mut interface_map = IndexMap::<i32, NetlinkInterface>::new();
 
     // first, get all the interfaces: we need this for the interface names
     {
@@ -179,7 +179,7 @@ async fn get_all_interfaces(socket: &Rc<NlRouter>) -> Result<HashMap<i32, Netlin
                         }
                     },
                     mac_address: None,
-                    ip_addresses: HashSet::new(),
+                    ip_addresses: IndexSet::new(),
                 };
 
                 // extract mac address if set

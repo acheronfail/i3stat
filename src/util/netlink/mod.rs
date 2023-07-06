@@ -3,12 +3,12 @@ pub mod nl80211;
 pub mod route;
 
 use std::array::TryFromSliceError;
-use std::collections::HashSet;
 use std::fmt::Debug;
 use std::net::IpAddr;
 use std::sync::Arc;
 
 pub use acpi::netlink_acpi_listen;
+use indexmap::IndexSet;
 pub use route::netlink_ipaddr_listen;
 
 #[derive(Clone)]
@@ -79,5 +79,5 @@ pub struct NetlinkInterface {
     // NOTE: `Arc` rather than `Rc` here because `Send` is needed by `tokio::sync::broadcast`
     pub name: Arc<str>,
     pub mac_address: Option<MacAddr>,
-    pub ip_addresses: HashSet<IpAddr>,
+    pub ip_addresses: IndexSet<IpAddr>,
 }

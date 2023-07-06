@@ -203,8 +203,37 @@ pub struct SignalStrength {
     /// I'm not really sure what this is, but it matches whatever `link` is in `/proc/net/wireless`
     // TODO: find out what it actually is
     pub link: u8,
-    /// Best guess of a percentage of network quality
-    pub quality: f32,
+
+    /// Cached quality value
+    quality: std::cell::OnceCell<f32>,
+}
+
+impl SignalStrength {
+    pub fn new(dbm: i8, link: u8) -> SignalStrength {
+        SignalStrength {
+            dbm,
+            link,
+            quality: std::cell::OnceCell::new(),
+        }
+    }
+
+    /// Just a guess at a percentage - there's not really a good way to represent this easily
+    ///  - https://github.com/bmegli/wifi-scan/issues/18
+    ///  - https://github.com/psibi/iwlib-rs/blob/master/src/lib.rs#L48
+    ///  - https://www.intuitibits.com/2016/03/23/dbm-to-percent-conversion/
+    ///  - https://eyesaas.com/wi-fi-signal-strength/
+    pub fn quality(&self) -> f32 {
+        *self.quality.get_or_init(|| {
+            (if self.dbm < -110 {
+                0_f32
+            } else if self.dbm > -40 {
+                100_f32
+            } else {
+                // lerp between -70 and 0
+                (70.0 - (self.dbm + 40).abs() as f32) / 70.0
+            }) * 100.0
+        })
+    }
 }
 
 /// Get the current BSSID of the connected network (if any) for the given interface
@@ -213,6 +242,7 @@ async fn get_bssid(socket: &NlRouter, index: i32) -> Res<Option<MacAddr>> {
         .get_or_try_init(|| init_family(socket))
         .await?;
 
+    // TODO: de-duplicate message sending boilerplate (id by, etc)
     // prepare generic message attributes
     let mut attrs = GenlBuffer::new();
 
@@ -345,20 +375,7 @@ async fn get_signal_strength(
                             let link = 110_u8.wrapping_add(signal);
                             // this is the same as `/proc/net/wireless`'s `level`
                             let dbm = signal as i8;
-                            // just a guess at a percentage - there's not really a good way to represent this easily
-                            //  - https://github.com/bmegli/wifi-scan/issues/18
-                            //  - https://github.com/psibi/iwlib-rs/blob/master/src/lib.rs#L48
-                            //  - https://www.intuitibits.com/2016/03/23/dbm-to-percent-conversion/
-                            //  - https://eyesaas.com/wi-fi-signal-strength/
-                            let quality = (if dbm < -110 {
-                                0_f32
-                            } else if dbm > -40 {
-                                100_f32
-                            } else {
-                                (dbm + 40).abs() as f32 / 70.0
-                            }) * 100.0;
-
-                            return Ok(Some(SignalStrength { dbm, link, quality }));
+                            return Ok(Some(SignalStrength::new(dbm, link)));
                         }
                     }
                 }
