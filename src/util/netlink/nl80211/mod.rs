@@ -15,11 +15,12 @@
 mod enums;
 
 use std::rc::Rc;
+use std::result::Result as StdRes;
 
 use neli::consts::nl::{GenlId, NlmF};
 use neli::consts::socket::NlFamily;
 use neli::err::RouterError;
-use neli::genl::{AttrTypeBuilder, Genlmsghdr, GenlmsghdrBuilder, NlattrBuilder, NoUserHeader};
+use neli::genl::{AttrTypeBuilder, Genlmsghdr, GenlmsghdrBuilder, NlattrBuilder};
 use neli::nl::{NlPayload, Nlmsghdr};
 use neli::router::asynchronous::{NlRouter, NlRouterReceiverHandle};
 use neli::types::{Buffer, GenlBuffer};
@@ -34,7 +35,7 @@ use self::enums::{
     Nl80211StationInfo,
 };
 use super::NetlinkInterface;
-use crate::util::{MacAddr, Result as Res};
+use crate::util::{MacAddr, Result};
 
 // init ------------------------------------------------------------------------
 
@@ -42,12 +43,68 @@ type Nl80211Socket = (NlRouter, NlRouterReceiverHandle<u16, Genlmsghdr<u8, u16>>
 static NL80211_SOCKET: OnceCell<Nl80211Socket> = OnceCell::const_new();
 static NL80211_FAMILY: OnceCell<u16> = OnceCell::const_new();
 
-async fn init_socket() -> Res<Nl80211Socket> {
+async fn init_socket() -> Result<Nl80211Socket> {
     Ok(NlRouter::connect(NlFamily::Generic, Some(0), Groups::empty()).await?)
 }
 
-async fn init_family(socket: &NlRouter) -> Res<u16> {
+async fn init_family(socket: &NlRouter) -> Result<u16> {
     Ok(socket.resolve_genl_family("nl80211").await?)
+}
+
+// util ------------------------------------------------------------------------
+
+// Explicitly type these since the compiler struggles to infer `neli` types in async contexts.
+type Nl80211Payload = Genlmsghdr<Nl80211Command, Nl80211Attribute>;
+type NextNl80211 =
+    Option<StdRes<Nlmsghdr<GenlId, Nl80211Payload>, RouterError<GenlId, Nl80211Payload>>>;
+
+/// Easily create a `GenlBuffer` with the given attributes and payloads.
+macro_rules! attrs {
+    () => {
+        GenlBuffer::new()
+    };
+
+    ($($attr:ident => $payload:expr$(,)?)+) => {{
+        let mut genl_attrs = GenlBuffer::new();
+        $(
+            genl_attrs.push(
+                NlattrBuilder::default()
+                    .nla_type(AttrTypeBuilder::default().nla_type(Nl80211Attribute::$attr).build()?)
+                    .nla_payload($payload)
+                    .build()?
+            );
+        )+
+
+        genl_attrs
+    }};
+}
+
+/// Send an nl80211 command via generic netlink, and get its response.
+/// Build the `attrs` parameter with the `attrs!()` macro.
+async fn genl80211_send(
+    socket: &NlRouter,
+    cmd: Nl80211Command,
+    flags: NlmF,
+    attrs: GenlBuffer<Nl80211Attribute, Buffer>,
+) -> Result<NlRouterReceiverHandle<u16, Nl80211Payload>> {
+    let family_id = NL80211_FAMILY
+        .get_or_try_init(|| init_family(socket))
+        .await?;
+
+    // create generic netlink message
+    let genl_payload: Nl80211Payload = {
+        let mut builder = GenlmsghdrBuilder::default().version(1).cmd(cmd);
+        if !attrs.is_empty() {
+            builder = builder.attrs(attrs);
+        }
+
+        builder.build()?
+    };
+
+    // send it to netlink
+    Ok(socket
+        .send::<_, _, u16, Nl80211Payload>(*family_id, flags, NlPayload::Payload(genl_payload))
+        .await?)
 }
 
 // impl ------------------------------------------------------------------------
@@ -68,54 +125,30 @@ pub struct WirelessInfo {
     pub signal: Option<SignalStrength>,
 }
 
-type Payload = Genlmsghdr<Nl80211Command, Nl80211Attribute>;
-type NextNl80211 = Option<Result<Nlmsghdr<GenlId, Payload>, RouterError<GenlId, Payload>>>;
-
 impl NetlinkInterface {
+    /// Get wireless information for this interface (if there is any).
     pub async fn wireless_info(&self) -> Option<WirelessInfo> {
         match self.get_wireless_info().await {
-            Ok(info) => Some(info),
+            Ok(info) => info,
             Err(e) => {
-                log::warn!("NetlinkInterface::wireless_info(): {}", e);
+                log::error!("NetlinkInterface::wireless_info(): {}", e);
                 None
             }
         }
     }
 
-    pub async fn get_wireless_info(&self) -> Res<WirelessInfo> {
+    /// Gets wireless information for this interface.
+    /// Returns `None` if the interface was not a wireless interface, or if no wireless information
+    /// could be found.
+    async fn get_wireless_info(&self) -> Result<Option<WirelessInfo>> {
         let (socket, _) = NL80211_SOCKET.get_or_try_init(init_socket).await?;
-        let family_id = NL80211_FAMILY
-            .get_or_try_init(|| init_family(socket))
-            .await?;
-
-        // prepare generic message attributes
-        let mut attrs = GenlBuffer::new();
-
-        // ... the `Nl80211Command::GetScan` command requires the interface index as `Nl80211Attribute::Ifindex`
-        attrs.push(
-            NlattrBuilder::default()
-                .nla_type(
-                    AttrTypeBuilder::default()
-                        .nla_type(Nl80211Attribute::Ifindex)
-                        .build()?,
-                )
-                .nla_payload(self.index)
-                .build()?,
-        );
-
-        let mut recv = socket
-            .send::<_, _, u16, Genlmsghdr<Nl80211Command, Nl80211Attribute>>(
-                *family_id,
-                NlmF::ACK | NlmF::REQUEST,
-                NlPayload::Payload(
-                    GenlmsghdrBuilder::<Nl80211Command, Nl80211Attribute, NoUserHeader>::default()
-                        .cmd(Nl80211Command::GetInterface)
-                        .version(1)
-                        .attrs(attrs)
-                        .build()?,
-                ),
-            )
-            .await?;
+        let mut recv = genl80211_send(
+            socket,
+            Nl80211Command::GetInterface,
+            NlmF::ACK | NlmF::REQUEST,
+            attrs![Ifindex => self.index],
+        )
+        .await?;
 
         while let Some(Ok(msg)) = recv.next().await as NextNl80211 {
             if let NlPayload::Payload(gen_msg) = msg.nl_payload() {
@@ -128,7 +161,7 @@ impl NetlinkInterface {
                     attr_handle.get_attr_payload_as::<Nl80211IfType>(Nl80211Attribute::Iftype),
                     Ok(Nl80211IfType::Station)
                 ) {
-                    continue;
+                    return Ok(None);
                 }
 
                 // interface name - not really needed since we'll use the index
@@ -181,18 +214,18 @@ impl NetlinkInterface {
                     }
                 };
 
-                return Ok(WirelessInfo {
+                return Ok(Some(WirelessInfo {
                     index: self.index,
                     interface,
                     mac_addr,
                     ssid,
                     bssid,
                     signal,
-                });
+                }));
             }
         }
 
-        bail!("no wireless info found for index: {}", self.index);
+        Ok(None)
     }
 }
 
@@ -237,42 +270,14 @@ impl SignalStrength {
 }
 
 /// Get the current BSSID of the connected network (if any) for the given interface
-async fn get_bssid(socket: &NlRouter, index: i32) -> Res<Option<MacAddr>> {
-    let family_id = NL80211_FAMILY
-        .get_or_try_init(|| init_family(socket))
-        .await?;
-
-    // TODO: de-duplicate message sending boilerplate (id by, etc)
-    // prepare generic message attributes
-    let mut attrs = GenlBuffer::new();
-
-    // ... the `Nl80211Command::GetScan` command requires the interface index as `Nl80211Attribute::Ifindex`
-    attrs.push(
-        NlattrBuilder::default()
-            .nla_type(
-                AttrTypeBuilder::default()
-                    .nla_type(Nl80211Attribute::Ifindex)
-                    .build()?,
-            )
-            .nla_payload(index)
-            .build()?,
-    );
-
-    // create generic message
-    let genl_payload: Genlmsghdr<Nl80211Command, Nl80211Attribute> = GenlmsghdrBuilder::default()
-        .cmd(Nl80211Command::GetScan)
-        .version(1)
-        .attrs(attrs)
-        .build()?;
-
-    // send it to netlink
-    let mut recv = socket
-        .send::<_, _, u16, Genlmsghdr<Nl80211Command, Nl80211Attribute>>(
-            *family_id,
-            NlmF::DUMP,
-            NlPayload::Payload(genl_payload),
-        )
-        .await?;
+async fn get_bssid(socket: &NlRouter, index: i32) -> Result<Option<MacAddr>> {
+    let mut recv = genl80211_send(
+        socket,
+        Nl80211Command::GetScan,
+        NlmF::DUMP,
+        attrs![Ifindex => index],
+    )
+    .await?;
 
     // look for our requested data inside netlink's results
     while let Some(result) = recv.next().await as NextNl80211 {
@@ -309,53 +314,14 @@ async fn get_signal_strength(
     socket: &NlRouter,
     index: i32,
     bssid: &MacAddr,
-) -> Res<Option<SignalStrength>> {
-    let family_id = NL80211_FAMILY
-        .get_or_try_init(|| init_family(socket))
-        .await?;
-
-    // prepare generic message attributes...
-    let mut attrs = GenlBuffer::new();
-
-    // ... the `Nl80211Command::GetStation` command requires the interface index as `Nl80211Attribute::Ifindex`...
-    attrs.push(
-        NlattrBuilder::default()
-            .nla_type(
-                AttrTypeBuilder::default()
-                    .nla_type(Nl80211Attribute::Ifindex)
-                    .build()?,
-            )
-            .nla_payload(index)
-            .build()?,
-    );
-
-    // ... and also the BSSID as `Nl80211Attribute::Mac`
-    attrs.push(
-        NlattrBuilder::default()
-            .nla_type(
-                AttrTypeBuilder::default()
-                    .nla_type(Nl80211Attribute::Mac)
-                    .build()?,
-            )
-            .nla_payload(Buffer::from(bssid))
-            .build()?,
-    );
-
-    // create generic message
-    let genl_payload: Genlmsghdr<Nl80211Command, Nl80211Attribute> = GenlmsghdrBuilder::default()
-        .cmd(Nl80211Command::GetStation)
-        .version(1)
-        .attrs(attrs)
-        .build()?;
-
-    // send it to netlink
-    let mut recv = socket
-        .send::<_, _, u16, Genlmsghdr<Nl80211Command, Nl80211Attribute>>(
-            *family_id,
-            NlmF::ACK | NlmF::REQUEST,
-            NlPayload::Payload(genl_payload),
-        )
-        .await?;
+) -> Result<Option<SignalStrength>> {
+    let mut recv = genl80211_send(
+        socket,
+        Nl80211Command::GetStation,
+        NlmF::ACK | NlmF::REQUEST,
+        attrs![Ifindex => index, Mac => Buffer::from(bssid)],
+    )
+    .await?;
 
     // look for our requested data inside netlink's results
     while let Some(result) = recv.next().await as NextNl80211 {
