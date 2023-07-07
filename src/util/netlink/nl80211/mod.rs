@@ -42,13 +42,14 @@ use crate::util::{MacAddr, Result};
 type Nl80211Socket = (NlRouter, NlRouterReceiverHandle<u16, Genlmsghdr<u8, u16>>);
 static NL80211_SOCKET: OnceCell<Nl80211Socket> = OnceCell::const_new();
 static NL80211_FAMILY: OnceCell<u16> = OnceCell::const_new();
+const NL80211_FAMILY_NAME: &str = "nl80211";
 
 async fn init_socket() -> Result<Nl80211Socket> {
     Ok(NlRouter::connect(NlFamily::Generic, Some(0), Groups::empty()).await?)
 }
 
 async fn init_family(socket: &NlRouter) -> Result<u16> {
-    Ok(socket.resolve_genl_family("nl80211").await?)
+    Ok(socket.resolve_genl_family(NL80211_FAMILY_NAME).await?)
 }
 
 // util ------------------------------------------------------------------------
@@ -87,7 +88,7 @@ async fn genl80211_send(
     flags: NlmF,
     attrs: GenlBuffer<Nl80211Attribute, Buffer>,
 ) -> Result<NlRouterReceiverHandle<u16, Nl80211Payload>> {
-    let family_id = NL80211_FAMILY
+    let family_id = *NL80211_FAMILY
         .get_or_try_init(|| init_family(socket))
         .await?;
 
@@ -103,7 +104,7 @@ async fn genl80211_send(
 
     // send it to netlink
     Ok(socket
-        .send::<_, _, u16, Nl80211Payload>(*family_id, flags, NlPayload::Payload(genl_payload))
+        .send::<_, _, u16, Nl80211Payload>(family_id, flags, NlPayload::Payload(genl_payload))
         .await?)
 }
 
@@ -242,10 +243,10 @@ pub struct SignalStrength {
 }
 
 impl SignalStrength {
-    pub fn new(dbm: i8, link: u8) -> SignalStrength {
+    pub fn new(dbm: i8) -> SignalStrength {
         SignalStrength {
             dbm,
-            link,
+            link: 110_u8.wrapping_add(dbm as u8),
             quality: std::cell::OnceCell::new(),
         }
     }
@@ -260,10 +261,10 @@ impl SignalStrength {
             (if self.dbm < -110 {
                 0_f32
             } else if self.dbm > -40 {
-                100_f32
+                1_f32
             } else {
                 // lerp between -70 and 0
-                (70.0 - (self.dbm + 40).abs() as f32) / 70.0
+                1.0 - ((self.dbm as f32 + 40.0) / -70.0)
             }) * 100.0
         })
     }
@@ -284,6 +285,7 @@ async fn get_bssid(socket: &NlRouter, index: i32) -> Result<Option<MacAddr>> {
         match result {
             Ok(msg) => {
                 if let NlPayload::Payload(gen_msg) = msg.nl_payload() {
+                    // TODO: remove mut when upstream merges https://github.com/jbaublitz/neli/pull/220
                     let mut attr_handle = gen_msg.attrs().get_attr_handle();
 
                     if let Ok(bss_attrs) =
@@ -300,7 +302,7 @@ async fn get_bssid(socket: &NlRouter, index: i32) -> Result<Option<MacAddr>> {
                 }
             }
             Err(e) => {
-                log::error!("Nl80211Command::GetStation error: {}", e);
+                log::error!("Nl80211Command::GetScan error: {}", e);
                 continue;
             }
         }
@@ -328,20 +330,16 @@ async fn get_signal_strength(
         match result {
             Ok(msg) => {
                 if let NlPayload::Payload(gen_msg) = msg.nl_payload() {
+                    // TODO: remove mut when upstream merges https://github.com/jbaublitz/neli/pull/220
                     let mut attr_handle = gen_msg.attrs().get_attr_handle();
 
-                    // FIXME: upstream - I don't think this needs to be mutable...
                     if let Ok(station_info) = attr_handle
                         .get_nested_attributes::<Nl80211StationInfo>(Nl80211Attribute::StaInfo)
                     {
                         if let Ok(signal) =
                             station_info.get_attr_payload_as::<u8>(Nl80211StationInfo::Signal)
                         {
-                            // this is the same as `/proc/net/wireless`'s `link`
-                            let link = 110_u8.wrapping_add(signal);
-                            // this is the same as `/proc/net/wireless`'s `level`
-                            let dbm = signal as i8;
-                            return Ok(Some(SignalStrength::new(dbm, link)));
+                            return Ok(Some(SignalStrength::new(signal as i8)));
                         }
                     }
                 }
@@ -354,4 +352,30 @@ async fn get_signal_strength(
     }
 
     Ok(None)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // signal strength tests ---------------------------------------------------
+
+    #[test]
+    fn signal_strength_quality() {
+        let quality = |dbm| SignalStrength::new(dbm).quality() as u8;
+
+        // anything at or below -110 should be 0%
+        assert_eq!(0, quality(-120));
+        assert_eq!(0, quality(-110));
+        // lerping between -70 and 0
+        assert_eq!(25, quality(-92));
+        assert_eq!(50, quality(-75));
+        assert_eq!(75, quality(-57));
+        assert_eq!(85, quality(-50));
+        // anything at or above -40 should be 100%
+        assert_eq!(100, quality(-40));
+        assert_eq!(100, quality(-1));
+        assert_eq!(100, quality(0));
+        assert_eq!(100, quality(100));
+    }
 }
