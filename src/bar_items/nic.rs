@@ -183,7 +183,6 @@ impl BarItem for Nic {
                 // wait for network changes
                 Ok(list) = net.wait_for_change() => {
                     connections = Connections::new(list.filtered(&self.filter));
-                    p.set_len(connections.len());
                 },
                 // on any bar event
                 Some(event) = ctx.wait_for_event(self.interval) => {
@@ -206,6 +205,7 @@ impl BarItem for Nic {
                 // TODO: differentiate between empty after filtering, and completely disconnected?
                 I3Item::new("inactive").color(ctx.config.theme.dim)
             } else {
+                p.set_len(connections.len())?;
                 let theme = &ctx.config.theme;
                 // SAFETY(unwrap): we always set the paginator's length to the connection's length
                 // so it should always be within bounds

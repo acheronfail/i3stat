@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use zbus::dbus_proxy;
 use zbus::zvariant::Value;
 
+// TODO: share a single proxy instance of this, and use it wherever notifications are needed?
 #[dbus_proxy(
     default_path = "/org/freedesktop/Notifications",
     default_service = "org.freedesktop.Notifications",

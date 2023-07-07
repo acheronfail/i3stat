@@ -1,4 +1,3 @@
-use crate::error::Result;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -10,6 +9,7 @@ use sysinfo::{NetworkExt, NetworksExt, SystemExt};
 use tokio::time::Instant;
 
 use crate::context::{BarEvent, BarItem, Context, StopAction};
+use crate::error::Result;
 use crate::i3::{I3Button, I3Item, I3Markup};
 use crate::theme::Theme;
 use crate::util::EnumCycle;
@@ -112,7 +112,7 @@ impl BarItem for NetUsage {
             )
         };
 
-        let mut display = EnumCycle::new_at(self.display);
+        let mut display = EnumCycle::new_at(self.display)?;
 
         let div_as_u64 = |u, f| (u as f64 / f) as u64;
         let mut last_check = Instant::now();
