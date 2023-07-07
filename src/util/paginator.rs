@@ -1,5 +1,6 @@
 use super::fraction;
 use crate::context::BarEvent;
+use crate::error::Result;
 use crate::i3::I3Button::*;
 use crate::theme::Theme;
 
@@ -21,15 +22,19 @@ impl Paginator {
         self.idx
     }
 
-    pub fn set_len(&mut self, len: usize) {
+    /// Set the length of the paginator.
+    /// Returns an error if `len == 0`, which is invalid.
+    pub fn set_len(&mut self, len: usize) -> Result<()> {
         if len == 0 {
-            panic!("a Paginator's length must be > 0");
+            bail!("a Paginator's length must be > 0");
         }
 
         self.len = len;
         if self.idx >= len {
             self.idx = 0;
         }
+
+        Ok(())
     }
 
     fn incr(&mut self) {
@@ -61,22 +66,22 @@ mod paginator_tests {
     use super::*;
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "a Paginator's length must be > 0")]
     fn set_len0() {
         let mut p = Paginator::new();
-        p.set_len(0);
+        p.set_len(0).unwrap();
     }
 
     #[test]
     fn forward_wrap() {
         let mut p = Paginator::new();
 
-        p.set_len(1);
+        p.set_len(1).unwrap();
         assert_eq!(p.idx(), 0);
         p.incr();
         assert_eq!(p.idx(), 0);
 
-        p.set_len(2);
+        p.set_len(2).unwrap();
         p.incr();
         assert_eq!(p.idx(), 1);
         p.incr();
@@ -91,12 +96,12 @@ mod paginator_tests {
     fn backward_wrap() {
         let mut p = Paginator::new();
 
-        p.set_len(1);
+        p.set_len(1).unwrap();
         assert_eq!(p.idx(), 0);
         p.decr();
         assert_eq!(p.idx(), 0);
 
-        p.set_len(2);
+        p.set_len(2).unwrap();
         p.decr();
         assert_eq!(p.idx(), 1);
         p.decr();

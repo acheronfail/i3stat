@@ -179,7 +179,7 @@ impl BarItem for Battery {
         if batteries.len() == 0 {
             bail!("no batteries found");
         } else {
-            p.set_len(batteries.len());
+            p.set_len(batteries.len())?;
         }
 
         let dbus = dbus_connection(BusType::Session).await?;

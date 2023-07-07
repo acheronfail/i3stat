@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use crate::error::Result;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -10,6 +9,7 @@ use serde_derive::{Deserialize, Serialize};
 use sysinfo::{Disk as SysDisk, DiskExt, SystemExt};
 
 use crate::context::{BarItem, Context, StopAction};
+use crate::error::Result;
 use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
 use crate::util::Paginator;
@@ -83,7 +83,7 @@ impl BarItem for Disk {
             };
             let len = stats.len();
             if len > 0 {
-                p.set_len(len);
+                p.set_len(len)?;
 
                 let disk = &stats[p.idx()];
                 let theme = &ctx.config.theme;
@@ -97,6 +97,8 @@ impl BarItem for Disk {
                 }
 
                 ctx.update_item(item).await?;
+            } else {
+                ctx.update_item(I3Item::empty()).await?;
             }
 
             // cycle through disks
