@@ -39,7 +39,7 @@ fn start_runtime() -> Result<RuntimeStopReason> {
 
     let (result, runtime) = local_block_on(async_main(args))?;
 
-    // NOTE: we use tokio's stdin implementation which spawns a background thread and blocks,
+    // NOTE: since we use tokio's stdin implementation which spawns a background thread and blocks,
     // we have to shutdown the runtime ourselves here. If we didn't, then when the runtime is
     // dropped it would block indefinitely until that background thread unblocked (i.e., another
     // JSON line from i3).
@@ -94,8 +94,9 @@ fn setup_i3_bar(config: &RcCell<AppConfig>) -> Result<(RcCell<Vec<I3Item>>, RcCe
     // A list of items which represents the i3 bar
     let bar = RcCell::new(vec![I3Item::empty(); item_count]);
 
-    // Used to send events to each bar item
-    let dispatcher = RcCell::new(Dispatcher::new(item_count));
+    // Used to send events to each bar item, and also to trigger updates of the bar
+    let (update_tx, update_rx) = mpsc::channel(1);
+    let dispatcher = RcCell::new(Dispatcher::new(update_tx, item_count));
 
     // Used by items to send updates back to the bar
     let (item_tx, item_rx) = mpsc::channel(item_count + 1);
@@ -183,7 +184,7 @@ fn setup_i3_bar(config: &RcCell<AppConfig>) -> Result<(RcCell<Vec<I3Item>>, RcCe
     }
 
     // setup listener for handling item updates and printing the bar to STDOUT
-    handle_item_updates(config.clone(), item_rx, bar.clone())?;
+    handle_item_updates(config.clone(), item_rx, update_rx, bar.clone())?;
 
     Ok((bar, dispatcher))
 }
@@ -191,7 +192,8 @@ fn setup_i3_bar(config: &RcCell<AppConfig>) -> Result<(RcCell<Vec<I3Item>>, RcCe
 // task to manage updating the bar and printing it as JSON
 fn handle_item_updates(
     config: RcCell<AppConfig>,
-    mut rx: Receiver<(I3Item, usize)>,
+    mut item_rx: Receiver<(I3Item, usize)>,
+    mut update_rx: Receiver<()>,
     mut bar: RcCell<Vec<I3Item>>,
 ) -> Result<()> {
     // output first parts of the i3 bar protocol - the header
@@ -202,24 +204,31 @@ fn handle_item_updates(
     tokio::task::spawn_local(async move {
         let item_names = config.item_idx_to_name();
 
-        while let Some((i3_item, idx)) = rx.recv().await {
-            let mut i3_item = i3_item
-                // the name of the item
-                .name(item_names[idx].clone())
-                // always override the bar item's `instance`, since we track that ourselves
-                .instance(idx.to_string());
+        loop {
+            tokio::select! {
+                // a manual update was requested
+                Some(()) = update_rx.recv() => {}
+                // an item is requesting an update, update the bar state
+                Some((i3_item, idx)) = item_rx.recv() => {
+                    let mut i3_item = i3_item
+                        // the name of the item
+                        .name(item_names[idx].clone())
+                        // always override the bar item's `instance`, since we track that ourselves
+                        .instance(idx.to_string());
 
-            if let Some(separator) = config.items[idx].common.separator {
-                i3_item = i3_item.separator(separator);
+                    if let Some(separator) = config.items[idx].common.separator {
+                        i3_item = i3_item.separator(separator);
+                    }
+
+                    // don't bother doing anything if the item hasn't changed
+                    if bar[idx] == i3_item {
+                        continue;
+                    }
+
+                    // update item in bar
+                    bar[idx] = i3_item;
+                }
             }
-
-            // don't bother doing anything if the item hasn't changed
-            if bar[idx] == i3_item {
-                continue;
-            }
-
-            // update item in bar
-            bar[idx] = i3_item;
 
             // serialise to JSON
             let theme = config.theme.clone();
@@ -234,7 +243,9 @@ fn handle_item_updates(
 
             // print bar to STDOUT for i3
             match bar_json {
+                // make sure to include the trailing comma `,` as part of the protocol
                 Ok(json) => println!("{},", json),
+                // on any serialisation error, emit an error that will be drawn to the status bar
                 Err(e) => {
                     log::error!("failed to serialise bar to json: {}", e);
                     println!(

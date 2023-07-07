@@ -101,6 +101,7 @@ async fn handle_ipc_request(stream: &UnixStream, mut ctx: IpcContext, len: usize
                 Err(e) => IpcReply::Result(IpcResult::Failure(e.to_string())),
             };
             send_ipc_response(&stream, &reply).await?;
+            ctx.dispatcher.manual_bar_update().await?;
         }
         IpcMessage::RefreshAll => {
             ctx.dispatcher.signal_all().await?;
