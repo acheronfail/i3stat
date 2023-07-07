@@ -39,8 +39,8 @@ run bin *args:
   cargo lrun --bin istat-{{bin}} -- "$@"
 
 # install locally, copy sample configuration and restart i3
-install:
-  cargo install --debug --offline --path .
+install *args:
+  cargo install --offline --path . "$@"
   mkdir -p ~/.config/istat/
   -cp --no-clobber ./sample_config.toml ~/.config/istat/config.toml
   i3-msg restart
