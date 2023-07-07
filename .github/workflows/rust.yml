@@ -22,6 +22,6 @@ jobs:
 
       - run: just setup
       - run: just build
-      - run: just test
+      - run: DEBUG=true just test
 
   # TODO: build and upload to release tag
