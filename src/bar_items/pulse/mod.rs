@@ -1,7 +1,6 @@
 mod custom;
 
-use crate::error::Result;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::process;
 use std::rc::Rc;
 
@@ -30,6 +29,7 @@ use tokio::sync::mpsc::{self, UnboundedSender};
 use crate::context::{BarEvent, BarItem, Context, StopAction};
 use crate::dbus::notifications::NotificationsProxy;
 use crate::dbus::{dbus_connection, BusType};
+use crate::error::Result;
 use crate::i3::{I3Button, I3Item, I3Markup, I3Modifier};
 use crate::theme::Theme;
 use crate::util::{exec, RcCell};
@@ -38,6 +38,13 @@ use crate::util::{exec, RcCell};
 pub enum Object {
     Source,
     Sink,
+}
+
+impl Display for Object {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = <Object as Into<std::rc::Rc<str>>>::into(*self);
+        f.write_str(&s)
+    }
 }
 
 impl From<Object> for Rc<str> {
@@ -267,26 +274,18 @@ macro_rules! impl_pa_methods {
                 self.[<$name s>].retain(|s| s.index == idx);
             }
 
-            fn [<set_mute_ $name>](&self, idx: u32, mute: bool) {
-                let inner = self.clone();
+            fn [<set_mute_ $name>]<F>(&self, idx: u32, mute: bool, f: F)
+                where F: FnMut(bool) + 'static,
+            {
                 let mut inspect = self.pa_ctx.introspect();
-                inspect.[<set_ $name _mute_by_index>](idx, mute, Some(Box::new(move |success| {
-                    if !success {
-                        let io = inner.get_io_by_idx(idx);
-                        log::error!("set_mute_{} failed: idx={}, io={:?}", stringify!(name), idx, io);
-                    }
-                })));
+                inspect.[<set_ $name _mute_by_index>](idx, mute, Some(Box::new(f)));
             }
 
-            fn [<set_volume_ $name>](&self, idx: u32, cv: &ChannelVolumes) {
-                let inner = self.clone();
+            fn [<set_volume_ $name>]<F>(&self, idx: u32, cv: &ChannelVolumes, f: F)
+                where F: FnMut(bool) + 'static,
+            {
                 let mut inspect = self.pa_ctx.introspect();
-                inspect.[<set_ $name _volume_by_index>](idx, cv, Some(Box::new(move |success| {
-                    if !success {
-                        let io = inner.get_io_by_idx(idx);
-                        log::error!("set_volume_{} failed: idx={}, io={:?}", stringify!(name), idx, io);
-                    }
-                })));
+                inspect.[<set_ $name _volume_by_index>](idx, cv, Some(Box::new(f)));
             }
         }
     };
@@ -295,14 +294,6 @@ macro_rules! impl_pa_methods {
 impl RcCell<PulseState> {
     impl_pa_methods!(sink);
     impl_pa_methods!(source);
-
-    fn get_io_by_idx(&self, idx: u32) -> Option<InOut> {
-        self.sinks
-            .iter()
-            .chain(self.sources.iter())
-            .find(|p| p.index == idx)
-            .cloned()
-    }
 
     fn default_sink(&self) -> Option<InOut> {
         self.sinks
@@ -409,14 +400,17 @@ impl RcCell<PulseState> {
         cv
     }
 
-    fn set_volume(&self, what: Object, vol: Vol) {
+    fn set_volume<F>(&self, what: Object, vol: Vol, f: F)
+    where
+        F: FnMut(bool) + 'static,
+    {
         (match what {
             Object::Sink => self.default_sink().map(|mut p| {
-                self.set_volume_sink(p.index, self.update_volume(&mut p.volume, vol));
+                self.set_volume_sink(p.index, self.update_volume(&mut p.volume, vol), f);
                 p
             }),
             Object::Source => self.default_source().map(|mut p| {
-                self.set_volume_source(p.index, self.update_volume(&mut p.volume, vol));
+                self.set_volume_source(p.index, self.update_volume(&mut p.volume, vol), f);
                 p
             }),
         })
@@ -425,16 +419,19 @@ impl RcCell<PulseState> {
         });
     }
 
-    fn set_mute(&self, what: Object, mute: bool) {
+    fn set_mute<F>(&self, what: Object, mute: bool, f: F)
+    where
+        F: FnMut(bool) + 'static,
+    {
         (match what {
             Object::Sink => self.default_sink().map(|mut p| {
                 p.mute = mute;
-                self.set_mute_sink(p.index, p.mute);
+                self.set_mute_sink(p.index, p.mute, f);
                 p
             }),
             Object::Source => self.default_source().map(|mut p| {
                 p.mute = mute;
-                self.set_mute_source(p.index, p.mute);
+                self.set_mute_source(p.index, p.mute, f);
                 p
             }),
         })
@@ -443,22 +440,36 @@ impl RcCell<PulseState> {
         });
     }
 
-    fn toggle_mute(&self, what: Object) {
+    fn toggle_mute<F>(&self, what: Object, f: F)
+    where
+        F: FnMut(bool) + 'static,
+    {
         (match what {
             Object::Sink => self.default_sink().map(|mut p| {
                 p.mute = !p.mute;
-                self.set_mute_sink(p.index, p.mute);
+                self.set_mute_sink(p.index, p.mute, f);
                 p
             }),
             Object::Source => self.default_source().map(|mut p| {
                 p.mute = !p.mute;
-                self.set_mute_source(p.index, p.mute);
+                self.set_mute_source(p.index, p.mute, f);
                 p
             }),
         })
         .map(|p| {
             let _ = self.tx.send(p.notify_volume_mute());
         });
+    }
+
+    fn set_default<F>(&mut self, what: Object, name: impl AsRef<str>, f: F)
+    where
+        F: FnMut(bool) + 'static,
+    {
+        let name = name.as_ref();
+        match what {
+            Object::Sink => self.pa_ctx.set_default_sink(name, f),
+            Object::Source => self.pa_ctx.set_default_source(name, f),
+        };
     }
 
     fn update_item(&self) {
@@ -706,24 +717,48 @@ impl BarItem for Pulse {
 
                         // source
                         I3Button::Middle if click.modifiers.contains(&I3Modifier::Shift) => {
-                            inner.toggle_mute(Object::Source);
+                            inner.toggle_mute(Object::Source, |success| {
+                                if !success {
+                                    log::warn!("failed to toggle mute for default {}", Object::Source);
+                                }
+                            });
                         },
                         I3Button::ScrollUp if click.modifiers.contains(&I3Modifier::Shift) => {
-                            inner.set_volume(Object::Source, Vol::Incr(inner.increment));
+                            inner.set_volume(Object::Source, Vol::Incr(inner.increment), |success| {
+                                if !success {
+                                    log::warn!("failed to increment volume for default {}", Object::Source);
+                                }
+                            });
                         }
                         I3Button::ScrollDown if click.modifiers.contains(&I3Modifier::Shift) => {
-                            inner.set_volume(Object::Source, Vol::Decr(inner.increment));
+                            inner.set_volume(Object::Source, Vol::Decr(inner.increment), |success| {
+                                if !success {
+                                    log::warn!("failed to decrement volume for default {}", Object::Source);
+                                }
+                            });
                         }
 
                         // sink
                         I3Button::Middle  => {
-                            inner.toggle_mute(Object::Sink);
+                            inner.toggle_mute(Object::Sink, |success| {
+                                if !success {
+                                    log::warn!("failed to toggle mute for default {}", Object::Sink);
+                                }
+                            });
                         },
                         I3Button::ScrollUp  => {
-                            inner.set_volume(Object::Sink, Vol::Incr(inner.increment));
+                            inner.set_volume(Object::Sink, Vol::Incr(inner.increment), |success| {
+                                if !success {
+                                    log::warn!("failed to increment volume for default {}", Object::Sink);
+                                }
+                            });
                         }
                         I3Button::ScrollDown  => {
-                            inner.set_volume(Object::Sink, Vol::Decr(inner.increment));
+                            inner.set_volume(Object::Sink, Vol::Decr(inner.increment), |success| {
+                                if !success {
+                                    log::warn!("failed to decrement volume for default {}", Object::Sink);
+                                }
+                            });
                         }
                     }
                     _ => {}

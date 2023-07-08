@@ -156,9 +156,9 @@ async fn handle_ipc_request(stream: &UnixStream, mut ctx: IpcContext, len: usize
                     Some(rx) => match rx.await {
                         Ok(CustomResponse::Help(help)) => IpcReply::Help(help.ansi().to_string()),
                         Ok(CustomResponse::Json(value)) => IpcReply::Value(value),
-                        Err(_) => {
-                            IpcReply::Result(IpcResult::Failure("not listening for events".into()))
-                        }
+                        Err(_) => IpcReply::Result(IpcResult::Failure(
+                            "bar item not listening for response".into(),
+                        )),
                     },
                     None => IpcReply::Result(IpcResult::Success(None)),
                 },

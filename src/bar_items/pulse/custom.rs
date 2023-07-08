@@ -45,7 +45,7 @@ enum PulseCommand {
     VolumeSet { what: Object, vol: u32 },
     Mute { what: Object, mute: Bool },
     MuteToggle { what: Object },
-    // TODO: set default object with idx or name
+    SetDefault { what: Object, name: String },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -70,7 +70,32 @@ impl InOut {
 }
 
 impl RcCell<PulseState> {
-    pub fn handle_custom_message(&self, args: Vec<String>, tx: oneshot::Sender<CustomResponse>) {
+    // NOTE: since pulse's callback API requires `FnMut`, but `oneshot::tx.send` consumes itself
+    // we wrap it in an option so it's only send once. This should be fine, because pulse only runs
+    // this callback once anyway.
+    fn custom_responder<F>(tx: oneshot::Sender<CustomResponse>, f: F) -> impl FnMut(bool) + 'static
+    where
+        F: FnOnce() -> String + 'static,
+    {
+        let mut tx = Some(tx);
+        let mut f = Some(f);
+        move |success| match (tx.take(), f.take()) {
+            (Some(tx), Some(f)) => {
+                let _ = tx.send(CustomResponse::Json(json!(match success {
+                    true => PulseResponse::Success,
+                    false => PulseResponse::Failure(f()),
+                })));
+            }
+            _ => {}
+        }
+    }
+
+    pub fn handle_custom_message(
+        &mut self,
+        args: Vec<String>,
+        tx: oneshot::Sender<CustomResponse>,
+    ) {
+        // TODO: send pulse response from pulse success callbacks for all "success" responses
         let resp = match PulseCommand::try_parse_from(args) {
             Ok(cmd) => {
                 let resp = match cmd {
@@ -89,24 +114,60 @@ impl RcCell<PulseState> {
                         }
                     },
                     PulseCommand::VolumeUp { what } => {
-                        self.set_volume(what, Vol::Incr(self.increment));
-                        PulseResponse::Success
+                        return self.set_volume(
+                            what,
+                            Vol::Incr(self.increment),
+                            Self::custom_responder(tx, move || {
+                                format!("failed to increment {} volume", what)
+                            }),
+                        );
                     }
                     PulseCommand::VolumeDown { what } => {
-                        self.set_volume(what, Vol::Decr(self.increment));
-                        PulseResponse::Success
+                        return self.set_volume(
+                            what,
+                            Vol::Decr(self.increment),
+                            Self::custom_responder(tx, move || {
+                                format!("failed to decrement {} volume", what)
+                            }),
+                        );
                     }
                     PulseCommand::VolumeSet { what, vol } => {
-                        self.set_volume(what, Vol::Set(vol));
-                        PulseResponse::Success
+                        return self.set_volume(
+                            what,
+                            Vol::Set(vol),
+                            Self::custom_responder(tx, move || {
+                                format!("failed to set {} volume", what)
+                            }),
+                        );
                     }
                     PulseCommand::Mute { what, mute } => {
-                        self.set_mute(what, mute.into());
-                        PulseResponse::Success
+                        return self.set_mute(
+                            what,
+                            mute.into(),
+                            Self::custom_responder(tx, move || {
+                                format!("failed to set mute for {}", what)
+                            }),
+                        );
                     }
                     PulseCommand::MuteToggle { what } => {
-                        self.toggle_mute(what);
-                        PulseResponse::Success
+                        return self.toggle_mute(
+                            what,
+                            Self::custom_responder(tx, move || {
+                                format!("failed to toggle mute for {}", what)
+                            }),
+                        );
+                    }
+                    PulseCommand::SetDefault { what, name } => {
+                        return self.set_default(
+                            what,
+                            name.clone(),
+                            Self::custom_responder(tx, move || {
+                                format!(
+                                    "failed to set default {} to {}, is the name right?",
+                                    what, name
+                                )
+                            }),
+                        );
                     }
                 };
 
