@@ -33,7 +33,7 @@ fn main() {
 }
 
 fn start_runtime() -> Result<RuntimeStopReason> {
-    pretty_env_logger::try_init()?;
+    pretty_env_logger::try_init_timed()?;
 
     let args = Cli::parse();
 

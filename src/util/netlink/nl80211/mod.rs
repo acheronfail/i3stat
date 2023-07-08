@@ -11,6 +11,9 @@
 //!     - https://blog.onethinglab.com/how-to-check-if-wireless-adapter-supports-monitor-mode/
 //!     - https://git.sipsolutions.net/iw.git/
 //!     - https://wireless.wiki.kernel.org/en/users/Documentation/iw
+//!
+//! Some things for me to remember:
+//!     - the `nl_type` in a generic netlink payload is the family id
 
 mod enums;
 
@@ -142,6 +145,12 @@ impl NetlinkInterface {
     /// Returns `None` if the interface was not a wireless interface, or if no wireless information
     /// could be found.
     async fn get_wireless_info(&self) -> Result<Option<WirelessInfo>> {
+        log::trace!(
+            "getting wireless info for interface: {}:{}",
+            self.index,
+            self.name
+        );
+
         let (socket, _) = NL80211_SOCKET.get_or_try_init(init_socket).await?;
         let mut recv = genl80211_send(
             socket,
@@ -151,7 +160,15 @@ impl NetlinkInterface {
         )
         .await?;
 
-        while let Some(Ok(msg)) = recv.next().await as NextNl80211 {
+        while let Some(result) = recv.next().await as NextNl80211 {
+            let msg = match result {
+                Ok(msg) => msg,
+                Err(e) => {
+                    log::error!("error occurred receiving nl80211 message: {}", e);
+                    continue;
+                }
+            };
+
             if let NlPayload::Payload(gen_msg) = msg.nl_payload() {
                 let attr_handle = gen_msg.attrs().get_attr_handle();
 
@@ -320,14 +337,14 @@ async fn get_signal_strength(
     let mut recv = genl80211_send(
         socket,
         Nl80211Command::GetStation,
-        NlmF::ACK | NlmF::REQUEST,
+        NlmF::REQUEST,
         attrs![Ifindex => index, Mac => Buffer::from(bssid)],
     )
     .await?;
 
     // look for our requested data inside netlink's results
-    while let Some(result) = recv.next().await as NextNl80211 {
-        match result {
+    while let Some(msg) = recv.next().await as NextNl80211 {
+        match msg {
             Ok(msg) => {
                 if let NlPayload::Payload(gen_msg) = msg.nl_payload() {
                     // TODO: remove mut when upstream merges https://github.com/jbaublitz/neli/pull/220
@@ -345,8 +362,16 @@ async fn get_signal_strength(
                 }
             }
             Err(e) => {
-                log::error!("Nl80211Command::GetStation error: {}", e);
-                continue;
+                match e {
+                    // if this error packet is returned, it means that the interface wasn't connected to the station
+                    RouterError::Nlmsgerr(_) => {}
+                    // any other error we should log
+                    _ => log::error!("Nl80211Command::GetStation error: {}", e),
+                }
+
+                // TODO: when this errors, calling `recv.next().await` never completes - so return immediately
+                // see: https://github.com/jbaublitz/neli/issues/221
+                return Ok(None);
             }
         }
     }

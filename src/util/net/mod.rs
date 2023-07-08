@@ -108,7 +108,11 @@ async fn watch_net_updates(
     loop {
         if let Some(mut interfaces) = rx.recv().await {
             // filter out loopback interfaces
-            interfaces.retain(|_, int| int.name.as_ref() != "lo");
+            interfaces.retain(|_, int| {
+                log::trace!("found interface: {:?}", int);
+
+                int.name.as_ref() != "lo"
+            });
             tx.send(interfaces)?;
         }
     }
