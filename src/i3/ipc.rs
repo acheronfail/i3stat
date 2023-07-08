@@ -29,8 +29,8 @@ pub async fn handle_click_events(dispatcher: RcCell<Dispatcher>) -> Result<Infal
             .collect();
 
         // parse click event (single line JSON)
+        log::trace!("i3 click: {}", &line);
         let click = serde_json::from_str::<I3ClickEvent>(&line)?;
-        log::trace!("i3 click: {:?}", click);
 
         // parse bar item index from the "instance" property
         let idx = match click.instance.as_ref() {
