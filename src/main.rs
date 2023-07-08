@@ -286,7 +286,8 @@ where
             .separator(false)
             .markup(I3Markup::Pango)
             .separator_block_width_px(0)
-            .color(c2.bg);
+            .color(c2.bg)
+            .with_data("powerline_sep", true.into());
 
         // the first separator doesn't blend with any other item
         if i > 0 {
