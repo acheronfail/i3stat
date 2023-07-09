@@ -129,21 +129,19 @@ pub struct Nic {
 #[async_trait(?Send)]
 impl BarItem for Nic {
     async fn start(&self, mut ctx: Context) -> Result<StopAction> {
+        let wireless_refresh_trigger = || async {
+            match (self.wireless_display, self.wireless_refresh_interval) {
+                (WirelessDisplay::Hidden, _) | (_, None) => futures::future::pending::<()>().await,
+                (_, Some(duration)) => tokio::time::sleep(duration).await,
+            }
+        };
+
         let mut net = net_subscribe().await?;
         let mut p = Paginator::new();
 
         let mut interfaces = Interfaces::default();
         let mut total_address_count = interfaces.len_addresses();
         loop {
-            let wireless_refresh_trigger = || async {
-                match (self.wireless_display, self.wireless_refresh_interval) {
-                    (WirelessDisplay::Hidden, _) | (_, None) => {
-                        futures::future::pending::<()>().await
-                    }
-                    (_, Some(duration)) => tokio::time::sleep(duration).await,
-                }
-            };
-
             tokio::select! {
                 // wait for network changes
                 Ok(new_interfaces) = net.wait_for_change() => {
