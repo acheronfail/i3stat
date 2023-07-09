@@ -10,43 +10,7 @@ use crate::i3::{I3Item, I3Markup, I3Modifier};
 use crate::theme::Theme;
 use crate::util::filter::InterfaceFilter;
 use crate::util::nl80211::SignalStrength;
-use crate::util::{net_subscribe, NetlinkInterface, Paginator};
-
-struct Connections {
-    inner: Vec<NetlinkInterface>,
-}
-
-impl Connections {
-    fn new(inner: Vec<NetlinkInterface>) -> Self {
-        Self { inner }
-    }
-
-    fn len(&self) -> usize {
-        self.inner.iter().map(|int| int.ip_addresses.len()).sum()
-    }
-
-    fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    async fn get_index<'a>(&'a self, index: usize) -> Option<Connection<'a>> {
-        let pair = self
-            .inner
-            .iter()
-            .flat_map(|int| {
-                int.ip_addresses
-                    .iter()
-                    .map(|addr| (int, addr))
-                    .collect::<Vec<_>>()
-            })
-            .nth(index);
-
-        match pair {
-            Some((interface, addr)) => Some(Connection::new(interface, addr).await),
-            None => None,
-        }
-    }
-}
+use crate::util::{net_subscribe, Interfaces, NetlinkInterface, Paginator};
 
 #[derive(Debug, Default, Serialize, Deserialize, Copy, Clone)]
 #[serde(rename_all = "snake_case")]
@@ -168,7 +132,8 @@ impl BarItem for Nic {
         let mut net = net_subscribe().await?;
         let mut p = Paginator::new();
 
-        let mut connections = Connections::new(vec![]);
+        let mut interfaces = Interfaces::default();
+        let mut total_address_count = interfaces.len_addresses();
         loop {
             let wireless_refresh_trigger = || async {
                 match (self.wireless_display, self.wireless_refresh_interval) {
@@ -181,8 +146,9 @@ impl BarItem for Nic {
 
             tokio::select! {
                 // wait for network changes
-                Ok(list) = net.wait_for_change() => {
-                    connections = Connections::new(list.filtered(&self.filter));
+                Ok(new_interfaces) = net.wait_for_change() => {
+                    total_address_count = new_interfaces.len_addresses();
+                    interfaces = new_interfaces.filtered(&self.filter);
                 },
                 // on any bar event
                 Some(event) = ctx.wait_for_event(self.interval) => {
@@ -201,18 +167,21 @@ impl BarItem for Nic {
                 () = wireless_refresh_trigger() => {}
             }
 
-            let item = if connections.is_empty() {
-                // TODO: differentiate between empty after filtering, and completely disconnected?
-                I3Item::new("inactive").color(ctx.config.theme.dim)
+            let item = if interfaces.is_empty() {
+                if total_address_count > 0 {
+                    I3Item::new(format!("filtered: {}", total_address_count))
+                } else {
+                    I3Item::new("disconnected")
+                }
+                .color(ctx.config.theme.dim)
             } else {
-                p.set_len(connections.len())?;
+                p.set_len(interfaces.len_addresses())?;
                 let theme = &ctx.config.theme;
-                // SAFETY(unwrap): we always set the paginator's length to the connection's length
-                // so it should always be within bounds
-                let (full, short) = connections
-                    .get_index(p.idx())
+                // SAFETY(unwrap): we always set the paginator's length to `len_addresses` so it
+                // should always be within bounds
+                let (interface, ip_addr) = interfaces.get_address_at(p.idx()).unwrap();
+                let (full, short) = Connection::new(interface, ip_addr)
                     .await
-                    .unwrap()
                     .format(theme, self.wireless_display);
 
                 let full = format!(r#"{}{}"#, full, p.format(theme));
