@@ -119,7 +119,6 @@ async fn handle_netlink_route_messages(
                     NlPayload::Payload(_ifaddrmsg) => {
                         // request all interfaces from netlink again - we request it each time because we get ifaddrmsg
                         // events even when the address is deleted (but we can't tell that is was deleted)
-                        // TODO: in the future it would be nice to only update the interface which emitted the event
                         tx.send(get_all_interfaces(&socket).await?).await?
                     }
                     // not payload, something is wrong
@@ -158,7 +157,10 @@ async fn get_all_interfaces(socket: &Rc<NlRouter>) -> Result<InterfaceUpdate> {
         while let Some(response) = recv.next().await as RtNext<Ifinfomsg> {
             let header = match response {
                 Ok(header) => header,
-                Err(e) => bail!("an error occurred receiving rtnetlink message: {}", e),
+                Err(e) => {
+                    log::error!("an error occurred receiving rtnetlink message: {}", e);
+                    continue;
+                }
             };
 
             if let NlPayload::Payload(ifinfomsg) = header.nl_payload() {
@@ -218,7 +220,10 @@ async fn get_all_interfaces(socket: &Rc<NlRouter>) -> Result<InterfaceUpdate> {
             while let Some(response) = recv.next().await as RtNext<Ifaddrmsg> {
                 let header = match response {
                     Ok(header) => header,
-                    Err(e) => bail!("an error occurred receiving rtnetlink message: {}", e),
+                    Err(e) => {
+                        log::warn!("an error occurred receiving rtnetlink message: {}", e);
+                        continue;
+                    }
                 };
 
                 if let NlPayload::Payload(ifaddrmsg) = header.nl_payload() {
