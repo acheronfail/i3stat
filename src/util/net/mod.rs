@@ -54,10 +54,12 @@ pub struct Interfaces {
 }
 
 impl Interfaces {
+    /// Count of total interfaces
     pub fn len_interfaces(&self) -> usize {
         self.inner.len()
     }
 
+    /// Count of total addresses across all interfaces
     pub fn len_addresses(&self) -> usize {
         self.inner
             .iter()
@@ -65,14 +67,17 @@ impl Interfaces {
             .sum()
     }
 
+    /// Checks if there are any addresses (and thus interfaces) at all
     pub fn is_empty(&self) -> bool {
         self.len_addresses() == 0
     }
 
-    pub fn get_interface(&self, index: usize) -> Option<&NetlinkInterface> {
-        self.inner.get_index(index).map(|(_, v)| v)
+    /// Get a specific interface by its index
+    pub fn get_interface(&self, index: i32) -> Option<&NetlinkInterface> {
+        self.inner.get(&index)
     }
 
+    /// Get an address by its index (where index is `0..interfaces.len_addresses()`)
     pub fn get_address_at(&self, address_index: usize) -> Option<(&NetlinkInterface, &IpAddr)> {
         self.inner
             .iter()
@@ -85,6 +90,7 @@ impl Interfaces {
             .nth(address_index)
     }
 
+    /// Apply a set of filters to this struct and return a new struct
     pub fn filtered(mut self, filters: &[InterfaceFilter]) -> Interfaces {
         if filters.is_empty() {
             return self;
