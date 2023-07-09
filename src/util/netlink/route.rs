@@ -3,8 +3,10 @@
 //!     - be notified when ip addresses change
 //!
 //! Useful things when developing this:
+//!     - https://github.com/thom311/libnl/blob/main/src/nl-monitor.c
 //!     - https://man7.org/linux/man-pages/man7/rtnetlink.7.html
 //!     - https://docs.kernel.org/userspace-api/netlink/intro.html
+//!     - `nl-monitor` is a good way to test which groups emit events
 //!     - `genl-ctrl-list` returns generic families
 //!     - simulate ipv4 activity: `ip a add 10.0.0.254 dev wlan0 && sleep 1 && ip a del 10.0.0.254/32 dev wlan0`
 //!     - simulate ipv6 activity: `ip -6 addr add 2001:0db8:0:f101::1/64 dev lo && sleep 1 && ip -6 addr del 2001:0db8:0:f101::1/64 dev lo`
@@ -31,6 +33,8 @@ use crate::error::Result;
 
 pub type InterfaceUpdate = IndexMap<i32, NetlinkInterface>;
 
+type RtNext<T> = Option<std::result::Result<Nlmsghdr<Rtm, T>, RouterError<Rtm, T>>>;
+
 pub async fn netlink_ipaddr_listen(
     manual_trigger: mpsc::Receiver<()>,
 ) -> Result<Receiver<InterfaceUpdate>> {
@@ -41,7 +45,7 @@ pub async fn netlink_ipaddr_listen(
     // https://docs.kernel.org/userspace-api/netlink/intro.html#strict-checking
     socket.enable_strict_checking(true)?;
 
-    // add multicast membership for ipv4-addr updates
+    // add multicast membership for ipv4 and ipv6 addr updates
     socket
         .add_mcast_membership(Groups::new_groups(&[
             RTNLGRP_IPV4_IFADDR,
@@ -95,9 +99,8 @@ async fn handle_netlink_route_messages(
     tx: Sender<InterfaceUpdate>,
 ) -> Result<Infallible> {
     // listen for multicast events
-    type Next = Option<std::result::Result<Nlmsghdr<Rtm, Ifaddrmsg>, RouterError<Rtm, Ifaddrmsg>>>;
     loop {
-        match multicast.next().await as Next {
+        match multicast.next().await as RtNext<Ifaddrmsg> {
             None => bail!("Unexpected end of netlink route stream"),
             // we got a multicast event
             Some(response) => {
@@ -152,9 +155,7 @@ async fn get_all_interfaces(socket: &Rc<NlRouter>) -> Result<InterfaceUpdate> {
             )
             .await?;
 
-        type Next =
-            Option<std::result::Result<Nlmsghdr<Rtm, Ifinfomsg>, RouterError<Rtm, Ifinfomsg>>>;
-        while let Some(response) = recv.next().await as Next {
+        while let Some(response) = recv.next().await as RtNext<Ifinfomsg> {
             let header = match response {
                 Ok(header) => header,
                 Err(e) => bail!("an error occurred receiving rtnetlink message: {}", e),
@@ -214,9 +215,7 @@ async fn get_all_interfaces(socket: &Rc<NlRouter>) -> Result<InterfaceUpdate> {
                 )
                 .await?;
 
-            type Next =
-                Option<std::result::Result<Nlmsghdr<Rtm, Ifaddrmsg>, RouterError<Rtm, Ifaddrmsg>>>;
-            while let Some(response) = recv.next().await as Next {
+            while let Some(response) = recv.next().await as RtNext<Ifaddrmsg> {
                 let header = match response {
                     Ok(header) => header,
                     Err(e) => bail!("an error occurred receiving rtnetlink message: {}", e),
