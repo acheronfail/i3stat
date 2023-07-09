@@ -1,5 +1,7 @@
 pub mod filter;
 
+use std::net::IpAddr;
+
 use tokio::sync::{broadcast, mpsc, OnceCell};
 
 use self::filter::InterfaceFilter;
@@ -46,38 +48,63 @@ impl Clone for Net {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Interfaces {
-    inner: Vec<NetlinkInterface>,
+    inner: InterfaceUpdate,
 }
 
 impl Interfaces {
-    pub fn filtered(self, filters: &[InterfaceFilter]) -> Vec<NetlinkInterface> {
+    pub fn len_interfaces(&self) -> usize {
+        self.inner.len()
+    }
+
+    pub fn len_addresses(&self) -> usize {
+        self.inner
+            .iter()
+            .map(|(_, int)| int.ip_addresses.len())
+            .sum()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len_addresses() == 0
+    }
+
+    pub fn get_interface(&self, index: usize) -> Option<&NetlinkInterface> {
+        self.inner.get_index(index).map(|(_, v)| v)
+    }
+
+    pub fn get_address_at(&self, address_index: usize) -> Option<(&NetlinkInterface, &IpAddr)> {
+        self.inner
+            .iter()
+            .flat_map(|(_, int)| {
+                int.ip_addresses
+                    .iter()
+                    .map(|addr| (int, addr))
+                    .collect::<Vec<_>>()
+            })
+            .nth(address_index)
+    }
+
+    pub fn filtered(mut self, filters: &[InterfaceFilter]) -> Interfaces {
         if filters.is_empty() {
-            return self.inner;
+            return self;
         }
 
-        let mut filtered = vec![];
-        for mut interface in self.inner {
+        self.inner.retain(|_, interface| {
             interface
                 .ip_addresses
                 .retain(|addr| filters.iter().any(|f| f.matches(&interface.name, addr)));
 
-            if !interface.ip_addresses.is_empty() {
-                filtered.push(interface);
-            }
-        }
+            !interface.ip_addresses.is_empty()
+        });
 
-        filtered
+        self
     }
 }
 
 impl From<InterfaceUpdate> for Interfaces {
-    fn from(value: InterfaceUpdate) -> Self {
-        Interfaces {
-            // TODO: since index map is used, we don't really need to convert to vec here
-            inner: value.into_values().collect::<Vec<_>>(),
-        }
+    fn from(inner: InterfaceUpdate) -> Self {
+        Interfaces { inner }
     }
 }
 
