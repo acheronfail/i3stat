@@ -1,5 +1,6 @@
 # Optionally include other config files to be merged with this one.
-# The paths are relative to the main configuration file's directory.
+# These paths are relative to the main configuration file's directory.
+# These paths support shell expansion - via wordexp(3) - and such can refer to dynamic paths.
 include = ["sample_included_config.toml"]
 
 # Optionally pass a path for the socket. This is really only useful if you have multiple bars and

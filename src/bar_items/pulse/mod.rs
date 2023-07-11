@@ -35,7 +35,7 @@ use crate::dbus::{dbus_connection, BusType};
 use crate::error::Result;
 use crate::i3::{I3Button, I3Item, I3Markup, I3Modifier};
 use crate::theme::Theme;
-use crate::util::{exec, RcCell};
+use crate::util::{exec, expand_path, RcCell};
 
 #[derive(Debug, Copy, Clone, ValueEnum)]
 pub enum Object {
@@ -735,7 +735,7 @@ impl BarItem for Pulse {
 
         // if a sound file was given, then setup a sample
         if let Some(ref path) = self.increment_sound {
-            if let Err(e) = inner.setup_volume_sample(path).await {
+            if let Err(e) = inner.setup_volume_sample(expand_path(path)?).await {
                 log::error!("failed to setup volume sample: {}", e);
             }
         }

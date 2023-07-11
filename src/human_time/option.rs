@@ -1,5 +1,6 @@
-/// We use `humantime_serde` for intervals defined in the configuration file, but we want to disallow
-/// any interval that's too low. So we hook into it here to override any intervals.
+//! We use `humantime_serde` for intervals defined in the configuration file, but we want to disallow
+//! any interval that's too low. So we hook into it here to override any intervals.
+
 use std::time::Duration;
 
 pub use humantime_serde::option::serialize;
