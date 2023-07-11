@@ -35,6 +35,7 @@ dirs = "5.0.1"
 figment = { version = "0.10.10", features = ["toml", "yaml", "json"] }
 futures = "0.3.28"
 hex_color = { version = "2.0.0", features = ["serde"] }
+hound = "3.5.0"
 humantime-serde = "1.1.1"
 indexmap = { version = "1.9.3", features = ["serde"] }
 libc = "0.2.142"

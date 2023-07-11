@@ -180,6 +180,14 @@ display = "bytes"
 #
 # This item also has a highly featured ipc interface, see `istat-ipc custom pulse` for more info.
 type = "pulse"
+
+# Control the increment of volume changes (expressed in percent) when increasing/decreasing the volume.
+# Defaults to 5
+increment = 5
+
+# Optionally provide a `.wav` file to be played each time the volume is changed.
+# increment_sound = "path/to/your/volume/sound.wav"
+
 # Set an upper limit to the volume, expressed in percent.
 max_volume = 120
 # Configure optional notifications, supported values are:
