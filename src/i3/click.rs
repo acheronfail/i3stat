@@ -12,8 +12,10 @@ pub enum I3Button {
     ScrollDown = 5,
     ScrollRight = 6,
     ScrollLeft = 7,
-    // TODO: apparently the maximum number of mouse buttons is 24! capture those unknowns?
+    // apparently the maximum number of mouse buttons is 24!
     // see: https://www.x.org/releases/current/doc/man/man4/mousedrv.4.xhtml
+    #[serde(other)]
+    Unknown,
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
