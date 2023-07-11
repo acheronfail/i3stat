@@ -165,7 +165,8 @@ impl NetlinkInterface {
                 Ok(msg) => msg,
                 Err(e) => {
                     log::error!("error occurred receiving nl80211 message: {}", e);
-                    continue;
+                    // return immediately, see: https://github.com/jbaublitz/neli/issues/221
+                    return Ok(None);
                 }
             };
 
@@ -320,7 +321,8 @@ async fn get_bssid(socket: &NlRouter, index: i32) -> Result<Option<MacAddr>> {
             }
             Err(e) => {
                 log::error!("Nl80211Command::GetScan error: {}", e);
-                continue;
+                // return immediately, see: https://github.com/jbaublitz/neli/issues/221
+                return Ok(None);
             }
         }
     }
