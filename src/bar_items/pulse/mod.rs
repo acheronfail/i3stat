@@ -1,6 +1,8 @@
+mod audio;
 mod custom;
 
 use std::fmt::{Debug, Display};
+use std::path::{Path, PathBuf};
 use std::process;
 use std::rc::Rc;
 
@@ -20,6 +22,7 @@ use libpulse_binding::def::{DevicePortType, PortAvailable};
 use libpulse_binding::error::{Code, PAErr};
 use libpulse_binding::proplist::properties::{APPLICATION_NAME, APPLICATION_PROCESS_ID};
 use libpulse_binding::proplist::Proplist;
+use libpulse_binding::stream::{SeekMode, Stream};
 use libpulse_binding::volume::{ChannelVolumes, Volume};
 use libpulse_tokio::TokioMain;
 use num_traits::ToPrimitive;
@@ -212,11 +215,15 @@ impl NotificationSetting {
     }
 }
 
+const SAMPLE_NAME: &str = "istat-pulse-volume";
+
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Pulse {
     /// How much to increment when increasing/decreasing the volume; measured in percent
     #[serde(default = "Pulse::default_increment")]
     increment: u32,
+    /// Path to a `.wav` file to play each time the sound is changed
+    increment_sound: Option<PathBuf>,
     /// The maximum allowed volume; measured in percent
     max_volume: Option<u32>,
     /// Whether to send notifications on server state changes
@@ -224,19 +231,18 @@ pub struct Pulse {
     notify: NotificationSetting,
     /// Name of the audio server to try to connect to
     server_name: Option<String>,
-    // TODO: a sample to play each time the volume is changed?
-    // See: https://docs.rs/libpulse-binding/2.26.0/libpulse_binding/mainloop/threaded/index.html#example
 }
 
 impl Pulse {
     pub const fn default_increment() -> u32 {
-        2
+        5
     }
 }
 
 pub struct PulseState {
     tx: UnboundedSender<Command>,
     increment: u32,
+    increment_sound: bool,
     max_volume: Option<u32>,
     pa_ctx: PAContext,
     default_sink: Rc<str>,
@@ -400,7 +406,7 @@ impl RcCell<PulseState> {
         cv
     }
 
-    fn set_volume<F>(&self, what: Object, vol: Vol, f: F)
+    fn set_volume<F>(&mut self, what: Object, vol: Vol, f: F)
     where
         F: FnMut(bool) + 'static,
     {
@@ -415,11 +421,16 @@ impl RcCell<PulseState> {
             }),
         })
         .map(|p| {
+            // send notification
             let _ = self.tx.send(p.notify_volume_mute());
+            // play volume sound if enabled
+            if self.increment_sound {
+                self.pa_ctx.play_sample(SAMPLE_NAME, None, None, None);
+            }
         });
     }
 
-    fn set_mute<F>(&self, what: Object, mute: bool, f: F)
+    fn set_mute<F>(&mut self, what: Object, mute: bool, f: F)
     where
         F: FnMut(bool) + 'static,
     {
@@ -437,10 +448,14 @@ impl RcCell<PulseState> {
         })
         .map(|p| {
             let _ = self.tx.send(p.notify_volume_mute());
+            // play volume sound if enabled
+            if self.increment_sound {
+                self.pa_ctx.play_sample(SAMPLE_NAME, None, None, None);
+            }
         });
     }
 
-    fn toggle_mute<F>(&self, what: Object, f: F)
+    fn toggle_mute<F>(&mut self, what: Object, f: F)
     where
         F: FnMut(bool) + 'static,
     {
@@ -458,6 +473,10 @@ impl RcCell<PulseState> {
         })
         .map(|p| {
             let _ = self.tx.send(p.notify_volume_mute());
+            // play volume sound if enabled
+            if self.increment_sound {
+                self.pa_ctx.play_sample(SAMPLE_NAME, None, None, None);
+            }
         });
     }
 
@@ -617,6 +636,51 @@ impl RcCell<PulseState> {
             inner.update_item();
         });
     }
+
+    async fn setup_volume_sample(&mut self, wav_path: impl AsRef<Path>) -> Result<()> {
+        let (spec, audio_data) = audio::read_wav_file(wav_path.as_ref()).await?;
+        let audio_data_len = audio_data.len();
+
+        // create stream
+        let mut stream = match Stream::new(&mut self.pa_ctx, SAMPLE_NAME, &spec, None) {
+            Some(stream) => RcCell::new(stream),
+            None => bail!("failed to create new stream"),
+        };
+
+        // set up write callback for writing audio data to the stream
+        let mut inner = self.clone();
+        let mut stream_ref = stream.clone();
+        let mut bytes_written = 0;
+
+        // NOTE: calling `stream_ref.set_write_callback(None)` causes a segmentation fault
+        // see: https://github.com/acheronfail/pulse-stream-segfault
+        stream.set_write_callback(Some(Box::new(move |len| {
+            if let Err(e) = stream_ref.write(&audio_data, None, 0, SeekMode::Relative) {
+                log::error!(
+                    "failed to write to stream: {:?} - {:?}",
+                    e,
+                    inner.pa_ctx.errno().to_string()
+                );
+                return;
+            }
+
+            bytes_written += len;
+
+            // we're finished writing the audio data, finish the upload, thereby saving the audio stream
+            // as a sample in the audio server (so we can play it later)
+            if bytes_written == audio_data_len {
+                if let Ok(()) = stream_ref.finish_upload() {
+                    // the upload to the audio server has completed - we're ready to use the sample now
+                    inner.increment_sound = true;
+                }
+            }
+        })));
+
+        // connect the stream as an upload, which sends it to the audio server instead of playing it directly
+        stream.connect_upload(audio_data_len)?;
+
+        Ok(())
+    }
 }
 
 #[async_trait(?Send)]
@@ -637,16 +701,12 @@ impl BarItem for Pulse {
             pa_ctx.connect(self.server_name.as_deref(), FlagSet::NOFAIL, None)?;
             match main_loop.wait_for_ready(&pa_ctx).await {
                 Ok(State::Ready) => {}
-                Ok(state) => {
-                    bail!(
-                        "failed to connect: state={:?}, err={:?}",
-                        state,
-                        pa_ctx.errno().to_string()
-                    );
-                }
-                Err(_) => {
-                    bail!("Pulse mainloop exited while waiting on context, not continuing",);
-                }
+                Ok(state) => bail!(
+                    "failed to connect: state={:?}, err={:?}",
+                    state,
+                    pa_ctx.errno().to_string()
+                ),
+                Err(_) => bail!("Pulse mainloop exited while waiting on context, not continuing"),
             }
 
             (main_loop, pa_ctx)
@@ -657,6 +717,7 @@ impl BarItem for Pulse {
         let mut inner = RcCell::new(PulseState {
             tx,
             increment: self.increment,
+            increment_sound: false,
             max_volume: self.max_volume,
 
             pa_ctx,
@@ -671,6 +732,13 @@ impl BarItem for Pulse {
         inner.subscribe_to_state_changes(exit_tx.clone());
         inner.subscribe_to_server_changes();
         inner.fetch_server_state();
+
+        // if a sound file was given, then setup a sample
+        if let Some(ref path) = self.increment_sound {
+            if let Err(e) = inner.setup_volume_sample(path).await {
+                log::error!("failed to setup volume sample: {}", e);
+            }
+        }
 
         // run pulse main loop
         tokio::task::spawn_local(async move {
@@ -766,7 +834,7 @@ impl BarItem for Pulse {
                     _ => {}
                 },
 
-                // whenever we want to refresh our item, an event it send on this channel
+                // whenever we want to refresh our item, an event is send on this channel
                 Some(cmd) = rx.recv() => match cmd {
                     Command::UpdateItem(cb) => {
                         ctx.update_item(cb(&ctx.config.theme)).await?;

@@ -24,7 +24,7 @@ setup:
 build:
   cargo build --all --all-features
 _lbuild:
-  cargo lbuild --all --quiet
+  cargo lbuild --all
 
 # run `istat` in the terminal and interact with it
 dev *args: _lbuild
