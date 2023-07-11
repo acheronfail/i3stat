@@ -118,6 +118,8 @@ impl ValueEnum for Button {
             I3Button::Right => Some(PossibleValue::new("right")),
             I3Button::ScrollUp => Some(PossibleValue::new("scroll_up")),
             I3Button::ScrollDown => Some(PossibleValue::new("scroll_down")),
+            I3Button::ScrollRight => Some(PossibleValue::new("scroll_right")),
+            I3Button::ScrollLeft => Some(PossibleValue::new("scroll_left")),
         }
     }
 }

@@ -760,6 +760,8 @@ impl BarItem for Pulse {
                                 }
                             });
                         }
+
+                        _ => {}
                     }
                     _ => {}
                 },
