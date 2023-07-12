@@ -95,7 +95,6 @@ impl RcCell<PulseState> {
         args: Vec<String>,
         tx: oneshot::Sender<CustomResponse>,
     ) {
-        // TODO: send pulse response from pulse success callbacks for all "success" responses
         let resp = match PulseCommand::try_parse_from(args) {
             Ok(cmd) => {
                 let resp = match cmd {

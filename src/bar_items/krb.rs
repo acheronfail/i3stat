@@ -40,13 +40,18 @@ impl Krb {
 impl BarItem for Krb {
     async fn start(&self, mut ctx: Context) -> Result<StopAction> {
         let mut net = net_subscribe().await?;
-        let mut disabled = !self.only_on.is_empty();
+        let mut enabled = self.only_on.is_empty();
         loop {
+            // update item
+            if enabled {
+                ctx.update_item(self.item(&ctx.config.theme).await?).await?;
+            }
+
             tokio::select! {
                 // any bar event
                 _ = ctx.wait_for_event(self.interval) => {
                     // don't update if disabled
-                    if disabled {
+                    if !enabled {
                         continue;
                     }
                 },
@@ -55,21 +60,18 @@ impl BarItem for Krb {
                     // if none of the filters matched
                     if interfaces.filtered(&self.only_on).is_empty() {
                         // if the item wasn't disabled, then empty it out
-                        if !disabled {
+                        if enabled {
                             ctx.update_item(I3Item::empty()).await?;
                         }
 
                         // and set it to disabled
-                        disabled = true;
+                        enabled = false;
 
                         // reset loop and wait to be enabled
                         continue;
                     }
                 }
             }
-
-            // update item
-            ctx.update_item(self.item(&ctx.config.theme).await?).await?;
         }
     }
 }

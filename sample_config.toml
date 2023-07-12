@@ -89,20 +89,20 @@ thresholds = ["1kiB", "1MiB", "10MiB", "25MiB", "100MiB"]
 # ignored_interfaces = ["vpn0"]
 
 [[items]]
+# a raw item - these are static items that don't change, and display the values here
+type = "raw"
+# see i3's bar documentation for what fields are available: https://i3wm.org/docs/i3bar-protocol.html
+full_text = "raw"
+short_text = "!"
+
+[[items]]
 # Kerberos item - simply calls `klist` and displays the result
 type = "krb"
 # How often this item should refresh
 interval = "2m"
 # Optionally enable this item only when specific networks are active.
 # This is the same format as the `filter` property in the `nic` item.
-only_on = ["vpn0:v4"]
-
-[[items]]
-# a raw item - these are static items that don't change, and display the values here
-type = "raw"
-# see i3's bar documentation for what fields are available: https://i3wm.org/docs/i3bar-protocol.html
-full_text = "raw"
-short_text = "!"
+# only_on = ["vpn0:v4"]
 
 [[items]]
 # "Network Interfaces" item, provides an interactive list of interfaces and ip addresses, as well as

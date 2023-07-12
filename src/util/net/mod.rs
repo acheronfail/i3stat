@@ -157,8 +157,6 @@ async fn watch_net_updates(
                 !int.ip_addresses.is_empty()
             });
 
-            log::trace!("interfaces: {:#?}", &interfaces);
-
             tx.send(interfaces)?;
         }
     }
