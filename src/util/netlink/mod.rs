@@ -3,7 +3,7 @@ pub mod nl80211;
 pub mod route;
 
 use std::array::TryFromSliceError;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::net::IpAddr;
 use std::sync::Arc;
 
@@ -16,12 +16,15 @@ pub struct MacAddr {
     octets: [u8; 6],
 }
 
+impl Display for MacAddr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.octets.map(|o| format!("{:02x}", o)).join(":"))
+    }
+}
+
 impl Debug for MacAddr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!(
-            "MacAddr({})",
-            self.octets.map(|o| format!("{:02x}", o)).join(":")
-        ))
+        f.write_fmt(format_args!("MacAddr({})", self))
     }
 }
 

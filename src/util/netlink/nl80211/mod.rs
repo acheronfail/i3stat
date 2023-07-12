@@ -180,6 +180,7 @@ impl NetlinkInterface {
                     attr_handle.get_attr_payload_as::<Nl80211IfType>(Nl80211Attribute::Iftype),
                     Ok(Nl80211IfType::Station)
                 ) {
+                    log::debug!("interface is not a station");
                     return Ok(None);
                 }
 
@@ -244,6 +245,10 @@ impl NetlinkInterface {
             }
         }
 
+        log::debug!(
+            "no wireless information found for interface: {}",
+            self.index
+        );
         Ok(None)
     }
 }
@@ -327,6 +332,7 @@ async fn get_bssid(socket: &NlRouter, index: i32) -> Result<Option<MacAddr>> {
         }
     }
 
+    log::debug!("no bssid found for interface: {}", index);
     Ok(None)
 }
 
@@ -378,6 +384,11 @@ async fn get_signal_strength(
         }
     }
 
+    log::debug!(
+        "no signal strength found for interface: {} with bssid: {}",
+        index,
+        bssid
+    );
     Ok(None)
 }
 

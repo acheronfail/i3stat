@@ -140,12 +140,25 @@ async fn watch_net_updates(
     let mut rx = netlink_ipaddr_listen(manual_trigger).await?;
     loop {
         if let Some(mut interfaces) = rx.recv().await {
-            // filter out loopback interfaces
             interfaces.retain(|_, int| {
                 log::trace!("found interface: {:?}", int);
 
-                int.name.as_ref() != "lo"
+                // some address filtering
+                int.ip_addresses.retain(|addr| match addr {
+                    // get rid of loopback addresses
+                    any if any.is_loopback() => false,
+                    // get rid of link local addresses
+                    IpAddr::V4(v4) if v4.is_link_local() => false,
+                    IpAddr::V6(v6) if v6.is_unicast_link_local() => false,
+                    _ => true,
+                });
+
+                // filter out interfaces without any addresses
+                !int.ip_addresses.is_empty()
             });
+
+            log::trace!("interfaces: {:#?}", &interfaces);
+
             tx.send(interfaces)?;
         }
     }
