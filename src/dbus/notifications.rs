@@ -1,8 +1,13 @@
+//! Represents the DBUS API for notifications.
+//! See: https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html
+
 use std::collections::HashMap;
 
+use tokio::sync::OnceCell;
 use zbus::dbus_proxy;
 use zbus::zvariant::Value;
 
+type Hints = HashMap<&'static str, Value<'static>>;
 #[dbus_proxy(
     default_path = "/org/freedesktop/Notifications",
     default_service = "org.freedesktop.Notifications",
@@ -10,7 +15,6 @@ use zbus::zvariant::Value;
     gen_blocking = false
 )]
 trait Notifications {
-    // See: https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html
     #[dbus_proxy(name = "Notify")]
     fn notify_full(
         &self,
@@ -20,7 +24,7 @@ trait Notifications {
         summary: &str,
         body: &str,
         actions: &[&str],
-        hints: HashMap<&str, Value<'_>>,
+        hints: Hints,
         expire_timeout: i32,
     ) -> zbus::Result<u32>;
 }
@@ -38,97 +42,149 @@ impl<'a> From<Urgency> for Value<'a> {
     }
 }
 
+/// Easily create a hints notifications map.
+macro_rules! hints {
+    () => {
+        HashMap::new() as Hints
+    };
+
+    ($($key:expr => $value:expr $(,)?)+) => {{
+        let mut hints: Hints = HashMap::new();
+        $(
+            hints.insert($key, $value.into());
+        )+
+
+        hints
+
+    }};
+}
+
+static PULSE_NOTIFICATION_ID: OnceCell<u32> = OnceCell::const_new();
+static BATTERY_NOTIFICATION_ID: OnceCell<u32> = OnceCell::const_new();
+
 impl<'a> NotificationsProxy<'a> {
     const APP_NAME: &str = "istat";
 
-    pub async fn pulse_volume_mute(&self, name: impl AsRef<str>, pct: u32, mute: bool) {
-        let mut hints = HashMap::new();
-        hints.insert("value", Value::U32(pct));
-        hints.insert("urgency", Urgency::Low.into());
+    // util ----------------------------------------------------------------------------------------
 
-        if let Err(e) = self
+    async fn notify(
+        &self,
+        id: Option<u32>,
+        hints: Hints,
+        summary: impl AsRef<str>,
+        body: impl AsRef<str>,
+        timeout: i32,
+    ) -> Option<u32> {
+        match self
             .notify_full(
-                &format!("{}:volume", Self::APP_NAME),
-                0,
-                // TODO: icon
-                "audio-card",
-                name.as_ref(),
-                // TODO: better muted state (notification icon or more obvious in notification)
-                &format!("{}{}%", if mute { " " } else { " " }, pct),
+                Self::APP_NAME,
+                id.unwrap_or(0),
+                "",
+                summary.as_ref(),
+                body.as_ref(),
                 &[],
                 hints,
-                2_000,
+                timeout,
             )
             .await
         {
-            log::warn!("failed to send notification: {}", e);
+            Ok(id) => Some(id),
+            Err(e) => {
+                log::warn!("failed to send notification: {}", e);
+                id
+            }
         }
+    }
+
+    async fn notify_id(
+        &self,
+        once_cell: &OnceCell<u32>,
+        hints: Hints,
+        summary: impl AsRef<str>,
+        body: impl AsRef<str>,
+        timeout: i32,
+    ) {
+        let cached_id = once_cell.get().cloned();
+        match self.notify(cached_id, hints, summary, body, timeout).await {
+            Some(id) => match cached_id {
+                Some(_) => { /* do nothing, id already saved */ }
+                None => {
+                    let _ = once_cell.set(id);
+                }
+            },
+            None => { /* do nothing, an error occurred */ }
+        }
+    }
+
+    // impl ----------------------------------------------------------------------------------------
+
+    pub async fn pulse_volume_mute(&self, name: impl AsRef<str>, pct: u32, mute: bool) {
+        self.notify_id(
+            &PULSE_NOTIFICATION_ID,
+            hints! {
+                "value" => pct,
+                "urgency" => Urgency::Low,
+            },
+            name,
+            format!("{}{}%", if mute { " " } else { " " }, pct),
+            2_000,
+        )
+        .await;
     }
 
     pub async fn pulse_new_source_sink(&self, name: impl AsRef<str>, what: impl AsRef<str>) {
-        let mut hints = HashMap::new();
-        hints.insert("urgency", Urgency::Low.into());
-
-        if let Err(e) = self
-            .notify_full(
-                Self::APP_NAME,
-                0,
-                "",
-                &format!("New {} added", what.as_ref()),
-                name.as_ref(),
-                &[],
-                hints,
-                2_000,
-            )
-            .await
-        {
-            log::warn!("failed to send notification: {}", e);
-        }
+        self.notify(
+            None,
+            hints! { "urgency" => Urgency::Low },
+            format!("New {} added", what.as_ref()),
+            name,
+            2_000,
+        )
+        .await;
     }
 
     pub async fn pulse_defaults_change(&self, name: impl AsRef<str>, what: impl AsRef<str>) {
-        let mut hints = HashMap::new();
-        hints.insert("urgency", Urgency::Low.into());
-
-        if let Err(e) = self
-            .notify_full(
-                Self::APP_NAME,
-                0,
-                "",
-                &format!("Default {}", what.as_ref()),
-                name.as_ref(),
-                &[],
-                hints,
-                2_000,
-            )
-            .await
-        {
-            log::warn!("failed to send notification: {}", e);
-        }
+        self.notify(
+            None,
+            hints! { "urgency" => Urgency::Low },
+            format!("Default {}", what.as_ref()),
+            name,
+            2_000,
+        )
+        .await;
     }
 
     pub async fn ac_adapter(&self, plugged_in: bool) {
-        let mut hints = HashMap::new();
-        hints.insert("urgency", Urgency::Low.into());
+        self.notify(
+            None,
+            hints! { "urgency" => Urgency::Low },
+            "AC Adapter",
+            if plugged_in {
+                "Connected"
+            } else {
+                "Disconnected"
+            },
+            2_000,
+        )
+        .await;
+    }
 
-        if let Err(e) = self
-            .notify_full(
-                Self::APP_NAME,
-                0,
-                "",
-                "AC Adapter",
-                if plugged_in {
-                    "Connected"
-                } else {
-                    "Disconnected"
-                },
-                &[],
-                hints,
-                2_000,
-            )
-            .await
-        {
-            log::warn!("failed to send notification: {}", e);
-        }
+    /// Trigger a critical battery charge notification that will never timeout
+    pub async fn battery_critical(&self, pct: u8) {
+        self.notify_id(
+            &BATTERY_NOTIFICATION_ID,
+            hints! { "urgency" => Urgency::Critical },
+            "Critical Battery Warning!",
+            format!("Remaining: {}%", pct),
+            // NOTE: timeout of `0` means that this notification will not go away
+            0,
+        )
+        .await;
+    }
+
+    /// Use to disable a previously sent critical battery notification
+    pub async fn battery_critical_off(&self) {
+        self.notify_id(&BATTERY_NOTIFICATION_ID, hints! {}, "", "", 1)
+            .await;
     }
 }

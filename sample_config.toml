@@ -219,6 +219,10 @@ type = "battery"
 interval = "10s"
 # Should notifications be sent when an AC Adapter is plugged/unplugged?
 notify_on_adapter = true
+# Optionally trigger a critical (and sticky) notification under a certain percentage.
+# This notification will stay unless the percentage goes above the threshold, or the battery state
+# is anything other than discharging.
+notify_percentage = 5
 
 # Optionally specify a list of particular batteries to show. If not provided, it will attempt to
 # discover all the batteries on the system.

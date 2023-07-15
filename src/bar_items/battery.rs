@@ -18,6 +18,7 @@ use crate::theme::Theme;
 use crate::util::acpi::ffi::AcpiGenericNetlinkEvent;
 use crate::util::{netlink_acpi_listen, Paginator};
 
+#[derive(Debug)]
 enum BatState {
     Unknown,
     Charging,
@@ -27,7 +28,7 @@ enum BatState {
 }
 
 impl BatState {
-    fn get_color(&self, theme: &Theme) -> (Option<&str>, Option<HexColor>) {
+    fn get_color(&self, theme: &Theme) -> (Option<&'static str>, Option<HexColor>) {
         match self {
             Self::Full => (None, Some(theme.purple)),
             Self::Charging => (Some("󰚥"), Some(theme.blue)),
@@ -49,6 +50,13 @@ impl FromStr for BatState {
             s => Err(format!("Unknown battery state: {}", s)),
         }
     }
+}
+
+#[derive(Debug)]
+struct BatInfo {
+    name: String,
+    charge: f32,
+    state: BatState,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -91,51 +99,15 @@ impl Bat {
         Ok((current_pico as f64) * (voltage_pico as f64) / 1_000_000_000_000.0)
     }
 
-    async fn format(&self, theme: &Theme, show_watts: bool) -> Result<I3Item> {
-        let (charge, state) = match try_join!(self.percent(), self.get_state()) {
-            Ok((charge, state)) => (charge, state),
-            // Return unknown state: the files in sysfs aren't present at times, such as when connecting
-            // ac adapters, etc. In these scenarios we just end early here without an error and let the
-            // item retry on the next interval/acpi event.
-            Err(e) => {
-                log::warn!("failed to read battery {}: {}", self.0.display(), e);
-                return Ok(I3Item::new("???").color(theme.red));
-            }
-        };
-
-        let (charge_icon, charge_fg, urgent) = match charge as u32 {
-            0..=15 => {
-                let urgent = !matches!(state, BatState::Charging | BatState::NotCharging);
-                ("", Some(theme.red), urgent)
-            }
-            16..=25 => ("", Some(theme.orange), false),
-            26..=50 => ("", Some(theme.yellow), false),
-            51..=75 => ("", None, false),
-            76..=u32::MAX => ("", Some(theme.green), false),
-        };
-
-        let (state_icon, state_fg) = state.get_color(theme);
-        let icon = state_icon.unwrap_or(charge_icon);
-        let fg = state_fg.or(charge_fg);
-
-        let item = if show_watts {
-            let watts = self.watts_now().await?;
-            I3Item::new(format!("{:.2} W", watts)).short_text(format!("{:.0}", watts))
-        } else {
-            let name = self.name()?;
-            let name = if name == "BAT0" {
-                icon
-            } else {
-                name.as_str().into()
-            };
-            I3Item::new(format!("{}  {:.0}%", name, charge)).short_text(format!("{:.0}%", charge))
-        };
-
-        Ok(match (urgent, fg) {
-            (true, _) => item.urgent(true),
-            (false, Some(fg)) => item.color(fg),
-            (false, None) => item,
-        })
+    async fn get_info(&self) -> Result<BatInfo> {
+        let name = self.name()?;
+        Ok(
+            try_join!(self.percent(), self.get_state()).map(|(charge, state)| BatInfo {
+                name,
+                charge,
+                state,
+            })?,
+        )
     }
 
     async fn find_all() -> Result<Vec<Bat>> {
@@ -164,6 +136,43 @@ pub struct Battery {
     #[serde(default)]
     notify_on_adapter: bool,
     // TODO: option to run command(s) at certain percentage(s)
+    #[serde(default)]
+    notify_percentage: Option<u8>,
+}
+
+impl Battery {
+    fn detail(theme: &Theme, info: &BatInfo) -> (&'static str, Option<HexColor>, bool) {
+        let (charge_icon, charge_fg, urgent) = match info.charge as u32 {
+            0..=15 => {
+                let urgent = !matches!(info.state, BatState::Charging | BatState::NotCharging);
+                ("", Some(theme.red), urgent)
+            }
+            16..=25 => ("", Some(theme.orange), false),
+            26..=50 => ("", Some(theme.yellow), false),
+            51..=75 => ("", None, false),
+            76..=u32::MAX => ("", Some(theme.green), false),
+        };
+
+        let (state_icon, state_fg) = info.state.get_color(theme);
+        let icon = state_icon.unwrap_or(charge_icon);
+        let fg = state_fg.or(charge_fg);
+
+        (icon, fg, urgent)
+    }
+
+    fn format_watts(_: &Theme, watts: f64) -> I3Item {
+        I3Item::new(format!("{:.2} W", watts)).short_text(format!("{:.0}", watts))
+    }
+
+    async fn format(_: &Theme, info: &BatInfo, icon: &str) -> I3Item {
+        let name = if info.name == "BAT0" {
+            icon
+        } else {
+            info.name.as_str().into()
+        };
+        I3Item::new(format!("{}  {:.0}%", name, info.charge))
+            .short_text(format!("{:.0}%", info.charge))
+    }
 }
 
 #[async_trait(?Send)]
@@ -185,10 +194,42 @@ impl BarItem for Battery {
         let dbus = dbus_connection(BusType::Session).await?;
         let notifications = NotificationsProxy::new(&dbus).await?;
         let mut on_acpi_event = battery_acpi_events().await?;
+        let mut sent_critical_notification = false;
         loop {
             let theme = &ctx.config.theme;
 
-            let item = batteries[p.idx()].format(theme, show_watts).await?;
+            // get info for selected battery
+            let bat = &batteries[p.idx()];
+            let info = bat.get_info().await?;
+
+            // send critical battery notification if configured
+            if let Some(pct) = self.notify_percentage {
+                let charge = info.charge as u8;
+                if charge <= pct && matches!(info.state, BatState::Discharging) {
+                    notifications.battery_critical(charge).await;
+                    sent_critical_notification = true;
+                } else if sent_critical_notification {
+                    notifications.battery_critical_off().await;
+                    sent_critical_notification = false;
+                }
+            }
+
+            // build battery item
+            let (icon, fg, urgent) = Self::detail(theme, &info);
+            let item = if show_watts {
+                Self::format_watts(theme, bat.watts_now().await?)
+            } else {
+                Self::format(theme, &info, icon).await
+            };
+
+            // format item
+            let item = match (fg, urgent) {
+                (_, true) => item.urgent(true),
+                (Some(fg), false) => item.color(fg),
+                (None, false) => item,
+            };
+
+            // update item
             let full_text = format!("{}{}", item.get_full_text(), p.format(theme));
             let item = item.full_text(full_text).markup(I3Markup::Pango);
             ctx.update_item(item).await?;
