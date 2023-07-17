@@ -1,3 +1,4 @@
+use std::cell::OnceCell;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
@@ -60,30 +61,49 @@ struct BatInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct Bat(PathBuf);
+#[serde(transparent)]
+struct Bat {
+    file: PathBuf,
+
+    #[serde(skip)]
+    cached_name: OnceCell<String>,
+}
 
 impl Bat {
+    pub fn new(file: PathBuf) -> Bat {
+        Bat {
+            file,
+            cached_name: OnceCell::new(),
+        }
+    }
+
+    fn name(&self) -> Result<&String> {
+        match self.cached_name.get() {
+            Some(cached) => Ok(cached),
+            None => match self.file.file_name() {
+                Some(name) => match self.cached_name.set(name.to_string_lossy().into_owned()) {
+                    Ok(()) => self.name(),
+                    Err(_) => bail!("failed to set name cache"),
+                },
+                None => bail!("failed to parse file name from: {}", self.file.display()),
+            },
+        }
+    }
+
     async fn read(&self, file_name: impl AsRef<str>) -> Result<String> {
-        Ok(read_to_string(self.0.join(file_name.as_ref())).await?)
+        Ok(read_to_string(self.file.join(file_name.as_ref())).await?)
     }
 
     async fn read_usize(&self, file_name: impl AsRef<str>) -> Result<usize> {
         Ok(self.read(file_name).await?.trim().parse::<usize>()?)
     }
 
-    fn name(&self) -> Result<String> {
-        match self.0.file_name() {
-            Some(name) => Ok(name.to_string_lossy().into_owned()),
-            None => Err(format!("failed to parse file name from: {}", self.0.display()).into()),
-        }
-    }
-
-    async fn get_state(&self) -> Result<BatState> {
+    pub async fn get_state(&self) -> Result<BatState> {
         Ok(BatState::from_str(self.read("status").await?.trim())?)
     }
 
     // NOTE: there is also `/capacity` which returns an integer percentage
-    async fn percent(&self) -> Result<f32> {
+    pub async fn percent(&self) -> Result<f32> {
         let (charge_now, charge_full) = try_join!(
             self.read_usize("charge_now"),
             self.read_usize("charge_full"),
@@ -91,7 +111,7 @@ impl Bat {
         Ok((charge_now as f32) / (charge_full as f32) * 100.0)
     }
 
-    async fn watts_now(&self) -> Result<f64> {
+    pub async fn watts_now(&self) -> Result<f64> {
         let (current_pico, voltage_pico) = try_join!(
             self.read_usize("current_now"),
             self.read_usize("voltage_now"),
@@ -99,8 +119,8 @@ impl Bat {
         Ok((current_pico as f64) * (voltage_pico as f64) / 1_000_000_000_000.0)
     }
 
-    async fn get_info(&self) -> Result<BatInfo> {
-        let name = self.name()?;
+    pub async fn get_info(&self) -> Result<BatInfo> {
+        let name = self.name()?.to_owned();
         Ok(
             try_join!(self.percent(), self.get_state()).map(|(charge, state)| BatInfo {
                 name,
@@ -110,16 +130,16 @@ impl Bat {
         )
     }
 
-    async fn find_all() -> Result<Vec<Bat>> {
+    pub async fn find_all() -> Result<Vec<Bat>> {
         let battery_dir = PathBuf::from("/sys/class/power_supply");
         let mut entries = fs::read_dir(&battery_dir).await?;
 
         let mut batteries = vec![];
         while let Some(entry) = entries.next_entry().await? {
             if entry.file_type().await?.is_symlink() {
-                let path = entry.path();
-                if fs::try_exists(path.join("charge_now")).await? {
-                    batteries.push(Bat(path));
+                let file = entry.path();
+                if fs::try_exists(file.join("charge_now")).await? {
+                    batteries.push(Bat::new(file));
                 }
             }
         }
@@ -305,4 +325,23 @@ async fn battery_acpi_events() -> Result<Receiver<BatteryAcpiEvent>> {
     });
 
     Ok(rx)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn de() {
+        let path = "/sys/class/power_supply/BAT0";
+        let battery = serde_json::from_str::<Bat>(&format!(r#""{}""#, path)).unwrap();
+        assert_eq!(battery.file, PathBuf::from(path));
+    }
+
+    #[test]
+    fn name() {
+        let battery = Bat::new(PathBuf::from("/sys/class/power_supply/BAT0"));
+        assert_eq!(battery.name().unwrap(), "BAT0");
+        assert_eq!(battery.name().unwrap(), "BAT0");
+    }
 }
