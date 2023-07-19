@@ -135,7 +135,11 @@ impl NetlinkInterface {
         match self.get_wireless_info().await {
             Ok(info) => info,
             Err(e) => {
-                log::error!("NetlinkInterface::wireless_info(): {}", e);
+                log::error!(
+                    "index {} NetlinkInterface::wireless_info(): {}",
+                    self.index,
+                    e
+                );
                 None
             }
         }
@@ -145,11 +149,7 @@ impl NetlinkInterface {
     /// Returns `None` if the interface was not a wireless interface, or if no wireless information
     /// could be found.
     async fn get_wireless_info(&self) -> Result<Option<WirelessInfo>> {
-        log::trace!(
-            "getting wireless info for interface: {}:{}",
-            self.index,
-            self.name
-        );
+        log::trace!("index {} getting wireless info", self.index);
 
         let (socket, _) = NL80211_SOCKET.get_or_try_init(init_socket).await?;
         let mut recv = genl80211_send(
@@ -164,7 +164,11 @@ impl NetlinkInterface {
             let msg = match result {
                 Ok(msg) => msg,
                 Err(e) => {
-                    log::error!("error occurred receiving nl80211 message: {}", e);
+                    log::error!(
+                        "index {} error occurred receiving nl80211 message: {}",
+                        self.index,
+                        e
+                    );
                     // return immediately, see: https://github.com/jbaublitz/neli/issues/221
                     return Ok(None);
                 }
@@ -180,7 +184,7 @@ impl NetlinkInterface {
                     attr_handle.get_attr_payload_as::<Nl80211IfType>(Nl80211Attribute::Iftype),
                     Ok(Nl80211IfType::Station)
                 ) {
-                    log::debug!("interface is not a station");
+                    log::debug!("index {} interface is not a station", self.index);
                     return Ok(None);
                 }
 
@@ -190,7 +194,11 @@ impl NetlinkInterface {
                 {
                     Ok(name) => name.into(),
                     Err(e) => {
-                        log::error!("failed to parse ifname from nl80211 msg: {}", e);
+                        log::error!(
+                            "index {} failed to parse ifname from nl80211 msg: {}",
+                            self.index,
+                            e
+                        );
                         "".into()
                     }
                 };
@@ -201,7 +209,11 @@ impl NetlinkInterface {
                 {
                     Ok(bytes) => <&[u8] as TryInto<MacAddr>>::try_into(bytes)?,
                     Err(e) => {
-                        log::error!("failed to parse mac from nl80211 msg: {}", e);
+                        log::error!(
+                            "index {} failed to parse mac from nl80211 msg: {}",
+                            self.index,
+                            e
+                        );
                         continue;
                     }
                 };
@@ -245,10 +257,7 @@ impl NetlinkInterface {
             }
         }
 
-        log::debug!(
-            "no wireless information found for interface: {}",
-            self.index
-        );
+        log::debug!("index {} no wireless information found", self.index);
         Ok(None)
     }
 }
@@ -318,6 +327,7 @@ async fn get_bssid(socket: &NlRouter, index: i32) -> Result<Option<MacAddr>> {
                             .get_attr_payload_as_with_len_borrowed::<&[u8]>(Nl80211Bss::Bssid)
                         {
                             if let Ok(bssid) = MacAddr::try_from(bytes) {
+                                log::debug!("index {} found bssid: {}", index, bssid);
                                 return Ok(Some(bssid));
                             }
                         }
@@ -325,14 +335,14 @@ async fn get_bssid(socket: &NlRouter, index: i32) -> Result<Option<MacAddr>> {
                 }
             }
             Err(e) => {
-                log::error!("Nl80211Command::GetScan error: {}", e);
+                log::error!("index {} Nl80211Command::GetScan error: {}", index, e);
                 // return immediately, see: https://github.com/jbaublitz/neli/issues/221
                 return Ok(None);
             }
         }
     }
 
-    log::debug!("no bssid found for interface: {}", index);
+    log::debug!("index {} no bssid found", index);
     Ok(None)
 }
 
@@ -364,7 +374,15 @@ async fn get_signal_strength(
                         if let Ok(signal) =
                             station_info.get_attr_payload_as::<u8>(Nl80211StationInfo::Signal)
                         {
-                            return Ok(Some(SignalStrength::new(signal as i8)));
+                            let signal_strength = SignalStrength::new(signal as i8);
+                            log::debug!(
+                                "index {} bssid {} found signal: {} dBm",
+                                index,
+                                bssid,
+                                signal_strength.dbm
+                            );
+
+                            return Ok(Some(signal_strength));
                         }
                     }
                 }
@@ -374,7 +392,14 @@ async fn get_signal_strength(
                     // if this error packet is returned, it means that the interface wasn't connected to the station
                     RouterError::Nlmsgerr(_) => {}
                     // any other error we should log
-                    _ => log::error!("Nl80211Command::GetStation error: {}", e),
+                    _ => {
+                        log::error!(
+                            "index {} bssid {} Nl80211Command::GetStation error: {}",
+                            index,
+                            bssid,
+                            e
+                        )
+                    }
                 }
 
                 // TODO: when this errors, calling `recv.next().await` never completes - so return immediately
@@ -384,11 +409,7 @@ async fn get_signal_strength(
         }
     }
 
-    log::debug!(
-        "no signal strength found for interface: {} with bssid: {}",
-        index,
-        bssid
-    );
+    log::debug!("index {} bssid {} no signal strength found", index, bssid);
     Ok(None)
 }
 
