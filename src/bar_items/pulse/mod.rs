@@ -423,10 +423,7 @@ impl RcCell<PulseState> {
         .map(|p| {
             // send notification
             let _ = self.tx.send(p.notify_volume_mute());
-            // play volume sound if enabled
-            if self.increment_sound {
-                self.pa_ctx.play_sample(SAMPLE_NAME, None, None, None);
-            }
+            self.play_volume_sample_if_enabled(what);
         });
     }
 
@@ -448,10 +445,7 @@ impl RcCell<PulseState> {
         })
         .map(|p| {
             let _ = self.tx.send(p.notify_volume_mute());
-            // play volume sound if enabled
-            if self.increment_sound {
-                self.pa_ctx.play_sample(SAMPLE_NAME, None, None, None);
-            }
+            self.play_volume_sample_if_enabled(what);
         });
     }
 
@@ -473,11 +467,14 @@ impl RcCell<PulseState> {
         })
         .map(|p| {
             let _ = self.tx.send(p.notify_volume_mute());
-            // play volume sound if enabled
-            if self.increment_sound {
-                self.pa_ctx.play_sample(SAMPLE_NAME, None, None, None);
-            }
+            self.play_volume_sample_if_enabled(what);
         });
+    }
+
+    fn play_volume_sample_if_enabled(&mut self, what: Object) {
+        if matches!(what, Object::Sink) && self.increment_sound {
+            self.pa_ctx.play_sample(SAMPLE_NAME, None, None, None);
+        }
     }
 
     fn set_default<F>(&mut self, what: Object, name: impl AsRef<str>, f: F)
