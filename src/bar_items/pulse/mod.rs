@@ -650,7 +650,7 @@ impl RcCell<PulseState> {
         let mut bytes_written = 0;
 
         // NOTE: calling `stream_ref.set_write_callback(None)` causes a segmentation fault
-        // see: https://github.com/acheronfail/pulse-stream-segfault
+        // see: https://github.com/jnqnfe/pulse-binding-rust/issues/56
         stream.set_write_callback(Some(Box::new(move |len| {
             if let Err(e) = stream_ref.write(&audio_data, None, 0, SeekMode::Relative) {
                 log::error!(
