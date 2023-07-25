@@ -202,6 +202,14 @@ notify = "none"
 # server_name = "pipewire-0"
 
 [[items]]
+# Show current light brightness (and also adjust it).
+type = "light"
+# Optionally provide a path to a specific backlight:
+# path = "/sys/class/backlight/intel_backlight"
+# Optionally specify how much percentage to increment the light by when scrolling (default is 5):
+# increment = 10
+
+[[items]]
 # Show information about CapsLock/NumLock/ScrollLock.
 type = "kbd"
 # Which keys to show, available options are: caps_lock, num_lock or scroll_lock
