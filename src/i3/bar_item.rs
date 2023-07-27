@@ -171,6 +171,10 @@ impl I3Item {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.full_text.is_empty()
+    }
+
     pub fn empty() -> I3Item {
         I3Item::new("")
     }

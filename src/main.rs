@@ -263,21 +263,24 @@ fn create_powerline<F>(bar: &[I3Item], theme: &Theme, adjuster: F) -> Vec<I3Item
 where
     F: Fn(&HexColor) -> HexColor,
 {
-    let len = theme.powerline.len();
+    let visible_items = bar.iter().filter(|i| !i.is_empty()).count();
+
+    // start the powerline index so the theme colours are consistent from right to left
+    let powerline_len = theme.powerline.len();
     let mut powerline_bar = vec![];
-    let mut powerline_idx = 0;
+    let mut powerline_idx = powerline_len - (visible_items % powerline_len);
+
     for i in 0..bar.len() {
         let item = &bar[i];
-        if item.full_text.is_empty() {
+        if item.is_empty() {
             continue;
         }
 
         let instance = i.to_string();
-        #[cfg(debug_assertions)]
-        assert_eq!(item.get_instance().unwrap(), &instance);
+        debug_assert_eq!(item.get_instance().unwrap(), &instance);
 
-        let c1 = &theme.powerline[powerline_idx % len];
-        let c2 = &theme.powerline[(powerline_idx + 1) % len];
+        let c1 = &theme.powerline[powerline_idx % powerline_len];
+        let c2 = &theme.powerline[(powerline_idx + 1) % powerline_len];
         powerline_idx += 1;
 
         // create the powerline separator
