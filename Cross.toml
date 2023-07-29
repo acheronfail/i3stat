@@ -1,0 +1,11 @@
+[target.x86_64-unknown-linux-gnu]
+pre-build = ["apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes libpulse-dev"]
+
+[target.x86_64-unknown-linux-musl]
+pre-build = ["apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes libpulse-dev"]
+
+[target.aarch64-unknown-linux-gnu]
+pre-build = ["dpkg --add-architecture arm64 && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes libpulse-dev:arm64"]
+
+[target.arm-unknown-linux-gnueabihf]
+pre-build = ["apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes libpulse-dev"]

@@ -1,0 +1,59 @@
+on:
+  push:
+    # TODO: remove this, it's just for testing
+    branches:
+    - test-release
+    tags:
+    - '[0-9]+.[0-9]+.[0-9]+'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # use cross to build releases
+  # https://github.com/houseabsolute/actions-rust-cross
+  release:
+    name: Release - ${{ matrix.platform.release_for }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          # linux 64 bit gnu
+          - release_for: linux-gnu
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          # linux 64 bit musl
+          - release_for: linux-musl
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+          # linux aarch64
+          - release_for: linux-aarch64
+            os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+          # linux arm gnu
+          - release_for: linux-gnueabihf
+            os: ubuntu-latest
+            target: arm-unknown-linux-gnueabihf
+    runs-on: ${{ matrix.platform.os }}
+    steps:
+      # git checkout
+      - uses: actions/checkout@v3
+      # install musl-tools if needed
+      - run: sudo apt-get update --yes && sudo apt-get install --yes musl-tools
+        if: contains(matrix.platform.target, 'musl')
+      # build with cross
+      - run: cargo install cross --git https://github.com/cross-rs/cross
+      # FIXME: this fails, because 20.04 doesn't have libpulse v14 yet
+      - run: cross build --locked --release --target ${{ matrix.platform.target }}
+      # package into archive
+      # TODO: man pages (would need to run tests?)
+      - shell: bash
+        run: |
+          mkdir staging
+          find "target/${{ matrix.platform.target }}/release" -executable -type f -iname "istat*" -exec "{}" ./staging
+          tar czvf "${{ matrix.platform.name }}" --directory ./staging
+      # push to github release
+      - uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          files: "istat-${{ matrix.platform.release_for }}"

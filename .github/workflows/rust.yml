@@ -8,8 +8,8 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  linux:
-    name: Build & Test
+  run-tests:
+    name: Test
     runs-on: ubuntu-latest
     steps:
       # git checkout
@@ -23,5 +23,3 @@ jobs:
       - run: just setup
       - run: just build
       - run: DEBUG=true just test
-
-  # TODO: build and upload to release tag
