@@ -60,8 +60,11 @@ impl LightFile {
 
     pub async fn adjust(&self, amount: i8) -> Result<()> {
         let pct = self.get().await?;
-        self.set(pct.saturating_add_signed(amount).clamp(0, 100))
-            .await
+        self.set(
+            pct.saturating_add_signed(amount - (pct as i8 % amount))
+                .clamp(0, 100),
+        )
+        .await
     }
 
     /// Detects what is most likely the default backlight.
