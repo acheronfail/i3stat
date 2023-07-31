@@ -279,9 +279,13 @@ where
         let instance = i.to_string();
         debug_assert_eq!(item.get_instance().unwrap(), &instance);
 
-        let c1 = &theme.powerline[powerline_idx % powerline_len];
-        let c2 = &theme.powerline[(powerline_idx + 1) % powerline_len];
+        let prev_color = &theme.powerline[powerline_idx % powerline_len];
+        let this_color = &theme.powerline[(powerline_idx + 1) % powerline_len];
         powerline_idx += 1;
+
+        let is_urgent = *item.get_urgent().unwrap_or(&false);
+        let item_fg = if is_urgent { theme.bg } else { this_color.fg };
+        let item_bg = if is_urgent { theme.red } else { this_color.bg };
 
         // create the powerline separator
         let mut sep_item = I3Item::new(theme.powerline_separator.to_span())
@@ -289,16 +293,21 @@ where
             .separator(false)
             .markup(I3Markup::Pango)
             .separator_block_width_px(0)
-            .color(c2.bg)
+            .color(item_bg)
             .with_data("powerline_sep", true.into());
 
-        // the first separator doesn't blend with any other item
+        // the first separator doesn't blend with any other item (hence > 0)
         if i > 0 {
-            sep_item = sep_item.background_color(c1.bg);
+            // ensure the separator meshes with the previous item if it's urgent
+            if *bar[i - 1].get_urgent().unwrap_or(&false) {
+                sep_item = sep_item.background_color(theme.red);
+            } else {
+                sep_item = sep_item.background_color(prev_color.bg);
+            }
         }
 
         // replace `config.theme.dim` so it's easy to see
-        let adjusted_dim = adjuster(&c2.bg);
+        let adjusted_dim = adjuster(&item_bg);
 
         powerline_bar.push(sep_item);
         powerline_bar.push(
@@ -312,11 +321,16 @@ where
                 .separator(false)
                 .separator_block_width_px(0)
                 .color(match item.get_color() {
+                    _ if is_urgent => item_fg,
                     Some(color) if color == &theme.dim => adjusted_dim,
                     Some(color) => *color,
-                    _ => c2.fg,
+                    _ => item_fg,
                 })
-                .background_color(c2.bg),
+                .background_color(item_bg)
+                // disable urgent here, since we override it ourselves to style the powerline more nicely
+                // but we set it as additional data just in case someone wants to use it
+                .urgent(false)
+                .with_data("urgent", true.into()),
         );
     }
     powerline_bar

@@ -14,9 +14,7 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 
 ## Improvements
 
-* when displaying the bar, check for `urgent` and provide own translation of it? (disable urgent, set bg and fg)
-  * that way, powerline separators will also work
-  * and also, there won't be a bad conflict of fg to bg colours, since i3bar just sets its background to the "urgent" colour
+* ...
 
 ## Tips
 
