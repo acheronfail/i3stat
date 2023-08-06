@@ -220,30 +220,23 @@ impl NetlinkInterface {
 
                 // NOTE: it seems that nl80211 netlink doesn't null terminate the SSID here, so fetch
                 // it as bytes and convert it to a string ourselves
-                let ssid = match attr_handle
+                let mut ssid = match attr_handle
                     .get_attr_payload_as_with_len_borrowed::<&[u8]>(Nl80211Attribute::Ssid)
                 {
                     Ok(name) => Some(String::from_utf8_lossy(name).into()),
-                    // if there's no SSID, then the interface is likely not connected to a network
+                    // sometimes the `GetInterface` response doesn't include the ssid, but that's okay
+                    // since we can fetch it later when we send a `GetScan` request
+                    // see: https://github.com/systemd/systemd/issues/24585
                     Err(_) => None,
                 };
 
-                // don't bother fetching these if we don't have an ssid, since the interface is probably
-                // not connected to a network
-                let (bssid, signal) = {
-                    match ssid {
-                        Some(_) => {
-                            let bssid = get_bssid(socket, self.index).await?;
-                            let signal = match bssid.as_ref() {
-                                Some(bssid) => {
-                                    get_signal_strength(socket, self.index, bssid).await?
-                                }
-                                None => None,
-                            };
-                            (bssid, signal)
-                        }
-                        None => (None, None),
-                    }
+                // NOTE: if we didn't get the ssid before, it's also returned in the `GetScan` response
+                // so pass it in here too just in case
+                let bssid = get_scan(socket, self.index, &mut ssid).await?;
+                let signal = match bssid.as_ref() {
+                    Some(bssid) => get_signal_strength(socket, self.index, bssid).await?,
+                    // we can't fetch the signal strength without the bssid
+                    None => None,
                 };
 
                 return Ok(Some(WirelessInfo {
@@ -302,12 +295,37 @@ impl SignalStrength {
     }
 }
 
-/// Get the current BSSID of the connected network (if any) for the given interface
-async fn get_bssid(socket: &NlRouter, index: i32) -> Result<Option<MacAddr>> {
+// NOTE: see iw's scan.c for a reference of how to parse information elements
+// e.g.: https://git.sipsolutions.net/iw.git/tree/scan.c#n1718
+const INFORMATION_ELEMENT_SSID: u8 = 0;
+fn ssid_from_ie(information_elements: &[u8]) -> Result<Option<Rc<str>>> {
+    let mut idx = 0;
+    while idx < information_elements.len() {
+        let el_type = information_elements[idx];
+        let el_len = information_elements[idx + 1] as usize;
+        if el_type == INFORMATION_ELEMENT_SSID {
+            return Ok(Some(
+                String::from_utf8(information_elements[idx + 2..idx + 2 + el_len].to_vec())?.into(),
+            ));
+        }
+
+        idx += el_len + 2;
+    }
+
+    Ok(None)
+}
+
+/// Get the current BSSID of the connected network (if any) for the given interface and also
+/// optionally set the ssid if it's not already set previously
+async fn get_scan(
+    socket: &NlRouter,
+    index: i32,
+    ssid: &mut Option<Rc<str>>,
+) -> Result<Option<MacAddr>> {
     let mut recv = genl80211_send(
         socket,
         Nl80211Command::GetScan,
-        NlmF::DUMP,
+        NlmF::REQUEST | NlmF::ACK | NlmF::ROOT | NlmF::MATCH,
         attrs![Ifindex => index],
     )
     .await?;
@@ -323,6 +341,28 @@ async fn get_bssid(socket: &NlRouter, index: i32) -> Result<Option<MacAddr>> {
                     if let Ok(bss_attrs) =
                         attr_handle.get_nested_attributes::<Nl80211Bss>(Nl80211Attribute::Bss)
                     {
+                        // set the ssid if it's not set
+                        if ssid.is_none() {
+                            if let Ok(bytes) = bss_attrs
+                                .get_attr_payload_as_with_len_borrowed::<&[u8]>(
+                                    Nl80211Bss::InformationElements,
+                                )
+                            {
+                                log::debug!(
+                                    "index {} updating ssid from information elements",
+                                    index
+                                );
+                                match ssid_from_ie(bytes) {
+                                    Ok(option) => *ssid = option,
+                                    Err(e) => log::error!(
+                                        "index {} failed to parse information elements: {}",
+                                        index,
+                                        e
+                                    ),
+                                }
+                            }
+                        }
+
                         if let Ok(bytes) = bss_attrs
                             .get_attr_payload_as_with_len_borrowed::<&[u8]>(Nl80211Bss::Bssid)
                         {
