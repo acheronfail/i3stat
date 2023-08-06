@@ -285,7 +285,14 @@ where
 
         let is_urgent = *item.get_urgent().unwrap_or(&false);
         let item_fg = if is_urgent { theme.bg } else { this_color.fg };
-        let item_bg = if is_urgent { theme.red } else { this_color.bg };
+        let item_bg = if is_urgent {
+            theme.red
+        } else {
+            match item.get_background_color() {
+                Some(bg) => *bg,
+                None => this_color.bg,
+            }
+        };
 
         // create the powerline separator
         let mut sep_item = I3Item::new(theme.powerline_separator.to_span())
@@ -298,11 +305,15 @@ where
 
         // the first separator doesn't blend with any other item (hence > 0)
         if i > 0 {
-            // ensure the separator meshes with the previous item if it's urgent
-            if *bar[i - 1].get_urgent().unwrap_or(&false) {
+            // ensure the separator meshes with the previous item's background
+            let prev_item = &bar[i - 1];
+            if *prev_item.get_urgent().unwrap_or(&false) {
                 sep_item = sep_item.background_color(theme.red);
             } else {
-                sep_item = sep_item.background_color(prev_color.bg);
+                sep_item = sep_item.background_color(match prev_item.get_background_color() {
+                    Some(bg) => *bg,
+                    None => prev_color.bg,
+                });
             }
         }
 

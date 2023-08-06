@@ -7,6 +7,8 @@ type = "raw"
 # items from the parent configuration file.
 index = 7
 full_text = "hello"
+color = "#000000"
+background = "#aaaa00"
 
 # Example of updating the theme.
 [theme]
