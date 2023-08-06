@@ -5,10 +5,12 @@
 use std::path::{Path, PathBuf};
 
 use async_trait::async_trait;
+use clap::Parser;
 use serde_derive::{Deserialize, Serialize};
+use serde_json::json;
 use tokio::fs;
 
-use crate::context::{BarEvent, BarItem, Context, StopAction};
+use crate::context::{BarEvent, BarItem, Context, CustomResponse, StopAction};
 use crate::error::Result;
 use crate::i3::{I3Button, I3Item};
 
@@ -52,7 +54,7 @@ impl LightFile {
     /// Set the brightness of this light to a percentage
     pub async fn set(&self, pct: u8) -> Result<()> {
         let step = self.max_brightness / 100;
-        let value = (pct as u64) * step;
+        let value = (pct.clamp(0, 100) as u64) * step;
         fs::write(&self.brightness_file, value.to_string()).await?;
 
         Ok(())
@@ -128,6 +130,7 @@ impl BarItem for Light {
         loop {
             ctx.update_item(light.format().await?).await?;
             match ctx.wait_for_event(None).await {
+                // mouse events
                 Some(BarEvent::Click(click)) => match click.button {
                     I3Button::Left => light.set(1).await?,
                     I3Button::Right => light.set(100).await?,
@@ -135,8 +138,40 @@ impl BarItem for Light {
                     I3Button::ScrollDown => light.adjust(-increment).await?,
                     _ => {}
                 },
+                // custom ipc events
+                Some(BarEvent::Custom { payload, responder }) => {
+                    let resp = match LightCommand::try_parse_from(payload) {
+                        Ok(cmd) => {
+                            match match cmd {
+                                LightCommand::Increase => light.adjust(increment).await,
+                                LightCommand::Decrease => light.adjust(-increment).await,
+                                LightCommand::Set { pct } => light.set(pct).await,
+                            } {
+                                Ok(()) => CustomResponse::Json(json!(())),
+                                Err(e) => CustomResponse::Json(json!({
+                                    "failure": e.to_string()
+                                })),
+                            }
+                        }
+                        Err(e) => CustomResponse::Help(e.render()),
+                    };
+
+                    let _ = responder.send(resp);
+                }
+                // other events just trigger a refresh
                 _ => {}
             }
         }
     }
+}
+
+#[derive(Debug, Parser)]
+#[command(name = "light", no_binary_name = true)]
+enum LightCommand {
+    /// Increase the brightness by the configured increment amount
+    Increase,
+    /// Decrease the brightness by the configured increment amount
+    Decrease,
+    /// Set the brightness to a specific value
+    Set { pct: u8 },
 }
