@@ -10,7 +10,8 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 
 ## Bugs
 
-* ...
+* light bar item doesn't update when brightness changed by other means
+  * implement an ipc command and map that in i3, so that it's in sync
 
 ## Improvements
 
