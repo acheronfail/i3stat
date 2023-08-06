@@ -21,6 +21,7 @@ enum WirelessDisplay {
     Dbm,
 }
 
+#[derive(Debug)]
 enum ConnectionDetail {
     None,
     Ssid(String),
@@ -28,9 +29,9 @@ enum ConnectionDetail {
 }
 
 impl ConnectionDetail {
-    fn display(&self, wireless_display: WirelessDisplay) -> String {
+    fn display(&self, wireless_display: WirelessDisplay) -> Option<String> {
         if matches!(wireless_display, WirelessDisplay::Hidden) {
-            return "".into();
+            return None;
         }
 
         match self {
@@ -41,10 +42,10 @@ impl ConnectionDetail {
                     // SAFETY: we match and early return on this at the beginning of this function
                     WirelessDisplay::Hidden => unreachable!(),
                 };
-                format!("{signal} at {ssid}", ssid = ssid, signal = signal)
+                Some(format!("{signal} at {ssid}", ssid = ssid, signal = signal))
             }
-            ConnectionDetail::Ssid(ssid) => ssid.into(),
-            ConnectionDetail::None => "".into(),
+            ConnectionDetail::Ssid(ssid) => Some(ssid.into()),
+            ConnectionDetail::None => None,
         }
     }
 }
@@ -104,9 +105,13 @@ impl<'a> Connection<'a> {
                 fg,
                 self.name,
                 self.addr,
-                match (wireless_display, &self.detail) {
-                    (WirelessDisplay::Hidden, _) | (_, None) => "".into(),
-                    (_, Some(detail)) => format!(" {}", detail.display(wireless_display)),
+                match self
+                    .detail
+                    .as_ref()
+                    .and_then(|cd| cd.display(wireless_display))
+                {
+                    Some(detail) => format!(" {}", detail),
+                    _ => "".into(),
                 }
             ),
             format!(r#"<span{}>{}</span>"#, fg, self.name),
