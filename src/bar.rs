@@ -1,4 +1,4 @@
-use std::cell::OnceCell;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::ops::{Index, IndexMut};
 
@@ -12,8 +12,8 @@ use crate::theme::Theme;
 pub struct Bar {
     /// The actual bar items - represents the latest state of each individual bar item
     items: Vec<I3Item>,
-    /// Cache for the adjuster for the dim fg theme colour
-    dim_adjuster: OnceCell<Box<dyn Fn(&HexColor) -> HexColor>>,
+    /// Cache for any colour adjusters created
+    color_adjusters: HashMap<HexColor, Box<dyn Fn(&HexColor) -> HexColor>>,
 }
 
 impl Debug for Bar {
@@ -21,12 +21,8 @@ impl Debug for Bar {
         f.debug_struct("Bar")
             .field("items", &self.items)
             .field(
-                "dim_adjuster",
-                &if self.dim_adjuster.get().is_some() {
-                    "Some(_)"
-                } else {
-                    "None"
-                },
+                "color_adjusters",
+                &self.color_adjusters.keys().collect::<Vec<_>>(),
             )
             .finish()
     }
@@ -51,12 +47,12 @@ impl Bar {
     pub fn new(item_count: usize) -> Bar {
         Bar {
             items: vec![I3Item::empty(); item_count],
-            dim_adjuster: OnceCell::new(),
+            color_adjusters: HashMap::new(),
         }
     }
 
     /// Convert the bar to json
-    pub fn to_json(&self, theme: &Theme) -> Result<String> {
+    pub fn to_json(&mut self, theme: &Theme) -> Result<String> {
         let json = if theme.powerline_enable {
             let powerline_items = self.create_powerline(theme);
             serde_json::to_string(&powerline_items)?
@@ -68,7 +64,7 @@ impl Bar {
     }
 
     /// Convert the bar to a `Value`
-    pub fn to_value(&self, theme: &Theme) -> Result<Value> {
+    pub fn to_value(&mut self, theme: &Theme) -> Result<Value> {
         let value = if theme.powerline_enable {
             let powerline_items = self.create_powerline(theme);
             serde_json::to_value(&powerline_items)?
@@ -80,7 +76,7 @@ impl Bar {
     }
 
     /// Return a list of items representing the bar formatted as a powerline
-    fn create_powerline(&self, theme: &Theme) -> Vec<I3Item> {
+    fn create_powerline(&mut self, theme: &Theme) -> Vec<I3Item> {
         let visible_items = self.items.iter().filter(|i| !i.is_empty()).count();
 
         // start the powerline index so the theme colours are consistent from right to left
@@ -137,8 +133,9 @@ impl Bar {
 
             // replace `config.theme.dim` so it's easy to see
             let adjusted_dim = self
-                .dim_adjuster
-                .get_or_init(|| Box::new(make_color_adjuster(&theme.bg, &theme.dim)))(
+                .color_adjusters
+                .entry(theme.dim)
+                .or_insert_with(|| Box::new(make_color_adjuster(&theme.bg, &theme.dim)))(
                 &item_bg
             );
 
