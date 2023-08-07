@@ -72,7 +72,11 @@ async fn handle_ipc_request(stream: &UnixStream, mut ctx: IpcContext, len: usize
             ctx.token.cancel();
         }
         IpcMessage::GetBar => {
-            send_ipc_response(&stream, &IpcReply::Value(serde_json::to_value(&*ctx.bar)?)).await?;
+            send_ipc_response(
+                &stream,
+                &IpcReply::Value(ctx.bar.to_value(&ctx.config.theme)?),
+            )
+            .await?;
         }
         IpcMessage::Info => {
             let info = serde_json::to_value(ctx.config.item_idx_to_name())?;

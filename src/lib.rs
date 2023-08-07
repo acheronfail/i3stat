@@ -5,6 +5,7 @@
 #[macro_use]
 pub mod macros;
 
+pub mod bar;
 pub mod bar_items;
 pub mod cli;
 pub mod config;

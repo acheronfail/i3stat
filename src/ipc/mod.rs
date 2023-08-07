@@ -8,15 +8,15 @@ use std::path::PathBuf;
 use tokio_util::sync::CancellationToken;
 
 pub use self::server::{create_ipc_socket, handle_ipc_events};
+use crate::bar::Bar;
 use crate::config::AppConfig;
 use crate::dispatcher::Dispatcher;
 use crate::error::Result;
-use crate::i3::I3Item;
 use crate::util::RcCell;
 
 #[derive(Debug, Clone)]
 pub struct IpcContext {
-    bar: RcCell<Vec<I3Item>>,
+    bar: RcCell<Bar>,
     token: CancellationToken,
     config: RcCell<AppConfig>,
     dispatcher: RcCell<Dispatcher>,
@@ -24,7 +24,7 @@ pub struct IpcContext {
 
 impl IpcContext {
     pub fn new(
-        bar: RcCell<Vec<I3Item>>,
+        bar: RcCell<Bar>,
         token: CancellationToken,
         config: RcCell<AppConfig>,
         dispatcher: RcCell<Dispatcher>,

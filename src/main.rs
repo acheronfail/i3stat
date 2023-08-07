@@ -1,7 +1,7 @@
 use std::process;
 
 use clap::Parser;
-use hex_color::HexColor;
+use istat::bar::Bar;
 use istat::cli::Cli;
 use istat::config::AppConfig;
 use istat::context::{Context, SharedState, StopAction};
@@ -9,10 +9,9 @@ use istat::dispatcher::Dispatcher;
 use istat::error::Result;
 use istat::i3::header::I3BarHeader;
 use istat::i3::ipc::handle_click_events;
-use istat::i3::{I3Item, I3Markup};
+use istat::i3::I3Item;
 use istat::ipc::{create_ipc_socket, handle_ipc_events, IpcContext};
 use istat::signals::handle_signals;
-use istat::theme::Theme;
 use istat::util::{local_block_on, RcCell};
 use tokio::sync::mpsc::{self, Receiver};
 use tokio::time::Instant;
@@ -85,14 +84,14 @@ async fn async_main(args: Cli) -> Result<RuntimeStopReason> {
     return result;
 }
 
-fn setup_i3_bar(config: &RcCell<AppConfig>) -> Result<(RcCell<Vec<I3Item>>, RcCell<Dispatcher>)> {
+fn setup_i3_bar(config: &RcCell<AppConfig>) -> Result<(RcCell<Bar>, RcCell<Dispatcher>)> {
     let item_count = config.items.len();
 
     // shared state
     let state = SharedState::new();
 
     // A list of items which represents the i3 bar
-    let bar = RcCell::new(vec![I3Item::empty(); item_count]);
+    let bar = RcCell::new(Bar::new(item_count));
 
     // Used to send events to each bar item, and also to trigger updates of the bar
     let (update_tx, update_rx) = mpsc::channel(1);
@@ -194,7 +193,7 @@ fn handle_item_updates(
     config: RcCell<AppConfig>,
     mut item_rx: Receiver<(I3Item, usize)>,
     mut update_rx: Receiver<()>,
-    mut bar: RcCell<Vec<I3Item>>,
+    mut bar: RcCell<Bar>,
 ) -> Result<()> {
     // output first parts of the i3 bar protocol - the header
     println!("{}", serde_json::to_string(&I3BarHeader::default())?);
@@ -230,19 +229,9 @@ fn handle_item_updates(
                 }
             }
 
-            // serialise to JSON
-            let theme = config.theme.clone();
-            let bar_json = match theme.powerline_enable {
-                true => serde_json::to_string(&create_powerline(
-                    &bar,
-                    &theme,
-                    &make_color_adjuster(&theme.bg, &theme.dim),
-                )),
-                false => serde_json::to_string(&*bar),
-            };
-
             // print bar to STDOUT for i3
-            match bar_json {
+            let theme = config.theme.clone();
+            match bar.to_json(&theme) {
                 // make sure to include the trailing comma `,` as part of the protocol
                 Ok(json) => println!("{},", json),
                 // on any serialisation error, emit an error that will be drawn to the status bar
@@ -257,107 +246,4 @@ fn handle_item_updates(
     });
 
     Ok(())
-}
-
-fn create_powerline<F>(bar: &[I3Item], theme: &Theme, adjuster: F) -> Vec<I3Item>
-where
-    F: Fn(&HexColor) -> HexColor,
-{
-    let visible_items = bar.iter().filter(|i| !i.is_empty()).count();
-
-    // start the powerline index so the theme colours are consistent from right to left
-    let powerline_len = theme.powerline.len();
-    let mut powerline_bar = vec![];
-    let mut powerline_idx = powerline_len - (visible_items % powerline_len);
-
-    for i in 0..bar.len() {
-        let item = &bar[i];
-        if item.is_empty() {
-            continue;
-        }
-
-        let instance = i.to_string();
-        debug_assert_eq!(item.get_instance().unwrap(), &instance);
-
-        let prev_color = &theme.powerline[powerline_idx % powerline_len];
-        let this_color = &theme.powerline[(powerline_idx + 1) % powerline_len];
-        powerline_idx += 1;
-
-        let is_urgent = *item.get_urgent().unwrap_or(&false);
-        let item_fg = if is_urgent { theme.bg } else { this_color.fg };
-        let item_bg = if is_urgent {
-            theme.red
-        } else {
-            match item.get_background_color() {
-                Some(bg) => *bg,
-                None => this_color.bg,
-            }
-        };
-
-        // create the powerline separator
-        let mut sep_item = I3Item::new(theme.powerline_separator.to_span())
-            .instance(instance)
-            .separator(false)
-            .markup(I3Markup::Pango)
-            .separator_block_width_px(0)
-            .color(item_bg)
-            .with_data("powerline_sep", true.into());
-
-        // the first separator doesn't blend with any other item (hence > 0)
-        if i > 0 {
-            // ensure the separator meshes with the previous item's background
-            let prev_item = &bar[i - 1];
-            if *prev_item.get_urgent().unwrap_or(&false) {
-                sep_item = sep_item.background_color(theme.red);
-            } else {
-                sep_item = sep_item.background_color(match prev_item.get_background_color() {
-                    Some(bg) => *bg,
-                    None => prev_color.bg,
-                });
-            }
-        }
-
-        // replace `config.theme.dim` so it's easy to see
-        let adjusted_dim = adjuster(&item_bg);
-
-        powerline_bar.push(sep_item);
-        powerline_bar.push(
-            item.clone()
-                .full_text(format!(
-                    " {} ",
-                    // replace `config.theme.dim` use in pango spans
-                    item.full_text
-                        .replace(&theme.dim.to_string(), &adjusted_dim.to_string())
-                ))
-                .separator(false)
-                .separator_block_width_px(0)
-                .color(match item.get_color() {
-                    _ if is_urgent => item_fg,
-                    Some(color) if color == &theme.dim => adjusted_dim,
-                    Some(color) => *color,
-                    _ => item_fg,
-                })
-                .background_color(item_bg)
-                // disable urgent here, since we override it ourselves to style the powerline more nicely
-                // but we set it as additional data just in case someone wants to use it
-                .urgent(false)
-                .with_data("urgent", true.into()),
-        );
-    }
-    powerline_bar
-}
-
-/// HACK: this assumes that RGB colours scale linearly - I don't know if they do or not.
-/// Used to render the powerline bar and make sure that dim text is visible.
-fn make_color_adjuster(bg: &HexColor, fg: &HexColor) -> impl Fn(&HexColor) -> HexColor {
-    let r = fg.r.abs_diff(bg.r);
-    let g = fg.g.abs_diff(bg.g);
-    let b = fg.b.abs_diff(bg.b);
-    move |c| {
-        HexColor::rgb(
-            r.saturating_add(c.r),
-            g.saturating_add(c.g),
-            b.saturating_add(c.b),
-        )
-    }
 }
