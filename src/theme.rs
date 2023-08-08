@@ -39,6 +39,7 @@ pub struct Theme {
     pub fg: HexColor,
     #[serde(default = "Theme::default_dim")]
     pub dim: HexColor,
+
     #[serde(default = "Theme::default_red")]
     pub red: HexColor,
     #[serde(default = "Theme::default_orange")]
@@ -51,6 +52,14 @@ pub struct Theme {
     pub purple: HexColor,
     #[serde(default = "Theme::default_blue")]
     pub blue: HexColor,
+
+    /// The foreground for an urgent item. Defaults to `theme.fg`.
+    #[serde(default = "Theme::default_bg")]
+    pub urgent_fg: HexColor,
+    /// The background for an urgent item. Defaults to `theme.red`.
+    #[serde(default = "Theme::default_red")]
+    pub urgent_bg: HexColor,
+
     #[serde(default = "Theme::default_powerline")]
     pub powerline: Vec<ColorPair>,
     #[serde(default)]
@@ -65,12 +74,17 @@ impl Default for Theme {
             bg: Self::default_bg(),
             fg: Self::default_fg(),
             dim: Self::default_dim(),
+
             red: Self::default_red(),
             orange: Self::default_orange(),
             yellow: Self::default_yellow(),
             green: Self::default_green(),
             purple: Self::default_purple(),
             blue: Self::default_blue(),
+
+            urgent_fg: Self::default_bg(),
+            urgent_bg: Self::default_red(),
+
             powerline: Self::default_powerline(),
             powerline_enable: false,
             powerline_separator: Self::default_powerline_separator(),

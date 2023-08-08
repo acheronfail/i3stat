@@ -51,32 +51,53 @@ impl Bar {
         }
     }
 
+    /// Are there any urgent items?
+    pub fn any_urgent(&self) -> bool {
+        self.items
+            .iter()
+            .any(|item| item.get_urgent().is_some_and(|urgent| *urgent))
+    }
+
     /// Convert the bar to json
     pub fn to_json(&mut self, theme: &Theme) -> Result<String> {
-        let json = if theme.powerline_enable {
-            let powerline_items = self.create_powerline(theme);
-            serde_json::to_string(&powerline_items)?
-        } else {
-            serde_json::to_string(&self.items)?
-        };
-
-        Ok(json)
+        Ok(serde_json::to_string(&self.get_items(theme))?)
     }
 
     /// Convert the bar to a `Value`
     pub fn to_value(&mut self, theme: &Theme) -> Result<Value> {
-        let value = if theme.powerline_enable {
-            let powerline_items = self.create_powerline(theme);
-            serde_json::to_value(&powerline_items)?
-        } else {
-            serde_json::to_value(&self.items)?
-        };
+        Ok(serde_json::to_value(&self.get_items(theme))?)
+    }
 
-        Ok(value)
+    fn get_items(&mut self, theme: &Theme) -> Vec<I3Item> {
+        if theme.powerline_enable {
+            self.create_powerline_bar(theme)
+        } else {
+            self.create_bar(theme)
+        }
+    }
+
+    /// Return a list of items representing the bar
+    fn create_bar(&mut self, theme: &Theme) -> Vec<I3Item> {
+        self.items
+            .iter()
+            .cloned()
+            .map(|item| {
+                if let Some(true) = item.get_urgent() {
+                    item.color(theme.urgent_fg)
+                        .background_color(theme.urgent_bg)
+                        // disable urgent here, since we override it ourselves to style it more nicely
+                        // but we set it as additional data just in case someone wants to use it
+                        .urgent(false)
+                        .with_data("urgent", true.into())
+                } else {
+                    item
+                }
+            })
+            .collect()
     }
 
     /// Return a list of items representing the bar formatted as a powerline
-    fn create_powerline(&mut self, theme: &Theme) -> Vec<I3Item> {
+    fn create_powerline_bar(&mut self, theme: &Theme) -> Vec<I3Item> {
         let visible_items = self.items.iter().filter(|i| !i.is_empty()).count();
 
         // start the powerline index so the theme colours are consistent from right to left
@@ -98,9 +119,13 @@ impl Bar {
             powerline_idx += 1;
 
             let is_urgent = *item.get_urgent().unwrap_or(&false);
-            let item_fg = if is_urgent { theme.bg } else { this_color.fg };
+            let item_fg = if is_urgent {
+                theme.urgent_fg
+            } else {
+                this_color.fg
+            };
             let item_bg = if is_urgent {
-                theme.red
+                theme.urgent_bg
             } else {
                 match item.get_background_color() {
                     Some(bg) => *bg,
@@ -122,7 +147,7 @@ impl Bar {
                 // ensure the separator meshes with the previous item's background
                 let prev_item = &self.items[i - 1];
                 if *prev_item.get_urgent().unwrap_or(&false) {
-                    sep_item = sep_item.background_color(theme.red);
+                    sep_item = sep_item.background_color(theme.urgent_bg);
                 } else {
                     sep_item = sep_item.background_color(match prev_item.get_background_color() {
                         Some(bg) => *bg,

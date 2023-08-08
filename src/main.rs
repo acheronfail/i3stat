@@ -12,7 +12,7 @@ use istat::i3::ipc::handle_click_events;
 use istat::i3::I3Item;
 use istat::ipc::{create_ipc_socket, handle_ipc_events, IpcContext};
 use istat::signals::handle_signals;
-use istat::util::{local_block_on, RcCell};
+use istat::util::{local_block_on, RcCell, UrgentTimer};
 use tokio::sync::mpsc::{self, Receiver};
 use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
@@ -202,9 +202,15 @@ fn handle_item_updates(
 
     tokio::task::spawn_local(async move {
         let item_names = config.item_idx_to_name();
-
+        let mut urgent_timer = UrgentTimer::new();
         loop {
+            // enable urgent timer if any item is urgent
+            urgent_timer.toggle(bar.any_urgent());
+
             tokio::select! {
+                // the urgent timer triggered, so update the timer and start it again
+                // this logic makes urgent items "flash" between two coloured states
+                () = urgent_timer.wait() => urgent_timer.reset(),
                 // a manual update was requested
                 Some(()) = update_rx.recv() => {}
                 // an item is requesting an update, update the bar state
@@ -229,8 +235,14 @@ fn handle_item_updates(
                 }
             }
 
+            // style urgent colours differently based on the urgent_timer's status
+            let mut theme = config.theme.clone();
+            if urgent_timer.swapped() {
+                theme.urgent_bg = config.theme.urgent_fg;
+                theme.urgent_fg = config.theme.urgent_bg;
+            }
+
             // print bar to STDOUT for i3
-            let theme = config.theme.clone();
             match bar.to_json(&theme) {
                 // make sure to include the trailing comma `,` as part of the protocol
                 Ok(json) => println!("{},", json),

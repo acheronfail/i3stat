@@ -1,4 +1,4 @@
-use_and_export!(cell, enum_cycle, exec, format, net, netlink, paginator, path, vec);
+use_and_export!(cell, enum_cycle, exec, format, net, netlink, paginator, path, urgent, vec);
 
 use futures::Future;
 use tokio::runtime::{Builder, Runtime};
