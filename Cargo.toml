@@ -42,8 +42,7 @@ libc = "0.2.142"
 libpulse-binding = { version = "2.27.1", features = ["pa_v14"] }
 libpulse-tokio = "0.1.0"
 log = "0.4.17"
-# FIXME: use crate version once it's published
-neli = { git = "https://github.com/jbaublitz/neli", branch = "v0.7.0-rc2", features = ["tokio", "async"] }
+neli = { version = "0.7.0-rc2", features = ["tokio", "async"] }
 nix = { version = "0.26.2", features = ["net"] }
 num-traits = "0.2.15"
 paste = "1.0.12"

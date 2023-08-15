@@ -169,8 +169,7 @@ impl NetlinkInterface {
                         self.index,
                         e
                     );
-                    // return immediately, see: https://github.com/jbaublitz/neli/issues/221
-                    return Ok(None);
+                    continue;
                 }
             };
 
@@ -185,7 +184,7 @@ impl NetlinkInterface {
                     Ok(Nl80211IfType::Station)
                 ) {
                     log::debug!("index {} interface is not a station", self.index);
-                    return Ok(None);
+                    continue;
                 }
 
                 // interface name - not really needed since we'll use the index
@@ -223,7 +222,12 @@ impl NetlinkInterface {
                 let mut ssid = match attr_handle
                     .get_attr_payload_as_with_len_borrowed::<&[u8]>(Nl80211Attribute::Ssid)
                 {
-                    Ok(name) => Some(String::from_utf8_lossy(name).into()),
+                    Ok(name) => {
+                        let ssid = String::from_utf8_lossy(name).into();
+                        log::debug!("index {} found ssid: {}", self.index, ssid);
+
+                        Some(ssid)
+                    }
                     // sometimes the `GetInterface` response doesn't include the ssid, but that's okay
                     // since we can fetch it later when we send a `GetScan` request
                     // see: https://github.com/systemd/systemd/issues/24585
@@ -335,8 +339,7 @@ async fn get_scan(
         match result {
             Ok(msg) => {
                 if let NlPayload::Payload(gen_msg) = msg.nl_payload() {
-                    // TODO: remove mut when upstream merges https://github.com/jbaublitz/neli/pull/220
-                    let mut attr_handle = gen_msg.attrs().get_attr_handle();
+                    let attr_handle = gen_msg.attrs().get_attr_handle();
 
                     if let Ok(bss_attrs) =
                         attr_handle.get_nested_attributes::<Nl80211Bss>(Nl80211Attribute::Bss)
@@ -376,8 +379,6 @@ async fn get_scan(
             }
             Err(e) => {
                 log::error!("index {} Nl80211Command::GetScan error: {}", index, e);
-                // return immediately, see: https://github.com/jbaublitz/neli/issues/221
-                return Ok(None);
             }
         }
     }
@@ -405,8 +406,7 @@ async fn get_signal_strength(
         match msg {
             Ok(msg) => {
                 if let NlPayload::Payload(gen_msg) = msg.nl_payload() {
-                    // TODO: remove mut when upstream merges https://github.com/jbaublitz/neli/pull/220
-                    let mut attr_handle = gen_msg.attrs().get_attr_handle();
+                    let attr_handle = gen_msg.attrs().get_attr_handle();
 
                     if let Ok(station_info) = attr_handle
                         .get_nested_attributes::<Nl80211StationInfo>(Nl80211Attribute::StaInfo)
@@ -441,10 +441,6 @@ async fn get_signal_strength(
                         )
                     }
                 }
-
-                // TODO: when this errors, calling `recv.next().await` never completes - so return immediately
-                // see: https://github.com/jbaublitz/neli/issues/221
-                return Ok(None);
             }
         }
     }

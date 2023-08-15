@@ -159,8 +159,7 @@ async fn get_all_interfaces(socket: &Rc<NlRouter>) -> Result<InterfaceUpdate> {
                 Ok(header) => header,
                 Err(e) => {
                     log::error!("an error occurred receiving rtnetlink message: {}", e);
-                    // return immediately, see: https://github.com/jbaublitz/neli/issues/221
-                    return Ok(interface_map);
+                    continue;
                 }
             };
 
@@ -223,8 +222,7 @@ async fn get_all_interfaces(socket: &Rc<NlRouter>) -> Result<InterfaceUpdate> {
                     Ok(header) => header,
                     Err(e) => {
                         log::warn!("an error occurred receiving rtnetlink message: {}", e);
-                        // return immediately, see: https://github.com/jbaublitz/neli/issues/221
-                        return Ok(interface_map);
+                        continue;
                     }
                 };
 
