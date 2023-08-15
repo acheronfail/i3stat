@@ -1,34 +1,42 @@
-use std::error::Error;
-
 use futures::future::join_all;
 use tokio::sync::mpsc::error::SendError;
 use tokio::sync::mpsc::Sender;
 
 use crate::context::BarEvent;
+use crate::error::Result;
 
 #[derive(Debug, Clone)]
 pub struct Dispatcher {
-    inner: Vec<Option<Sender<BarEvent>>>,
+    bar_senders: Vec<Option<Sender<BarEvent>>>,
+    bar_updater: Sender<()>,
 }
 
 impl Dispatcher {
-    pub fn new(capacity: usize) -> Dispatcher {
+    pub fn new(bar_updater: Sender<()>, capacity: usize) -> Dispatcher {
         Dispatcher {
-            inner: vec![None; capacity],
+            bar_senders: vec![None; capacity],
+            bar_updater,
         }
     }
 
     pub fn remove(&mut self, idx: usize) {
-        self.inner[idx] = None;
+        self.bar_senders[idx] = None;
     }
 
     pub fn set(&mut self, idx: usize, tx: Sender<BarEvent>) {
-        self.inner[idx] = Some(tx);
+        self.bar_senders[idx] = Some(tx);
     }
 
-    pub async fn signal_all(&self) -> Result<(), Box<dyn Error>> {
+    /// Tell the bar to manually emit an update
+    pub async fn manual_bar_update(&self) -> Result<()> {
+        self.bar_updater.send(()).await?;
+        Ok(())
+    }
+
+    /// Send `BarEvent::Signal` to all bar items
+    pub async fn signal_all(&self) -> Result<()> {
         Ok(join_all(
-            self.inner
+            self.bar_senders
                 .iter()
                 .enumerate()
                 .filter_map(|(i, o)| o.as_ref().map(|_| self.send_bar_event(i, BarEvent::Signal))),
@@ -42,8 +50,9 @@ impl Dispatcher {
         }))
     }
 
-    pub async fn send_bar_event(&self, idx: usize, ev: BarEvent) -> Result<(), Box<dyn Error>> {
-        match self.inner.get(idx) {
+    /// Send the given `BarEvent` to the item at the given index
+    pub async fn send_bar_event(&self, idx: usize, ev: BarEvent) -> Result<()> {
+        match self.bar_senders.get(idx) {
             Some(Some(tx)) => {
                 // if the channel fills up (the bar never reads click events), since this is a bounded channel
                 // sending the event would block forever, so just drop the event

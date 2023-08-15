@@ -1,10 +1,43 @@
-use std::error::Error;
+use std::net::IpAddr;
 use std::str::FromStr;
 
 use serde::{de, Deserialize, Serialize};
 
-use crate::util::net::{Interface, InterfaceKind};
+use crate::error::Error;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum InterfaceKind {
+    V4,
+    V6,
+}
+
+impl ToString for InterfaceKind {
+    fn to_string(&self) -> String {
+        match self {
+            InterfaceKind::V4 => "v4".into(),
+            InterfaceKind::V6 => "v6".into(),
+        }
+    }
+}
+
+impl TryFrom<&str> for InterfaceKind {
+    type Error = Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "v4" => Ok(Self::V4),
+            "v6" => Ok(Self::V6),
+            s => bail!("unrecognised InterfaceKind, expected v4 or v6, got: {}", s),
+        }
+    }
+}
+
+/// This type is in the format of `interface[:type]`, where `interface` is the interface name, and
+/// `type` is an optional part which is either `ipv4` or `ipv6`.
+///
+/// If `interface` is an empty string, then all interfaces are matched, for example:
+/// - `vpn0:ipv4` will match ip4 addresses for the `vpn` interface
+/// - `:ipv6`     will match all interfaces which have an ip6 address
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InterfaceFilter {
     name: String,
@@ -19,16 +52,22 @@ impl InterfaceFilter {
         }
     }
 
-    pub fn matches(&self, interface: &Interface) -> bool {
+    pub fn matches(&self, name: impl AsRef<str>, addr: &IpAddr) -> bool {
         let name_match = if self.name.is_empty() {
             true
         } else {
-            self.name == interface.name
+            self.name == name.as_ref()
         };
 
         match self.kind {
             None => name_match,
-            Some(k) => name_match && k == interface.kind,
+            Some(k) => {
+                name_match
+                    && match k {
+                        InterfaceKind::V4 => addr.is_ipv4(),
+                        InterfaceKind::V6 => addr.is_ipv6(),
+                    }
+            }
         }
     }
 }
@@ -43,9 +82,9 @@ impl ToString for InterfaceFilter {
 }
 
 impl FromStr for InterfaceFilter {
-    type Err = Box<dyn Error>;
+    type Err = Error;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         let d = ':';
         if !s.contains(d) {
             return Ok(InterfaceFilter::new(s, None));
@@ -53,15 +92,12 @@ impl FromStr for InterfaceFilter {
 
         // SAFETY: we just checked for the delimiter above
         let (name, kind) = s.split_once(d).unwrap();
-        match kind.parse() {
-            Ok(kind) => Ok(InterfaceFilter::new(name, Some(kind))),
-            Err(e) => Err(e),
-        }
+        Ok(InterfaceFilter::new(name, Some(kind.try_into()?)))
     }
 }
 
 impl Serialize for InterfaceFilter {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -70,7 +106,7 @@ impl Serialize for InterfaceFilter {
 }
 
 impl<'de> Deserialize<'de> for InterfaceFilter {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {

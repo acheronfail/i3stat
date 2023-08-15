@@ -1,78 +1,97 @@
 pub mod acpi;
-pub mod ffi;
+pub mod nl80211;
+pub mod route;
 
-use std::error::Error;
+use std::array::TryFromSliceError;
+use std::fmt::{Debug, Display};
+use std::net::IpAddr;
+use std::sync::Arc;
 
-use neli::consts::socket::NlFamily;
-use neli::err::RouterError;
-use neli::genl::Genlmsghdr;
-use neli::nl::Nlmsghdr;
-use neli::router::asynchronous::NlRouter;
-use neli::utils::Groups;
-use tokio::sync::mpsc::{self, Receiver};
+pub use acpi::netlink_acpi_listen;
+use indexmap::IndexSet;
+pub use route::netlink_ipaddr_listen;
 
-use self::ffi::{acpi_genl_event, AcpiAttrType, AcpiGenericNetlinkEvent};
+#[derive(Clone)]
+pub struct MacAddr {
+    octets: [u8; 6],
+}
 
-pub async fn netlink_acpi_listen() -> Result<Receiver<AcpiGenericNetlinkEvent>, Box<dyn Error>> {
-    // open netlink socket
-    let (socket, mut multicast) = NlRouter::connect(NlFamily::Generic, None, Groups::empty())
-        .await
-        .map_err(|e| -> Box<dyn Error> { format!("failed to open socket: {}", e).into() })?;
+impl Display for MacAddr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.octets.map(|o| format!("{:02x}", o)).join(":"))
+    }
+}
 
-    // fetch acpi ids
-    let family_id = acpi::event_family_id().await?;
-    let multicast_group_id = acpi::multicast_group_id().await?;
+impl Debug for MacAddr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("MacAddr({})", self))
+    }
+}
 
-    // subscribe to multicast events for acpi
-    socket.add_mcast_membership(Groups::new_groups(&[multicast_group_id]))?;
+impl From<&MacAddr> for neli::types::Buffer {
+    fn from(value: &MacAddr) -> Self {
+        Self::from(&value.octets[..])
+    }
+}
 
-    // spawn task to listen and respond to acpi events
-    let (tx, rx) = mpsc::channel(8);
-    tokio::task::spawn_local(async move {
-        // rust-analyzer has trouble figuring this type out, so we help it here a little
-        type Payload = Genlmsghdr<u8, u16>;
-        type Next = Option<Result<Nlmsghdr<u16, Payload>, RouterError<u16, Payload>>>;
+impl From<&[u8; 6]> for MacAddr {
+    fn from(value: &[u8; 6]) -> Self {
+        MacAddr { octets: *value }
+    }
+}
 
-        loop {
-            match multicast.next::<u16, Payload>().await as Next {
-                None => break,
-                Some(response) => match response {
-                    Err(e) => log::error!("error receiving netlink msg: {}", e),
-                    Ok(nl_msg) => {
-                        // skip this message if it's not part of the apci family
-                        if *nl_msg.nl_type() != family_id {
-                            continue;
-                        }
+impl TryFrom<Vec<u8>> for MacAddr {
+    type Error = TryFromSliceError;
 
-                        // if it is, then decode it
-                        if let Some(payload) = nl_msg.get_payload() {
-                            let attrs = payload.attrs().get_attr_handle();
-                            if let Some(attr) = attrs.get_attribute(AcpiAttrType::Event as u16) {
-                                // cast the attribute payload into its type
-                                let raw = attr.nla_payload().as_ref().as_ptr();
-                                let event = unsafe { &*(raw as *const acpi_genl_event) };
+    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+        let octets: &[u8; 6] = (&value[..]).try_into()?;
+        Ok(MacAddr { octets: *octets })
+    }
+}
 
-                                // if there was an error, stop listening and exit
-                                match event.try_into() {
-                                    Ok(event) => {
-                                        if let Err(e) = tx.send(event).await {
-                                            log::error!("failed to send acpi event: {}", e);
-                                            break;
-                                        };
-                                    }
-                                    Err(e) => log::error!("failed to parse event data: {}", e),
-                                }
-                            }
-                        }
-                    }
-                },
-            }
+impl TryFrom<&[u8]> for MacAddr {
+    type Error = TryFromSliceError;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        let octets: &[u8; 6] = value.try_into()?;
+        Ok(MacAddr { octets: *octets })
+    }
+}
+
+impl TryFrom<&str> for MacAddr {
+    type Error = crate::error::Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let parts = value.split(':').collect::<Vec<_>>();
+        if parts.len() != 6 {
+            bail!("expected 6 parts");
         }
 
-        // move the socket into here so it's not dropped earlier than expected
-        drop(socket);
-        log::error!("unexpected end of netlink stream")
-    });
+        let parts = parts
+            .into_iter()
+            .map(|s| u8::from_str_radix(s, 16))
+            .collect::<Result<Vec<u8>, _>>()?;
 
-    Ok(rx)
+        Ok(parts.try_into()?)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct NetlinkInterface {
+    pub index: i32,
+    // NOTE: `Arc` rather than `Rc` here because `Send` is needed by `tokio::sync::broadcast`
+    pub name: Arc<str>,
+    pub mac_address: Option<MacAddr>,
+    pub ip_addresses: IndexSet<IpAddr>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn debug() {
+        let mac = MacAddr::from(&[1, 42, 83, 124, 165, 206]);
+        assert_eq!(format!("{:?}", mac), "MacAddr(01:2a:53:7c:a5:ce)");
+    }
 }

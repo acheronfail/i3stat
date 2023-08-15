@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -11,6 +10,7 @@ use tokio::sync::{mpsc, oneshot};
 use tokio::time::sleep;
 
 use crate::config::AppConfig;
+use crate::error::Result;
 use crate::i3::bar_item::I3Item;
 use crate::i3::I3ClickEvent;
 use crate::util::RcCell;
@@ -71,7 +71,10 @@ impl Context {
         }
     }
 
-    pub async fn update_item(&self, item: I3Item) -> Result<(), SendError<(I3Item, usize)>> {
+    pub async fn update_item(
+        &self,
+        item: I3Item,
+    ) -> std::result::Result<(), SendError<(I3Item, usize)>> {
         self.tx_item.send((item, self.index)).await?;
         Ok(())
     }
@@ -123,5 +126,5 @@ pub enum StopAction {
 
 #[async_trait(?Send)]
 pub trait BarItem: Send {
-    async fn start(&self, ctx: Context) -> Result<StopAction, Box<dyn Error>>;
+    async fn start(&self, ctx: Context) -> Result<StopAction>;
 }

@@ -1,7 +1,8 @@
+mod audio;
 mod custom;
 
-use std::error::Error;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
+use std::path::{Path, PathBuf};
 use std::process;
 use std::rc::Rc;
 
@@ -21,6 +22,7 @@ use libpulse_binding::def::{DevicePortType, PortAvailable};
 use libpulse_binding::error::{Code, PAErr};
 use libpulse_binding::proplist::properties::{APPLICATION_NAME, APPLICATION_PROCESS_ID};
 use libpulse_binding::proplist::Proplist;
+use libpulse_binding::stream::{SeekMode, Stream};
 use libpulse_binding::volume::{ChannelVolumes, Volume};
 use libpulse_tokio::TokioMain;
 use num_traits::ToPrimitive;
@@ -30,14 +32,22 @@ use tokio::sync::mpsc::{self, UnboundedSender};
 use crate::context::{BarEvent, BarItem, Context, StopAction};
 use crate::dbus::notifications::NotificationsProxy;
 use crate::dbus::{dbus_connection, BusType};
+use crate::error::Result;
 use crate::i3::{I3Button, I3Item, I3Markup, I3Modifier};
 use crate::theme::Theme;
-use crate::util::{exec, RcCell};
+use crate::util::{exec, expand_path, RcCell};
 
 #[derive(Debug, Copy, Clone, ValueEnum)]
 pub enum Object {
     Source,
     Sink,
+}
+
+impl Display for Object {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = <Object as Into<std::rc::Rc<str>>>::into(*self);
+        f.write_str(&s)
+    }
 }
 
 impl From<Object> for Rc<str> {
@@ -205,11 +215,15 @@ impl NotificationSetting {
     }
 }
 
+const SAMPLE_NAME: &str = "istat-pulse-volume";
+
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Pulse {
     /// How much to increment when increasing/decreasing the volume; measured in percent
     #[serde(default = "Pulse::default_increment")]
     increment: u32,
+    /// Path to a `.wav` file to play each time the sound is changed
+    increment_sound: Option<PathBuf>,
     /// The maximum allowed volume; measured in percent
     max_volume: Option<u32>,
     /// Whether to send notifications on server state changes
@@ -217,19 +231,18 @@ pub struct Pulse {
     notify: NotificationSetting,
     /// Name of the audio server to try to connect to
     server_name: Option<String>,
-    // TODO: a sample to play each time the volume is changed?
-    // See: https://docs.rs/libpulse-binding/2.26.0/libpulse_binding/mainloop/threaded/index.html#example
 }
 
 impl Pulse {
     pub const fn default_increment() -> u32 {
-        2
+        5
     }
 }
 
 pub struct PulseState {
     tx: UnboundedSender<Command>,
     increment: u32,
+    increment_sound: bool,
     max_volume: Option<u32>,
     pa_ctx: PAContext,
     default_sink: Rc<str>,
@@ -267,26 +280,18 @@ macro_rules! impl_pa_methods {
                 self.[<$name s>].retain(|s| s.index == idx);
             }
 
-            fn [<set_mute_ $name>](&self, idx: u32, mute: bool) {
-                let inner = self.clone();
+            fn [<set_mute_ $name>]<F>(&self, idx: u32, mute: bool, f: F)
+                where F: FnMut(bool) + 'static,
+            {
                 let mut inspect = self.pa_ctx.introspect();
-                inspect.[<set_ $name _mute_by_index>](idx, mute, Some(Box::new(move |success| {
-                    if !success {
-                        let io = inner.get_io_by_idx(idx);
-                        log::error!("set_mute_{} failed: idx={}, io={:?}", stringify!(name), idx, io);
-                    }
-                })));
+                inspect.[<set_ $name _mute_by_index>](idx, mute, Some(Box::new(f)));
             }
 
-            fn [<set_volume_ $name>](&self, idx: u32, cv: &ChannelVolumes) {
-                let inner = self.clone();
+            fn [<set_volume_ $name>]<F>(&self, idx: u32, cv: &ChannelVolumes, f: F)
+                where F: FnMut(bool) + 'static,
+            {
                 let mut inspect = self.pa_ctx.introspect();
-                inspect.[<set_ $name _volume_by_index>](idx, cv, Some(Box::new(move |success| {
-                    if !success {
-                        let io = inner.get_io_by_idx(idx);
-                        log::error!("set_volume_{} failed: idx={}, io={:?}", stringify!(name), idx, io);
-                    }
-                })));
+                inspect.[<set_ $name _volume_by_index>](idx, cv, Some(Box::new(f)));
             }
         }
     };
@@ -295,14 +300,6 @@ macro_rules! impl_pa_methods {
 impl RcCell<PulseState> {
     impl_pa_methods!(sink);
     impl_pa_methods!(source);
-
-    fn get_io_by_idx(&self, idx: u32) -> Option<InOut> {
-        self.sinks
-            .iter()
-            .chain(self.sources.iter())
-            .find(|p| p.index == idx)
-            .cloned()
-    }
 
     fn default_sink(&self) -> Option<InOut> {
         self.sinks
@@ -409,56 +406,86 @@ impl RcCell<PulseState> {
         cv
     }
 
-    fn set_volume(&self, what: Object, vol: Vol) {
+    fn set_volume<F>(&mut self, what: Object, vol: Vol, f: F)
+    where
+        F: FnMut(bool) + 'static,
+    {
         (match what {
             Object::Sink => self.default_sink().map(|mut p| {
-                self.set_volume_sink(p.index, self.update_volume(&mut p.volume, vol));
+                self.set_volume_sink(p.index, self.update_volume(&mut p.volume, vol), f);
                 p
             }),
             Object::Source => self.default_source().map(|mut p| {
-                self.set_volume_source(p.index, self.update_volume(&mut p.volume, vol));
+                self.set_volume_source(p.index, self.update_volume(&mut p.volume, vol), f);
                 p
             }),
         })
         .map(|p| {
+            // send notification
             let _ = self.tx.send(p.notify_volume_mute());
+            self.play_volume_sample_if_enabled(what);
         });
     }
 
-    fn set_mute(&self, what: Object, mute: bool) {
+    fn set_mute<F>(&mut self, what: Object, mute: bool, f: F)
+    where
+        F: FnMut(bool) + 'static,
+    {
         (match what {
             Object::Sink => self.default_sink().map(|mut p| {
                 p.mute = mute;
-                self.set_mute_sink(p.index, p.mute);
+                self.set_mute_sink(p.index, p.mute, f);
                 p
             }),
             Object::Source => self.default_source().map(|mut p| {
                 p.mute = mute;
-                self.set_mute_source(p.index, p.mute);
+                self.set_mute_source(p.index, p.mute, f);
                 p
             }),
         })
         .map(|p| {
             let _ = self.tx.send(p.notify_volume_mute());
+            self.play_volume_sample_if_enabled(what);
         });
     }
 
-    fn toggle_mute(&self, what: Object) {
+    fn toggle_mute<F>(&mut self, what: Object, f: F)
+    where
+        F: FnMut(bool) + 'static,
+    {
         (match what {
             Object::Sink => self.default_sink().map(|mut p| {
                 p.mute = !p.mute;
-                self.set_mute_sink(p.index, p.mute);
+                self.set_mute_sink(p.index, p.mute, f);
                 p
             }),
             Object::Source => self.default_source().map(|mut p| {
                 p.mute = !p.mute;
-                self.set_mute_source(p.index, p.mute);
+                self.set_mute_source(p.index, p.mute, f);
                 p
             }),
         })
         .map(|p| {
             let _ = self.tx.send(p.notify_volume_mute());
+            self.play_volume_sample_if_enabled(what);
         });
+    }
+
+    fn play_volume_sample_if_enabled(&mut self, what: Object) {
+        if matches!(what, Object::Sink) && self.increment_sound {
+            self.pa_ctx.play_sample(SAMPLE_NAME, None, None, None);
+        }
+    }
+
+    fn set_default<F>(&mut self, what: Object, name: impl AsRef<str>, f: F)
+    where
+        F: FnMut(bool) + 'static,
+    {
+        let name = name.as_ref();
+        match what {
+            Object::Sink => self.pa_ctx.set_default_sink(name, f),
+            Object::Source => self.pa_ctx.set_default_source(name, f),
+        };
     }
 
     fn update_item(&self) {
@@ -606,11 +633,56 @@ impl RcCell<PulseState> {
             inner.update_item();
         });
     }
+
+    async fn setup_volume_sample(&mut self, wav_path: impl AsRef<Path>) -> Result<()> {
+        let (spec, audio_data) = audio::read_wav_file(wav_path.as_ref()).await?;
+        let audio_data_len = audio_data.len();
+
+        // create stream
+        let mut stream = match Stream::new(&mut self.pa_ctx, SAMPLE_NAME, &spec, None) {
+            Some(stream) => RcCell::new(stream),
+            None => bail!("failed to create new stream"),
+        };
+
+        // set up write callback for writing audio data to the stream
+        let mut inner = self.clone();
+        let mut stream_ref = stream.clone();
+        let mut bytes_written = 0;
+
+        // NOTE: calling `stream_ref.set_write_callback(None)` causes a segmentation fault
+        // see: https://github.com/jnqnfe/pulse-binding-rust/issues/56
+        stream.set_write_callback(Some(Box::new(move |len| {
+            if let Err(e) = stream_ref.write(&audio_data, None, 0, SeekMode::Relative) {
+                log::error!(
+                    "failed to write to stream: {:?} - {:?}",
+                    e,
+                    inner.pa_ctx.errno().to_string()
+                );
+                return;
+            }
+
+            bytes_written += len;
+
+            // we're finished writing the audio data, finish the upload, thereby saving the audio stream
+            // as a sample in the audio server (so we can play it later)
+            if bytes_written == audio_data_len {
+                if let Ok(()) = stream_ref.finish_upload() {
+                    // the upload to the audio server has completed - we're ready to use the sample now
+                    inner.increment_sound = true;
+                }
+            }
+        })));
+
+        // connect the stream as an upload, which sends it to the audio server instead of playing it directly
+        stream.connect_upload(audio_data_len)?;
+
+        Ok(())
+    }
 }
 
 #[async_trait(?Send)]
 impl BarItem for Pulse {
-    async fn start(&self, mut ctx: Context) -> Result<crate::context::StopAction, Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<crate::context::StopAction> {
         // setup pulse main loop
         let (mut main_loop, pa_ctx) = {
             let mut main_loop = TokioMain::new();
@@ -626,16 +698,12 @@ impl BarItem for Pulse {
             pa_ctx.connect(self.server_name.as_deref(), FlagSet::NOFAIL, None)?;
             match main_loop.wait_for_ready(&pa_ctx).await {
                 Ok(State::Ready) => {}
-                Ok(state) => {
-                    bail!(
-                        "failed to connect: state={:?}, err={:?}",
-                        state,
-                        pa_ctx.errno().to_string()
-                    );
-                }
-                Err(_) => {
-                    bail!("Pulse mainloop exited while waiting on context, not continuing",);
-                }
+                Ok(state) => bail!(
+                    "failed to connect: state={:?}, err={:?}",
+                    state,
+                    pa_ctx.errno().to_string()
+                ),
+                Err(_) => bail!("Pulse mainloop exited while waiting on context, not continuing"),
             }
 
             (main_loop, pa_ctx)
@@ -646,6 +714,7 @@ impl BarItem for Pulse {
         let mut inner = RcCell::new(PulseState {
             tx,
             increment: self.increment,
+            increment_sound: false,
             max_volume: self.max_volume,
 
             pa_ctx,
@@ -660,6 +729,13 @@ impl BarItem for Pulse {
         inner.subscribe_to_state_changes(exit_tx.clone());
         inner.subscribe_to_server_changes();
         inner.fetch_server_state();
+
+        // if a sound file was given, then setup a sample
+        if let Some(ref path) = self.increment_sound {
+            if let Err(e) = inner.setup_volume_sample(expand_path(path)?).await {
+                log::error!("failed to setup volume sample: {}", e);
+            }
+        }
 
         // run pulse main loop
         tokio::task::spawn_local(async move {
@@ -706,30 +782,56 @@ impl BarItem for Pulse {
 
                         // source
                         I3Button::Middle if click.modifiers.contains(&I3Modifier::Shift) => {
-                            inner.toggle_mute(Object::Source);
+                            inner.toggle_mute(Object::Source, |success| {
+                                if !success {
+                                    log::warn!("failed to toggle mute for default {}", Object::Source);
+                                }
+                            });
                         },
                         I3Button::ScrollUp if click.modifiers.contains(&I3Modifier::Shift) => {
-                            inner.set_volume(Object::Source, Vol::Incr(inner.increment));
+                            inner.set_volume(Object::Source, Vol::Incr(inner.increment), |success| {
+                                if !success {
+                                    log::warn!("failed to increment volume for default {}", Object::Source);
+                                }
+                            });
                         }
                         I3Button::ScrollDown if click.modifiers.contains(&I3Modifier::Shift) => {
-                            inner.set_volume(Object::Source, Vol::Decr(inner.increment));
+                            inner.set_volume(Object::Source, Vol::Decr(inner.increment), |success| {
+                                if !success {
+                                    log::warn!("failed to decrement volume for default {}", Object::Source);
+                                }
+                            });
                         }
 
                         // sink
                         I3Button::Middle  => {
-                            inner.toggle_mute(Object::Sink);
+                            inner.toggle_mute(Object::Sink, |success| {
+                                if !success {
+                                    log::warn!("failed to toggle mute for default {}", Object::Sink);
+                                }
+                            });
                         },
                         I3Button::ScrollUp  => {
-                            inner.set_volume(Object::Sink, Vol::Incr(inner.increment));
+                            inner.set_volume(Object::Sink, Vol::Incr(inner.increment), |success| {
+                                if !success {
+                                    log::warn!("failed to increment volume for default {}", Object::Sink);
+                                }
+                            });
                         }
                         I3Button::ScrollDown  => {
-                            inner.set_volume(Object::Sink, Vol::Decr(inner.increment));
+                            inner.set_volume(Object::Sink, Vol::Decr(inner.increment), |success| {
+                                if !success {
+                                    log::warn!("failed to decrement volume for default {}", Object::Sink);
+                                }
+                            });
                         }
+
+                        _ => {}
                     }
                     _ => {}
                 },
 
-                // whenever we want to refresh our item, an event it send on this channel
+                // whenever we want to refresh our item, an event is send on this channel
                 Some(cmd) = rx.recv() => match cmd {
                     Command::UpdateItem(cb) => {
                         ctx.update_item(cb(&ctx.config.theme)).await?;

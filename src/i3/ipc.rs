@@ -1,16 +1,14 @@
 use std::convert::Infallible;
-use std::error::Error;
 
 use tokio::io::{stdin, AsyncBufReadExt, BufReader};
 
 use super::I3ClickEvent;
 use crate::context::BarEvent;
 use crate::dispatcher::Dispatcher;
+use crate::error::Result;
 use crate::util::RcCell;
 
-pub async fn handle_click_events(
-    dispatcher: RcCell<Dispatcher>,
-) -> Result<Infallible, Box<dyn Error>> {
+pub async fn handle_click_events(dispatcher: RcCell<Dispatcher>) -> Result<Infallible> {
     let s = BufReader::new(stdin());
     let mut lines = s.lines();
     loop {
@@ -31,8 +29,8 @@ pub async fn handle_click_events(
             .collect();
 
         // parse click event (single line JSON)
+        log::trace!("i3 click: {}", &line);
         let click = serde_json::from_str::<I3ClickEvent>(&line)?;
-        log::trace!("i3 click: {:?}", click);
 
         // parse bar item index from the "instance" property
         let idx = match click.instance.as_ref() {

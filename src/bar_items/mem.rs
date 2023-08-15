@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -9,6 +8,7 @@ use strum::EnumIter;
 use sysinfo::SystemExt;
 
 use crate::context::{BarEvent, BarItem, Context, StopAction};
+use crate::error::Result;
 use crate::i3::{I3Button, I3Item, I3Markup};
 use crate::theme::Theme;
 use crate::util::format::{float, FloatFormat};
@@ -45,9 +45,9 @@ impl Mem {
 
 #[async_trait(?Send)]
 impl BarItem for Mem {
-    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction> {
         let mut total = None;
-        let mut display = EnumCycle::new_at(self.display);
+        let mut display = EnumCycle::new_at(self.display)?;
         loop {
             let (available, total) = {
                 ctx.state.sys.refresh_memory();

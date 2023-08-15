@@ -148,7 +148,7 @@ impl Drop for LogOnDropChild {
             }
         }
 
-        self.kill().unwrap();
+        let _ = self.kill();
     }
 }
 
@@ -161,7 +161,7 @@ pub struct Test {
     pub env: HashMap<String, String>,
     pub dir: PathBuf,
     pub bin_dir: PathBuf,
-    pub fake_root: PathBuf,
+    pub fakeroot: PathBuf,
     pub istat_socket_file: PathBuf,
     pub istat_config_file: PathBuf,
 }
@@ -200,7 +200,7 @@ impl Test {
             dir,
             env,
             bin_dir,
-            fake_root,
+            fakeroot: fake_root,
             istat_config_file: config_file,
             istat_socket_file: socket_file,
         }
@@ -224,7 +224,7 @@ impl Test {
             name
         };
 
-        let path = self.fake_root.join(name);
+        let path = self.fakeroot.join(name);
         fs::create_dir_all(path.parent().unwrap()).unwrap();
 
         let mut file = File::create(&path).unwrap();

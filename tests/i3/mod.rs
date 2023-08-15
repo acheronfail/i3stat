@@ -135,8 +135,8 @@ impl<'a> X11Test<'a> {
                     format!("{}:{}", get_faketime_lib(), get_fakeroot_lib()),
                 )
                 .env("FAKETIME", format!("@{}", FAKE_TIME))
-                .env("FAKE_ROOT", &test.fake_root)
-                .env("FAKE_DIRS", "1")
+                .env("FAKEROOT", &test.fakeroot)
+                .env("FAKEROOT_DIRS", "1")
                 // setup logs
                 .env("RUST_LOG", "istat=trace")
                 // spawn in nested X server
@@ -179,8 +179,8 @@ impl<'a> X11Test<'a> {
             .env("I3SOCK", &self.i3_socket)
             .env("DISPLAY", &self.x_display)
             .env("LD_PRELOAD", get_fakeroot_lib())
-            .env("FAKE_ROOT", &self.test.fake_root)
-            .env("FAKE_DIRS", "1")
+            .env("FAKEROOT", &self.test.fakeroot)
+            .env("FAKEROOT_DIRS", "1")
             .arg("-c")
             .arg(format!("{}", cmd.as_ref()))
             .output()

@@ -1,13 +1,13 @@
-use_and_export!(cell, enum_cycle, exec, format, net, netlink, paginator, vec);
-
-use std::error::Error;
+use_and_export!(cell, enum_cycle, exec, format, net, netlink, paginator, path, urgent, vec);
 
 use futures::Future;
 use tokio::runtime::{Builder, Runtime};
 use tokio::task::LocalSet;
 
+use crate::error::Result;
+
 /// Block on a given future, running it on the current thread inside a `LocalSet`.
-pub fn local_block_on<F>(f: F) -> Result<(F::Output, Runtime), Box<dyn Error>>
+pub fn local_block_on<F>(f: F) -> Result<(F::Output, Runtime)>
 where
     F: Future,
 {

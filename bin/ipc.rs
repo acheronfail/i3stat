@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::ffi::OsStr;
 use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
@@ -7,6 +6,7 @@ use std::path::PathBuf;
 use clap::builder::PossibleValue;
 use clap::{ColorChoice, Parser, Subcommand, ValueEnum};
 use istat::bail;
+use istat::error::Result;
 use istat::i3::{I3Button, I3ClickEvent, I3Modifier};
 use istat::ipc::get_socket_path;
 use istat::ipc::protocol::{encode_ipc_msg, IpcBarEvent, IpcMessage, IpcReply, IPC_HEADER_LEN};
@@ -118,6 +118,9 @@ impl ValueEnum for Button {
             I3Button::Right => Some(PossibleValue::new("right")),
             I3Button::ScrollUp => Some(PossibleValue::new("scroll_up")),
             I3Button::ScrollDown => Some(PossibleValue::new("scroll_down")),
+            I3Button::ScrollRight => Some(PossibleValue::new("scroll_right")),
+            I3Button::ScrollLeft => Some(PossibleValue::new("scroll_left")),
+            _ => None,
         }
     }
 }
@@ -151,10 +154,7 @@ impl ValueEnum for Modifier {
     }
 }
 
-fn send_message(
-    socket_path: impl AsRef<OsStr>,
-    msg: IpcMessage,
-) -> Result<IpcReply, Box<dyn Error>> {
+fn send_message(socket_path: impl AsRef<OsStr>, msg: IpcMessage) -> Result<IpcReply> {
     let mut stream = UnixStream::connect(socket_path.as_ref())?;
 
     let msg = encode_ipc_msg(msg)?;
@@ -173,10 +173,7 @@ fn send_message(
     Ok(serde_json::from_slice(&buf[IPC_HEADER_LEN..n])?)
 }
 
-fn send_and_print_response(
-    socket_path: impl AsRef<OsStr>,
-    msg: IpcMessage,
-) -> Result<(), Box<dyn Error>> {
+fn send_and_print_response(socket_path: impl AsRef<OsStr>, msg: IpcMessage) -> Result<()> {
     let resp = match send_message(&socket_path, msg) {
         Ok(resp) => resp,
         Err(e) => bail!("failed to send ipc message: {}", e),
@@ -194,14 +191,14 @@ fn send_and_print_response(
     Ok(())
 }
 
-fn get_json_response(socket_path: &PathBuf, msg: IpcMessage) -> Result<Value, Box<dyn Error>> {
+fn get_json_response(socket_path: &PathBuf, msg: IpcMessage) -> Result<Value> {
     Ok(match send_message(socket_path, msg)? {
         IpcReply::Value(json) => json,
         _ => unreachable!(),
     })
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<()> {
     let args = Cli::parse();
     let socket_path = get_socket_path(args.socket.as_ref())?;
 

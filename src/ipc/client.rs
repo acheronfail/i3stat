@@ -1,16 +1,16 @@
-use std::error::Error;
 use std::io::ErrorKind;
 
 use tokio::net::UnixStream;
 use tokio::sync::oneshot;
 
 use crate::context::{BarEvent, CustomResponse};
+use crate::error::Result;
 use crate::ipc::protocol::{IpcBarEvent, IpcMessage, IpcReply, IpcResult, IPC_HEADER_LEN};
 use crate::ipc::server::send_ipc_response;
 use crate::ipc::IpcContext;
 use crate::theme::Theme;
 
-pub async fn handle_ipc_client(stream: UnixStream, ctx: IpcContext) -> Result<(), Box<dyn Error>> {
+pub async fn handle_ipc_client(stream: UnixStream, ctx: IpcContext) -> Result<()> {
     // first read the length header of the IPC message
     let mut buf = [0; IPC_HEADER_LEN];
     loop {
@@ -38,11 +38,7 @@ pub async fn handle_ipc_client(stream: UnixStream, ctx: IpcContext) -> Result<()
     Ok(())
 }
 
-async fn handle_ipc_request(
-    stream: &UnixStream,
-    mut ctx: IpcContext,
-    len: usize,
-) -> Result<(), Box<dyn Error>> {
+async fn handle_ipc_request(stream: &UnixStream, mut ctx: IpcContext, len: usize) -> Result<()> {
     // read ipc message entirely
     let mut buf = vec![0; len];
     let mut idx = 0;
@@ -76,7 +72,11 @@ async fn handle_ipc_request(
             ctx.token.cancel();
         }
         IpcMessage::GetBar => {
-            send_ipc_response(&stream, &IpcReply::Value(serde_json::to_value(&*ctx.bar)?)).await?;
+            send_ipc_response(
+                &stream,
+                &IpcReply::Value(ctx.bar.to_value(&ctx.config.theme)?),
+            )
+            .await?;
         }
         IpcMessage::Info => {
             let info = serde_json::to_value(ctx.config.item_idx_to_name())?;
@@ -105,6 +105,7 @@ async fn handle_ipc_request(
                 Err(e) => IpcReply::Result(IpcResult::Failure(e.to_string())),
             };
             send_ipc_response(&stream, &reply).await?;
+            ctx.dispatcher.manual_bar_update().await?;
         }
         IpcMessage::RefreshAll => {
             ctx.dispatcher.signal_all().await?;
@@ -159,9 +160,9 @@ async fn handle_ipc_request(
                     Some(rx) => match rx.await {
                         Ok(CustomResponse::Help(help)) => IpcReply::Help(help.ansi().to_string()),
                         Ok(CustomResponse::Json(value)) => IpcReply::Value(value),
-                        Err(_) => {
-                            IpcReply::Result(IpcResult::Failure("not listening for events".into()))
-                        }
+                        Err(_) => IpcReply::Result(IpcResult::Failure(
+                            "bar item not listening for response".into(),
+                        )),
                     },
                     None => IpcReply::Result(IpcResult::Success(None)),
                 },

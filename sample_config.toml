@@ -1,5 +1,6 @@
 # Optionally include other config files to be merged with this one.
-# The paths are relative to the main configuration file's directory.
+# These paths are relative to the main configuration file's directory.
+# These paths support shell expansion - via wordexp(3) - and such can refer to dynamic paths.
 include = ["sample_included_config.toml"]
 
 # Optionally pass a path for the socket. This is really only useful if you have multiple bars and
@@ -88,12 +89,6 @@ thresholds = ["1kiB", "1MiB", "10MiB", "25MiB", "100MiB"]
 # ignored_interfaces = ["vpn0"]
 
 [[items]]
-# Kerberos item - simply calls `klist` and displays the result
-type = "krb"
-# How often this item should refresh
-interval = "2m"
-
-[[items]]
 # a raw item - these are static items that don't change, and display the values here
 type = "raw"
 # see i3's bar documentation for what fields are available: https://i3wm.org/docs/i3bar-protocol.html
@@ -101,13 +96,32 @@ full_text = "raw"
 short_text = "!"
 
 [[items]]
+# Kerberos item - simply calls `klist` and displays the result
+type = "krb"
+# How often this item should refresh
+interval = "2m"
+# Optionally enable this item only when specific networks are active.
+# This is the same format as the `filter` property in the `nic` item.
+# only_on = ["vpn0:v4"]
+
+[[items]]
 # "Network Interfaces" item, provides an interactive list of interfaces and ip addresses, as well as
-# WiFi signal strength and SSIDs if found. Supports updating itself automatically on network changes
-# (via NetworkManager).
+# WiFi signal strength and SSIDs if found. Supports updating itself automatically on network changes.
 type = "nic"
 
-# Optionally pass an `interval` to force updates (useful if you don't use NetworkManager)
+# Optionally pass an `interval` to force updates - since it updates automatically this shouldn't be
+# needed.
 # interval = "60s"
+
+# Optionally define how connection details will be displayed when connected to a WiFi network
+# Values are:
+# - `percent`: e.g., "80% at <ssid>"     (default)
+# - `dbm`:     e.g., "-65 dBm at <ssid>"
+# - `hidden`:  nothing is shown
+wireless_display = "percent"
+# The `wireless_display` setting can be optionally paired with this one to refresh the WiFi details
+# at a desired interval. If unset, it only updates when the item itself updates.
+wireless_refresh_interval = "2m"
 
 # Optionally pass a filter. Filters are formatted as `name[:type]`, where `name` is the interface
 # name, and `type` is an optional part which is either `v4` or `v6`.
@@ -167,6 +181,14 @@ display = "bytes"
 #
 # This item also has a highly featured ipc interface, see `istat-ipc custom pulse` for more info.
 type = "pulse"
+
+# Control the increment of volume changes (expressed in percent) when increasing/decreasing the volume.
+# Defaults to 5
+increment = 5
+
+# Optionally provide a `.wav` file to be played each time the volume is changed.
+# increment_sound = "path/to/your/volume/sound.wav"
+
 # Set an upper limit to the volume, expressed in percent.
 max_volume = 120
 # Configure optional notifications, supported values are:
@@ -178,6 +200,14 @@ max_volume = 120
 notify = "none"
 
 # server_name = "pipewire-0"
+
+[[items]]
+# Show current light brightness (and also adjust it).
+type = "light"
+# Optionally provide a path to a specific backlight:
+# path = "/sys/class/backlight/intel_backlight"
+# Optionally specify how much percentage to increment the light by when scrolling (default is 5):
+# increment = 10
 
 [[items]]
 # Show information about CapsLock/NumLock/ScrollLock.
@@ -197,6 +227,10 @@ type = "battery"
 interval = "10s"
 # Should notifications be sent when an AC Adapter is plugged/unplugged?
 notify_on_adapter = true
+# Optionally trigger a critical (and sticky) notification under a certain percentage.
+# This notification will stay unless the percentage goes above the threshold, or the battery state
+# is anything other than discharging.
+notify_percentage = 5
 
 # Optionally specify a list of particular batteries to show. If not provided, it will attempt to
 # discover all the batteries on the system.

@@ -24,7 +24,7 @@ setup:
 build:
   cargo build --all --all-features
 _lbuild:
-  cargo lbuild --all --quiet
+  cargo lbuild --all
 
 # run `istat` in the terminal and interact with it
 dev *args: _lbuild
@@ -39,8 +39,8 @@ run bin *args:
   cargo lrun --bin istat-{{bin}} -- "$@"
 
 # install locally, copy sample configuration and restart i3
-install:
-  cargo install --debug --offline --path .
+install *args:
+  cargo install --offline --path . "$@"
   mkdir -p ~/.config/istat/
   -cp --no-clobber ./sample_config.toml ~/.config/istat/config.toml
   i3-msg restart
@@ -52,8 +52,8 @@ debug dimensions="3800x200": _lbuild
   env -u I3SOCK DISPLAY=:1.0 i3-with-shmlog --config ./scripts/i3.conf
 
 # run tests in a nested dbus session so the host session isn't affected
-test:
-  dbus-run-session -- env ISTAT_TEST=1 cargo test --all
+test *args:
+  dbus-run-session -- env RUST_LOG=istat=trace ISTAT_TEST=1 cargo test --all "$@"
 
 # `eval` this for an easy debug loop for screenshot tests
 # NOTE: requires `fd` be present, and the terminal is `kitty`

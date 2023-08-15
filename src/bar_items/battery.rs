@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::cell::OnceCell;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
@@ -13,11 +13,13 @@ use tokio::sync::mpsc::Receiver;
 use crate::context::{BarEvent, BarItem, Context, StopAction};
 use crate::dbus::notifications::NotificationsProxy;
 use crate::dbus::{dbus_connection, BusType};
+use crate::error::Result;
 use crate::i3::{I3Button, I3Item, I3Markup};
 use crate::theme::Theme;
-use crate::util::ffi::AcpiGenericNetlinkEvent;
+use crate::util::acpi::ffi::AcpiGenericNetlinkEvent;
 use crate::util::{netlink_acpi_listen, Paginator};
 
+#[derive(Debug)]
 enum BatState {
     Unknown,
     Charging,
@@ -27,7 +29,7 @@ enum BatState {
 }
 
 impl BatState {
-    fn get_color(&self, theme: &Theme) -> (Option<&str>, Option<HexColor>) {
+    fn get_color(&self, theme: &Theme) -> (Option<&'static str>, Option<HexColor>) {
         match self {
             Self::Full => (None, Some(theme.purple)),
             Self::Charging => (Some("󰚥"), Some(theme.blue)),
@@ -38,7 +40,7 @@ impl BatState {
 
 impl FromStr for BatState {
     type Err = String;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         // https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-power
         match s {
             "Unknown" => Ok(Self::Unknown),
@@ -51,31 +53,57 @@ impl FromStr for BatState {
     }
 }
 
+#[derive(Debug)]
+struct BatInfo {
+    name: String,
+    charge: f32,
+    state: BatState,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct Bat(PathBuf);
+#[serde(transparent)]
+struct Bat {
+    file: PathBuf,
+
+    #[serde(skip)]
+    cached_name: OnceCell<String>,
+}
 
 impl Bat {
-    async fn read(&self, file_name: impl AsRef<str>) -> Result<String, Box<dyn Error>> {
-        Ok(read_to_string(self.0.join(file_name.as_ref())).await?)
-    }
-
-    async fn read_usize(&self, file_name: impl AsRef<str>) -> Result<usize, Box<dyn Error>> {
-        Ok(self.read(file_name).await?.trim().parse::<usize>()?)
-    }
-
-    fn name(&self) -> Result<String, Box<dyn Error>> {
-        match self.0.file_name() {
-            Some(name) => Ok(name.to_string_lossy().into_owned()),
-            None => Err(format!("failed to parse file name from: {}", self.0.display()).into()),
+    pub fn new(file: PathBuf) -> Bat {
+        Bat {
+            file,
+            cached_name: OnceCell::new(),
         }
     }
 
-    async fn get_state(&self) -> Result<BatState, Box<dyn Error>> {
+    fn name(&self) -> Result<&String> {
+        match self.cached_name.get() {
+            Some(cached) => Ok(cached),
+            None => match self.file.file_name() {
+                Some(name) => match self.cached_name.set(name.to_string_lossy().into_owned()) {
+                    Ok(()) => self.name(),
+                    Err(_) => bail!("failed to set name cache"),
+                },
+                None => bail!("failed to parse file name from: {}", self.file.display()),
+            },
+        }
+    }
+
+    async fn read(&self, file_name: impl AsRef<str>) -> Result<String> {
+        Ok(read_to_string(self.file.join(file_name.as_ref())).await?)
+    }
+
+    async fn read_usize(&self, file_name: impl AsRef<str>) -> Result<usize> {
+        Ok(self.read(file_name).await?.trim().parse::<usize>()?)
+    }
+
+    pub async fn get_state(&self) -> Result<BatState> {
         Ok(BatState::from_str(self.read("status").await?.trim())?)
     }
 
     // NOTE: there is also `/capacity` which returns an integer percentage
-    async fn percent(&self) -> Result<f32, Box<dyn Error>> {
+    pub async fn percent(&self) -> Result<f32> {
         let (charge_now, charge_full) = try_join!(
             self.read_usize("charge_now"),
             self.read_usize("charge_full"),
@@ -83,7 +111,7 @@ impl Bat {
         Ok((charge_now as f32) / (charge_full as f32) * 100.0)
     }
 
-    async fn watts_now(&self) -> Result<f64, Box<dyn Error>> {
+    pub async fn watts_now(&self) -> Result<f64> {
         let (current_pico, voltage_pico) = try_join!(
             self.read_usize("current_now"),
             self.read_usize("voltage_now"),
@@ -91,63 +119,27 @@ impl Bat {
         Ok((current_pico as f64) * (voltage_pico as f64) / 1_000_000_000_000.0)
     }
 
-    async fn format(&self, theme: &Theme, show_watts: bool) -> Result<I3Item, Box<dyn Error>> {
-        let (charge, state) = match try_join!(self.percent(), self.get_state()) {
-            Ok((charge, state)) => (charge, state),
-            // Return unknown state: the files in sysfs aren't present at times, such as when connecting
-            // ac adapters, etc. In these scenarios we just end early here without an error and let the
-            // item retry on the next interval/acpi event.
-            Err(e) => {
-                log::warn!("failed to read battery {}: {}", self.0.display(), e);
-                return Ok(I3Item::new("???").color(theme.red));
-            }
-        };
-
-        let (charge_icon, charge_fg, urgent) = match charge as u32 {
-            0..=15 => {
-                let urgent = !matches!(state, BatState::Charging | BatState::NotCharging);
-                ("", Some(theme.red), urgent)
-            }
-            16..=25 => ("", Some(theme.orange), false),
-            26..=50 => ("", Some(theme.yellow), false),
-            51..=75 => ("", None, false),
-            76..=u32::MAX => ("", Some(theme.green), false),
-        };
-
-        let (state_icon, state_fg) = state.get_color(theme);
-        let icon = state_icon.unwrap_or(charge_icon);
-        let fg = state_fg.or(charge_fg);
-
-        let item = if show_watts {
-            let watts = self.watts_now().await?;
-            I3Item::new(format!("{:.2} W", watts)).short_text(format!("{:.0}", watts))
-        } else {
-            let name = self.name()?;
-            let name = if name == "BAT0" {
-                icon
-            } else {
-                name.as_str().into()
-            };
-            I3Item::new(format!("{}  {:.0}%", name, charge)).short_text(format!("{:.0}%", charge))
-        };
-
-        Ok(match (urgent, fg) {
-            (true, _) => item.urgent(true),
-            (false, Some(fg)) => item.color(fg),
-            (false, None) => item,
-        })
+    pub async fn get_info(&self) -> Result<BatInfo> {
+        let name = self.name()?.to_owned();
+        Ok(
+            try_join!(self.percent(), self.get_state()).map(|(charge, state)| BatInfo {
+                name,
+                charge,
+                state,
+            })?,
+        )
     }
 
-    async fn find_all() -> Result<Vec<Bat>, Box<dyn Error>> {
+    pub async fn find_all() -> Result<Vec<Bat>> {
         let battery_dir = PathBuf::from("/sys/class/power_supply");
         let mut entries = fs::read_dir(&battery_dir).await?;
 
         let mut batteries = vec![];
         while let Some(entry) = entries.next_entry().await? {
             if entry.file_type().await?.is_symlink() {
-                let path = entry.path();
-                if fs::try_exists(path.join("charge_now")).await? {
-                    batteries.push(Bat(path));
+                let file = entry.path();
+                if fs::try_exists(file.join("charge_now")).await? {
+                    batteries.push(Bat::new(file));
                 }
             }
         }
@@ -164,11 +156,48 @@ pub struct Battery {
     #[serde(default)]
     notify_on_adapter: bool,
     // TODO: option to run command(s) at certain percentage(s)
+    #[serde(default)]
+    notify_percentage: Option<u8>,
+}
+
+impl Battery {
+    fn detail(theme: &Theme, info: &BatInfo) -> (&'static str, Option<HexColor>, bool) {
+        let (charge_icon, charge_fg, urgent) = match info.charge as u32 {
+            0..=15 => {
+                let urgent = !matches!(info.state, BatState::Charging | BatState::NotCharging);
+                ("", Some(theme.red), urgent)
+            }
+            16..=25 => ("", Some(theme.orange), false),
+            26..=50 => ("", Some(theme.yellow), false),
+            51..=75 => ("", None, false),
+            76..=u32::MAX => ("", Some(theme.green), false),
+        };
+
+        let (state_icon, state_fg) = info.state.get_color(theme);
+        let icon = state_icon.unwrap_or(charge_icon);
+        let fg = state_fg.or(charge_fg);
+
+        (icon, fg, urgent)
+    }
+
+    fn format_watts(_: &Theme, watts: f64) -> I3Item {
+        I3Item::new(format!("{:.2} W", watts)).short_text(format!("{:.0}", watts))
+    }
+
+    async fn format(_: &Theme, info: &BatInfo, icon: &str) -> I3Item {
+        let name = if info.name == "BAT0" {
+            icon
+        } else {
+            info.name.as_str().into()
+        };
+        I3Item::new(format!("{}  {:.0}%", name, info.charge))
+            .short_text(format!("{:.0}%", info.charge))
+    }
 }
 
 #[async_trait(?Send)]
 impl BarItem for Battery {
-    async fn start(&self, mut ctx: Context) -> Result<StopAction, Box<dyn Error>> {
+    async fn start(&self, mut ctx: Context) -> Result<StopAction> {
         let batteries = match self.batteries.clone() {
             Some(inner) => inner,
             None => Bat::find_all().await?,
@@ -179,16 +208,48 @@ impl BarItem for Battery {
         if batteries.len() == 0 {
             bail!("no batteries found");
         } else {
-            p.set_len(batteries.len());
+            p.set_len(batteries.len())?;
         }
 
         let dbus = dbus_connection(BusType::Session).await?;
         let notifications = NotificationsProxy::new(&dbus).await?;
         let mut on_acpi_event = battery_acpi_events().await?;
+        let mut sent_critical_notification = false;
         loop {
             let theme = &ctx.config.theme;
 
-            let item = batteries[p.idx()].format(theme, show_watts).await?;
+            // get info for selected battery
+            let bat = &batteries[p.idx()];
+            let info = bat.get_info().await?;
+
+            // send critical battery notification if configured
+            if let Some(pct) = self.notify_percentage {
+                let charge = info.charge as u8;
+                if charge <= pct && matches!(info.state, BatState::Discharging) {
+                    notifications.battery_critical(charge).await;
+                    sent_critical_notification = true;
+                } else if sent_critical_notification {
+                    notifications.battery_critical_off().await;
+                    sent_critical_notification = false;
+                }
+            }
+
+            // build battery item
+            let (icon, fg, urgent) = Self::detail(theme, &info);
+            let item = if show_watts {
+                Self::format_watts(theme, bat.watts_now().await?)
+            } else {
+                Self::format(theme, &info, icon).await
+            };
+
+            // format item
+            let item = match (fg, urgent) {
+                (_, true) => item.urgent(true),
+                (Some(fg), false) => item.color(fg),
+                (None, false) => item,
+            };
+
+            // update item
             let full_text = format!("{}{}", item.get_full_text(), p.format(theme));
             let item = item.full_text(full_text).markup(I3Markup::Pango);
             ctx.update_item(item).await?;
@@ -233,7 +294,7 @@ enum BatteryAcpiEvent {
     AcAdapterPlugged(bool),
 }
 
-async fn battery_acpi_events() -> Result<Receiver<BatteryAcpiEvent>, Box<dyn Error>> {
+async fn battery_acpi_events() -> Result<Receiver<BatteryAcpiEvent>> {
     let mut acpi_event = netlink_acpi_listen().await?;
     let (tx, rx) = tokio::sync::mpsc::channel(1);
     tokio::task::spawn_local(async move {
@@ -264,4 +325,23 @@ async fn battery_acpi_events() -> Result<Receiver<BatteryAcpiEvent>, Box<dyn Err
     });
 
     Ok(rx)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn de() {
+        let path = "/sys/class/power_supply/BAT0";
+        let battery = serde_json::from_str::<Bat>(&format!(r#""{}""#, path)).unwrap();
+        assert_eq!(battery.file, PathBuf::from(path));
+    }
+
+    #[test]
+    fn name() {
+        let battery = Bat::new(PathBuf::from("/sys/class/power_supply/BAT0"));
+        assert_eq!(battery.name().unwrap(), "BAT0");
+        assert_eq!(battery.name().unwrap(), "BAT0");
+    }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "istat"
-version = "0.5.1"
+version = "0.6.0"
 edition = "2021"
 description = "A lightweight and batteries-included status_command for i3 and sway"
 license = "GPL-3.0-only"
@@ -35,14 +35,14 @@ dirs = "5.0.1"
 figment = { version = "0.10.10", features = ["toml", "yaml", "json"] }
 futures = "0.3.28"
 hex_color = { version = "2.0.0", features = ["serde"] }
+hound = "3.5.0"
 humantime-serde = "1.1.1"
 indexmap = { version = "1.9.3", features = ["serde"] }
-iwlib = "0.1.1"
 libc = "0.2.142"
 libpulse-binding = { version = "2.27.1", features = ["pa_v14"] }
 libpulse-tokio = "0.1.0"
 log = "0.4.17"
-neli = { version = "0.7.0-rc1", features = ["tokio", "async"] }
+neli = { version = "0.7.0-rc2", features = ["tokio", "async"] }
 nix = { version = "0.26.2", features = ["net"] }
 num-traits = "0.2.15"
 paste = "1.0.12"
@@ -68,7 +68,7 @@ path = "tests/mod.rs"
 automod = "1.0.8"
 clap_mangen = "0.2.11"
 clap = { version = "4.2.7", features = ["derive"] }
-fakeroot = "0.3.0"
+fakeroot = "0.4.1"
 rand = "0.8.5"
 timeout-readwrite = "0.3.3"
 xcb = { version = "1.2.1", features = ["xkb", "xtest"] }

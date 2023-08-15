@@ -2,7 +2,6 @@ mod item;
 mod parse;
 
 use std::cell::OnceCell;
-use std::error::Error;
 use std::path::PathBuf;
 
 use indexmap::IndexMap;
@@ -10,6 +9,7 @@ use serde_derive::{Deserialize, Serialize};
 
 use crate::cli::Cli;
 use crate::config::item::Item;
+use crate::error::Result;
 use crate::ipc::get_socket_path;
 use crate::theme::Theme;
 use crate::util::sort_by_indices;
@@ -78,7 +78,7 @@ impl AppConfig {
     }
 
     /// Ensure configuration of item names have no duplicates.
-    fn validate_names(items: &[Item]) -> Result<(), Box<dyn Error>> {
+    fn validate_names(items: &[Item]) -> Result<()> {
         for (i, a) in items.iter().enumerate().rev() {
             for (j, b) in items.iter().enumerate() {
                 if i == j {
@@ -99,7 +99,7 @@ impl AppConfig {
         Ok(())
     }
 
-    pub async fn read(args: Cli) -> Result<AppConfig, Box<dyn Error>> {
+    pub async fn read(args: Cli) -> Result<AppConfig> {
         let mut cfg = parse::parse(&args)?;
 
         // set socket path explicitly here

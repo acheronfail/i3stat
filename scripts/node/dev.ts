@@ -174,7 +174,10 @@ function handleInput(input: string) {
       const payload = Buffer.concat([header, message]);
       socket.write(payload);
       socket.on('data', (data) => {
-        process.stdout.write(c.green(`Refreshed all items. IPC response: ${data.toString()}\n`));
+        // first 8 bytes are the header
+        const message = data.subarray(8);
+        process.stdout.clearLine(0);
+        process.stdout.write(c.green(`Refreshed all items. IPC response: ${message.toString()}\n`));
       });
     });
   }
@@ -295,8 +298,12 @@ let instances: { name: string; id: string }[] = [];
 const sep = chalk.gray('|');
 function formatLine(line: string) {
   const items: Record<string, any>[] = JSON.parse(line.slice(0, -1));
-  // TODO: this assumes that an item without a name is a separator, probably should make this clearer somehow
-  instances = items.filter((i) => i.name).map((i) => ({ name: i.name, id: i.instance }));
+  // extract bar item instances from JSON output
+  instances = items
+    // filter out powerline separator items
+    .filter((i) => !i._powerline_sep)
+    .map((i) => ({ name: i.name, id: i.instance }));
+
   const getText = (item: Record<string, any>) => item[`${display}_text`] || item.full_text;
 
   let result: string[] = [];
@@ -344,7 +351,7 @@ function formatLine(line: string) {
       }
     }
 
-    // TODO: is there even a way to draw a border in the terminal?
+    // NOTE: AFAICT there's no way to draw a border in the terminal, so we can't display that here
     result.push(c(item.color, item.background, item.urgent)(root.textContent));
 
     if (hasSeparator && i < items.length - 1) result.push(sep);
