@@ -102,10 +102,10 @@ impl Theme {
     }
 
     const DEFAULT_POWERLINE: &[ColorPair] = &[
-        ColorPair::new(HexColor::rgb(216, 222, 233), HexColor::rgb(59, 66, 82)),
-        ColorPair::new(HexColor::rgb(229, 233, 240), HexColor::rgb(67, 76, 94)),
-        ColorPair::new(HexColor::rgb(236, 239, 244), HexColor::rgb(76, 86, 106)),
-        ColorPair::new(HexColor::rgb(229, 233, 240), HexColor::rgb(67, 76, 94)),
+        ColorPair::new(HexColor::rgb(216, 222, 233), HexColor::rgb(46, 52, 64)),
+        ColorPair::new(HexColor::rgb(229, 233, 240), HexColor::rgb(59, 66, 82)),
+        ColorPair::new(HexColor::rgb(236, 239, 244), HexColor::rgb(67, 76, 94)),
+        ColorPair::new(HexColor::rgb(229, 233, 240), HexColor::rgb(59, 66, 82)),
     ];
 
     const fn default_bg() -> HexColor {
