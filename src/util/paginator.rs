@@ -4,6 +4,8 @@ use crate::error::Result;
 use crate::i3::I3Button::*;
 use crate::theme::Theme;
 
+/// A utility struct that is used to help make all items that have multiple items
+/// to show feel consistent. Maps user input (scroll wheel) to different indices.
 pub struct Paginator {
     idx: usize,
     len: usize,
@@ -50,8 +52,8 @@ impl Paginator {
 
     pub fn update(&mut self, event: &BarEvent) {
         match event {
-            BarEvent::Click(c) if matches!(c.button, Left | ScrollUp) => self.incr(),
-            BarEvent::Click(c) if matches!(c.button, Right | ScrollDown) => self.decr(),
+            BarEvent::Click(c) if matches!(c.button, ScrollUp) => self.incr(),
+            BarEvent::Click(c) if matches!(c.button, ScrollDown) => self.decr(),
             _ => {}
         }
     }

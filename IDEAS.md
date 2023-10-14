@@ -5,7 +5,6 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 
 ## Features
 
-* a bin PKGBUILD for the AUR (would need to setup CI first)
 * man pages for all binaries
 
 ## Bugs
@@ -14,7 +13,8 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 
 ## Improvements
 
-* ...
+* CI builds and automatic release publishing
+* a bin PKGBUILD for the AUR
 
 ## Tips
 

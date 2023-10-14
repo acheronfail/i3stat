@@ -72,7 +72,8 @@ impl Dispatcher {
                 }
                 Ok(())
             }
-            None | Some(None) => bail!("no item found with index: {}", idx),
+            Some(None) => bail!("item no longer receiving events, index: {}", idx),
+            None => bail!("no item found with index: {}", idx),
         }
     }
 }

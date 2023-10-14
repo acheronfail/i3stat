@@ -50,14 +50,18 @@ powerline = [
 #
 ## COMMON OPTIONS
 ## All items share the the following config options:
-# type:   required; the type of the item
-# name:   optional; a name for the item - makes some ipc operations easier
-# index:  optional; where to position this item in the bar - defaults to the current index in `items`
-# signal: optional; a real-time signal can be mapped to an item, and when istat receives this signal
-#                   the item will be refreshed - useful for manually triggering item updates.
-#                   The same signal can be used for multiple items.
-#                   The `istat-signals` command can be used to query limits for signals on the
-#                   current system.
+# type:   required;    the type of the item
+# name:   optional;    a name for the item - makes some ipc operations easier
+# index:  optional;    where to position this item in the bar - defaults to the current index in `items`
+# signal: optional;    a real-time signal can be mapped to an item, and when istat receives this signal
+#                      the item will be refreshed - useful for manually triggering item updates.
+#                      The same signal can be used for multiple items.
+#                      The `istat-signals` command can be used to query limits for signals on the
+#                      current system.
+# actions: optional;   custom commands to run when the item is clicked.
+#                      These actions take precedence over any item's default behaviour (e.g., the pulse
+#                      item already does things on click, but these actions would prevent that behaviour).
+#                      See the examples in these config files (search for `[items.actions]`).
 #
 ## FLOAT FORMAT OPTIONS
 ## Some items which display a floating point integer allow customising its format with these options:
@@ -89,11 +93,24 @@ thresholds = ["1kiB", "1MiB", "10MiB", "25MiB", "100MiB"]
 # ignored_interfaces = ["vpn0"]
 
 [[items]]
-# a raw item - these are static items that don't change, and display the values here
+# A raw item - these are static items that don't change, and display the values here
 type = "raw"
-# see i3's bar documentation for what fields are available: https://i3wm.org/docs/i3bar-protocol.html
+# See i3's bar documentation for what fields are available: https://i3wm.org/docs/i3bar-protocol.html
 full_text = "raw"
 short_text = "!"
+# This is an example of configuring custom actions for an item.
+# [items.actions] is available for every item type! (See the COMMON OPTIONS section above.)
+[items.actions]
+# Run a command
+left_click = "paplay /usr/share/sounds/freedesktop/stereo/bell.oga"
+# Run a command with specific modifiers
+middle_click = { modifiers = ["Shift"], command = "i3-msg exec nemo" }
+# Define different commands for different modifier combinations
+right_click = [
+  # Hint: triple quotes are an easy way to escape inner quotes in TOML.
+  { modifiers = ['Shift'], command = """ i3-msg exec "zenity --info --text 'HELLO FROM ISTAT!'" """ },
+  { modifiers = ['Control'], command = """ i3-msg exec "zenity --info --text 'hello from istat!'" """ },
+]
 
 [[items]]
 # Kerberos item - simply calls `klist` and displays the result
@@ -141,10 +158,13 @@ interval = "60s"
 
 [[items]]
 # CPU usage item - provides updates of CPU usage expressed as a percentage
+# Also includes FLOAT FORMAT OPTIONS
 type = "cpu"
 # How often this item should refresh
 interval = "2s"
-# Also includes FLOAT FORMAT OPTIONS
+# Open an application on click
+[items.actions]
+left_click = "i3-msg exec systemmonitor"
 
 [[items]]
 # Display the temperature of a given component.
@@ -174,10 +194,10 @@ display = "bytes"
 [[items]]
 # Display infomation about the current sink (sound output) and source (sound input). This is a very
 # versatile item and has a tight integration to pulseaudio/pipewire.
-# Scrolling up/down will change the volume of the current sink. The same while holding `Shift` will
-# change the volume of the current source.
-# Middle clicking will mute the current sink. The same with `Shift` will mute the current source.
-# Left clicking will execute `pavucontrol`.
+# Scrolling up/down will change the volume of the current sink.
+# Middle clicking will mute the current sink.
+# Left clicking will cycle between ports for the current sink (i.e., speakers, headphones, etc).
+# All of the above actions will affect the source rather than the sink while `shift` is held.
 #
 # This item also has a highly featured ipc interface, see `istat-ipc custom pulse` for more info.
 type = "pulse"
@@ -200,6 +220,9 @@ max_volume = 120
 notify = "none"
 
 # server_name = "pipewire-0"
+
+[items.actions]
+left_click = { modifiers = ["Control"], command = "i3-msg exec pavucontrol" }
 
 [[items]]
 # Show current light brightness (and also adjust it).
@@ -246,6 +269,9 @@ format_long = "%Y-%m-%d %H:%M:%S"
 format_short = "%H:%M"
 # How often this item should refresh
 interval = "1s"
+# Open a calendar when clicking on the time item
+[items.actions]
+left_click = "i3-msg exec gsimplecal"
 
 [[items]]
 # Run a script and display its output as an item. By default the command's STDOUT is displayed.

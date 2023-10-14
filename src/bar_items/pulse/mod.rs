@@ -752,9 +752,6 @@ impl BarItem for Pulse {
                 Some(event) = ctx.raw_event_rx().recv() => match event {
                     BarEvent::Custom { payload, responder } => inner.handle_custom_message(payload, responder),
                     BarEvent::Click(click) => match click.button {
-                        // open control panel
-                        I3Button::Left if click.modifiers.contains(&I3Modifier::Control) => exec("i3-msg exec pavucontrol").await,
-
                         // cycle source ports
                         I3Button::Left if click.modifiers.contains(&I3Modifier::Shift) => {
                             inner.default_source().map(|io| inner.cycle_port(io, Object::Source));

@@ -1,4 +1,3 @@
-use crate::error::Result;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -6,10 +5,10 @@ use hex_color::HexColor;
 use serde_derive::{Deserialize, Serialize};
 use sysinfo::{CpuExt, CpuRefreshKind, SystemExt};
 
-use crate::context::{BarEvent, BarItem, Context, StopAction};
+use crate::context::{BarItem, Context, StopAction};
+use crate::error::Result;
 use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
-use crate::util::exec;
 use crate::util::format::{float, FloatFormat};
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -55,12 +54,7 @@ impl BarItem for Cpu {
             }
 
             ctx.update_item(item).await?;
-            ctx.delay_with_event_handler(self.interval, |event| async move {
-                if let BarEvent::Click(_) = event {
-                    exec("systemmonitor").await;
-                }
-            })
-            .await;
+            ctx.wait_for_event(Some(self.interval)).await;
         }
     }
 }

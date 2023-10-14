@@ -106,7 +106,7 @@ impl SpawnedProgram {
         self.click_raw(I3ClickEvent {
             instance: Some(target.as_ref().into()),
             button,
-            modifiers: modifiers.to_vec(),
+            modifiers: modifiers.iter().cloned().collect(),
             ..Default::default()
         })
     }

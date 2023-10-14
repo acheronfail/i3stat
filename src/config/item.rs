@@ -1,12 +1,46 @@
 use std::cell::OnceCell;
+use std::collections::HashSet;
 
 use serde_derive::{Deserialize, Serialize};
 use strum::EnumIter;
 
 use crate::bar_items::*;
 use crate::context::BarItem;
-use crate::i3::I3Item;
+use crate::i3::{I3Item, I3Modifier};
 
+/// Custom item action.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Action {
+    /// Run the given command
+    Simple(String),
+    /// Run the given command, if the modifiers are present
+    WithOptions {
+        command: String,
+        modifiers: HashSet<I3Modifier>,
+    },
+}
+
+/// A wrapper struct to allow defining a single item or many.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ActionWrapper {
+    Single(Action),
+    Many(Vec<Action>),
+}
+
+/// Custom actions that are configurable per item.
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct Actions {
+    #[serde(default)]
+    pub left_click: Option<ActionWrapper>,
+    #[serde(default)]
+    pub middle_click: Option<ActionWrapper>,
+    #[serde(default)]
+    pub right_click: Option<ActionWrapper>,
+}
+
+/// Configuration that's common to every item.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Common {
     /// Name of the item. Used in the IPC protocol.
@@ -18,6 +52,8 @@ pub struct Common {
     pub signal: Option<u32>,
     /// Optionally set or unset the separator for this item.
     pub separator: Option<bool>,
+    /// Optionally configure actions for each item
+    pub actions: Option<Actions>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, EnumIter)]

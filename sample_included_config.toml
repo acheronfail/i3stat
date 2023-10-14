@@ -1,6 +1,6 @@
 # This file was included from main configuration file.
 
-# Example of adding an additional item.
+# Example of adding an additional item in the middle of an existing bar configuration.
 [[items]]
 type = "raw"
 # Specifying the index so we can insert this item in the already defined list of
