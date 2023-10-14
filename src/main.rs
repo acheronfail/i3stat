@@ -227,6 +227,7 @@ fn handle_item_updates(
 
                     // don't bother doing anything if the item hasn't changed
                     if bar[idx] == i3_item {
+                        log::trace!("not updating item {} because it hasn't changed", idx);
                         continue;
                     }
 

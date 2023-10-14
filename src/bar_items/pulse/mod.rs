@@ -35,7 +35,7 @@ use crate::dbus::{dbus_connection, BusType};
 use crate::error::Result;
 use crate::i3::{I3Button, I3Item, I3Markup, I3Modifier};
 use crate::theme::Theme;
-use crate::util::{exec, expand_path, RcCell};
+use crate::util::{expand_path, RcCell};
 
 #[derive(Debug, Copy, Clone, ValueEnum)]
 pub enum Object {
@@ -761,21 +761,6 @@ impl BarItem for Pulse {
                         I3Button::Left => {
                             inner.default_sink().map(|io| inner.cycle_port(io, Object::Sink));
                         }
-
-                        // show a popup with information about the current state
-                        I3Button::Right => {
-                            let s = |s: &str| s.chars().filter(char::is_ascii).collect::<String>();
-                            let m = |p: InOut| format!("name: {}\nvolume: {}\n", s(&p.name), p.volume_pct());
-                            let sink = inner.default_sink().map(m).unwrap_or("???".into());
-                            let source = inner.default_source().map(m).unwrap_or("???".into());
-                            exec(
-                                format!(
-                                    r#"zenity --info --text='[sink]\n{}\n\n[source]\n{}'"#,
-                                    sink,
-                                    source
-                                )
-                            ).await
-                        },
 
                         // source
                         I3Button::Middle if click.modifiers.contains(&I3Modifier::Shift) => {

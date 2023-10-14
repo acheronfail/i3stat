@@ -63,15 +63,15 @@ pub async fn handle_click_events(
         // handle any custom actions
         if let Some(actions) = &config.items[idx].common.actions {
             let did_action = match click.button {
-                I3Button::Left => handle_actions(actions.left_click.as_ref(), &click).await,
-                I3Button::Middle => handle_actions(actions.middle_click.as_ref(), &click).await,
-                I3Button::Right => handle_actions(actions.right_click.as_ref(), &click).await,
+                I3Button::Left => handle_actions(actions.left_click.as_ref(), &click),
+                I3Button::Middle => handle_actions(actions.middle_click.as_ref(), &click),
+                I3Button::Right => handle_actions(actions.right_click.as_ref(), &click),
                 _ => false,
             };
 
             if did_action {
                 log::debug!(
-                    "not forwarding click event to item {} because custom action was set",
+                    "not forwarding click event to item {} because custom action was run",
                     idx
                 );
                 continue;
@@ -86,7 +86,7 @@ pub async fn handle_click_events(
     }
 }
 
-async fn handle_actions(actions: Option<&ActionWrapper>, click: &I3ClickEvent) -> bool {
+fn handle_actions(actions: Option<&ActionWrapper>, click: &I3ClickEvent) -> bool {
     let mut did_action = false;
     let actions = match actions {
         Some(ActionWrapper::Single(action)) => vec![action.clone()],
@@ -104,7 +104,7 @@ async fn handle_actions(actions: Option<&ActionWrapper>, click: &I3ClickEvent) -
         };
 
         if let Some(command) = command {
-            exec(command).await;
+            exec(command);
             did_action = true;
         }
     }

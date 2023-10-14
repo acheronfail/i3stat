@@ -7,13 +7,13 @@ use std::thread;
 ///
 /// Unfortunately there's no `Command::try_wait` equivalent on `tokio::process::Command`,
 /// so this spawns a separate thread for each command, in case the command blocks or waits.
-pub async fn exec(cmd: impl AsRef<str>) {
+pub fn exec(cmd: impl AsRef<str>) {
     let cmd = cmd.as_ref().to_owned();
     log::debug!("exec: command --> {} <--", &cmd);
 
     thread::spawn(move || {
-        let child = Command::new("sh").arg("-c").arg(&cmd).output();
-        match child {
+        let output = Command::new("sh").arg("-c").arg(&cmd).output();
+        match output {
             Ok(output) => {
                 if !output.status.success() {
                     log::warn!("exit: command --> {} <-- {}", cmd, output.status);

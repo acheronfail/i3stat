@@ -1,3 +1,5 @@
+//! These are full integration tests which run an X server, i3 and use istat as the status bar.
+
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};

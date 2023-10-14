@@ -1,4 +1,7 @@
+//! These tests spawn istat directly and use its IPC channel for assertions.
+
 use std::io::{BufRead, BufReader, Read, Write};
+use std::marker::PhantomData;
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use std::process::{ChildStdin, ChildStdout, Command, Stdio};
@@ -20,17 +23,17 @@ use crate::util::{
 };
 
 /// Convenience struct for running assertions on and communicating with a running instance of the program
-pub struct SpawnedProgram {
-    #[allow(unused)]
+pub struct SpawnedProgram<'a> {
+    test: PhantomData<&'a Test>,
     child: LogOnDropChild,
     socket: PathBuf,
     stdin: ChildStdin,
     stdout: BufReader<TimeoutReader<ChildStdout>>,
 }
 
-impl SpawnedProgram {
+impl<'a> SpawnedProgram<'a> {
     /// Spawn the program, setting up it's own test directory
-    pub fn spawn(test: &Test) -> SpawnedProgram {
+    pub fn spawn(test: &'a Test) -> SpawnedProgram<'a> {
         let mut child = LogOnDropChild::log_stderr(
             Command::new(get_current_exe())
                 .envs(&test.env)
@@ -40,6 +43,9 @@ impl SpawnedProgram {
                     format!("{}:{}", get_faketime_lib(), get_fakeroot_lib()),
                 )
                 .env("FAKETIME", format!("@{}", FAKE_TIME))
+                // and fakeroot
+                .env("FAKEROOT", &test.fakeroot)
+                .env("FAKEROOT_DIRS", "1")
                 // setup logs
                 .env("RUST_LOG", "istat=trace")
                 // socket
@@ -63,6 +69,7 @@ impl SpawnedProgram {
         let stdout = BufReader::new(stdout);
 
         let mut test = SpawnedProgram {
+            test: PhantomData,
             child,
             socket: test.istat_socket_file.clone(),
             stdin,
@@ -166,7 +173,6 @@ macro_rules! spawn_test {
             let mut test = crate::util::Test::new(stringify!($name), $config);
             $setup_fn(&mut test);
             let istat = crate::spawn::SpawnedProgram::spawn(&test);
-            // FIXME: if test is dropped here it'll break - make SpawnedProgram use a lifetime of Test
             $test_fn(istat);
         }
     };
