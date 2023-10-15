@@ -75,7 +75,7 @@ async fn async_main(args: Cli) -> Result<RuntimeStopReason> {
     // handle our inputs: i3's IPC and our own IPC
     let result = tokio::select! {
         Err(err) = handle_ipc_events(socket, ipc_ctx) => Err(err),
-        Err(err) = handle_click_events(config, dispatcher.clone()) => Err(err),
+        Err(err) = handle_click_events(bar, config, dispatcher.clone()) => Err(err),
         _ = token.cancelled() => Ok(RuntimeStopReason::Shutdown),
     };
 

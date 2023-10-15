@@ -61,6 +61,7 @@ powerline = [
 # actions: optional;   custom commands to run when the item is clicked.
 #                      These actions take precedence over any item's default behaviour (e.g., the pulse
 #                      item already does things on click, but these actions would prevent that behaviour).
+#                      The item's fields are added to the command's environment (use `istat-ipc get-bar` to see fields).
 #                      See the examples in these config files (search for `[items.actions]`).
 #
 ## FLOAT FORMAT OPTIONS
@@ -155,6 +156,9 @@ type = "disk"
 interval = "60s"
 # Optionally only include these specific mount points
 # mounts = ["/"]
+[items.actions]
+# Open the currently displayed mount point:
+left_click = """ i3-msg exec "nemo $_mount_point" """
 
 [[items]]
 # CPU usage item - provides updates of CPU usage expressed as a percentage
