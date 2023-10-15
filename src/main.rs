@@ -75,7 +75,7 @@ async fn async_main(args: Cli) -> Result<RuntimeStopReason> {
     // handle our inputs: i3's IPC and our own IPC
     let result = tokio::select! {
         Err(err) = handle_ipc_events(socket, ipc_ctx) => Err(err),
-        Err(err) = handle_click_events(dispatcher.clone()) => Err(err),
+        Err(err) = handle_click_events(bar, config, dispatcher.clone()) => Err(err),
         _ = token.cancelled() => Ok(RuntimeStopReason::Shutdown),
     };
 
@@ -227,6 +227,7 @@ fn handle_item_updates(
 
                     // don't bother doing anything if the item hasn't changed
                     if bar[idx] == i3_item {
+                        log::trace!("not updating item {} because it hasn't changed", idx);
                         continue;
                     }
 

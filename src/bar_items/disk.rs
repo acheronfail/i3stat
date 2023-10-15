@@ -90,7 +90,10 @@ impl BarItem for Disk {
                 let (full, short) = disk.format(theme);
                 let full = format!("{}{}", full, p.format(theme));
 
-                let mut item = I3Item::new(full).short_text(short).markup(I3Markup::Pango);
+                let mut item = I3Item::new(full)
+                    .short_text(short)
+                    .markup(I3Markup::Pango)
+                    .with_data("mount_point", disk.mount_point.clone().into());
 
                 if let Some(fg) = disk.get_color(theme) {
                     item = item.color(fg);

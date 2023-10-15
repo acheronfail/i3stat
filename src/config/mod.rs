@@ -1,4 +1,4 @@
-mod item;
+pub mod item;
 mod parse;
 
 use std::cell::OnceCell;

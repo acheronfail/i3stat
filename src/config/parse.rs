@@ -88,10 +88,12 @@ pub fn parse(args: &Cli) -> Result<AppConfig> {
                     None => bail!("No file extension, cannot infer file format"),
                 }
 
+                log::trace!("read config file: {}", include.display());
                 seen.insert(include);
             }
         }
     };
 
-    Ok(figment.extract::<AppConfig>()?)
+    let app_config = figment.extract::<AppConfig>()?;
+    Ok(app_config)
 }

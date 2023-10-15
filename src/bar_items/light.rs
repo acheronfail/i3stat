@@ -53,9 +53,15 @@ impl LightFile {
 
     /// Set the brightness of this light to a percentage
     pub async fn set(&self, pct: u8) -> Result<()> {
-        let step = self.max_brightness / 100;
-        let value = (pct.clamp(0, 100) as u64) * step;
+        let step = self.max_brightness as f64 / 100.0;
+        // clamp to percentage value
+        let pct = pct.clamp(0, 100) as f64;
+        // clamp to max brightness value
+        let value = ((pct * step) as u64).clamp(0, self.max_brightness);
+
+        // write to brightness file
         fs::write(&self.brightness_file, value.to_string()).await?;
+        log::trace!("set {} to {}", self.brightness_file.display(), value);
 
         Ok(())
     }
@@ -88,7 +94,10 @@ impl LightFile {
 
         // return a light for the "brightest" backlight
         match backlights.last() {
-            Some((path, _)) => LightFile::new(path).await,
+            Some((path, _)) => {
+                log::debug!("autodetected light: {}", path.display());
+                LightFile::new(path).await
+            }
             None => bail!("no backlights found"),
         }
     }

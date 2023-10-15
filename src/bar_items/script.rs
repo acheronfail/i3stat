@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use crate::error::Result;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -7,6 +6,7 @@ use serde_derive::{Deserialize, Serialize};
 use tokio::process::Command;
 
 use crate::context::{BarEvent, BarItem, Context, StopAction};
+use crate::error::Result;
 use crate::i3::{I3Item, I3Markup};
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]

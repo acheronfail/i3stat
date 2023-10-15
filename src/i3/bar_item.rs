@@ -192,6 +192,23 @@ impl I3Item {
         self
     }
 
+    pub fn as_env_map(&self) -> Result<HashMap<String, String>> {
+        use serde_json::{from_value, to_value};
+
+        let mut env_map = HashMap::new();
+        for (key, value) in from_value::<HashMap<String, Value>>(to_value(self)?)? {
+            env_map.insert(
+                key,
+                match value {
+                    Value::String(s) => s,
+                    other => other.to_string(),
+                },
+            );
+        }
+
+        Ok(env_map)
+    }
+
     impl_get_set! (
         /// Set the name of the item. NOTE: setting this from within an item implementation will
         /// have no effect, since istat manages this property itself from config.
@@ -225,5 +242,60 @@ impl BarItem for I3Item {
     async fn start(&self, ctx: Context) -> Result<StopAction> {
         ctx.update_item(self.clone()).await?;
         Ok(StopAction::Complete)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use hex_color::HexColor;
+    use serde_json::json;
+
+    use super::I3Item;
+    use crate::i3::{I3Align, I3Markup, I3MinWidth};
+
+    #[test]
+    fn as_env_map() {
+        let item = I3Item::new("full_text")
+            .with_data("custom_field", "custom_field".into())
+            .align(I3Align::Center)
+            .background_color(HexColor::MAGENTA)
+            .border_bottom_px(1)
+            .border_color(HexColor::CYAN)
+            .border_left_px(2)
+            .border_right_px(3)
+            .border_top_px(4)
+            .color(HexColor::GREEN)
+            .full_text("full_text")
+            .instance("instance")
+            .markup(I3Markup::Pango)
+            .min_width(I3MinWidth::Pixels(5))
+            .separator_block_width_px(6)
+            .separator(true)
+            .short_text("short_text")
+            .urgent(false);
+
+        assert_eq!(
+            serde_json::to_value(item.as_env_map().unwrap()).unwrap(),
+            json!({
+              "_custom_field": "custom_field",
+              "align": "center",
+              "background": "#FF00FF",
+              "border": "#00FFFF",
+              "border_bottom": "1",
+              "border_left": "2",
+              "border_right": "3",
+              "border_top": "4",
+              "color": "#00FF00",
+              "full_text": "full_text",
+              "instance": "instance",
+              "markup": "pango",
+              "min_width": "5",
+              "separator": "true",
+              "separator_block_width": "6",
+              "short_text": "short_text",
+              "urgent": "false"
+            }
+            )
+        );
     }
 }

@@ -59,7 +59,7 @@ impl BarItem for Krb {
                 Ok(interfaces) = net.wait_for_change() => {
                     // if none of the filters matched
                     if interfaces.filtered(&self.only_on).is_empty() {
-                        // if the item wasn't disabled, then empty it out
+                        // if the item was enabled, then empty it out
                         if enabled {
                             ctx.update_item(I3Item::empty()).await?;
                         }
@@ -69,6 +69,8 @@ impl BarItem for Krb {
 
                         // reset loop and wait to be enabled
                         continue;
+                    } else {
+                        enabled = true;
                     }
                 }
             }

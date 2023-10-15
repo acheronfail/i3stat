@@ -40,7 +40,7 @@ run bin *args:
 
 # install locally, copy sample configuration and restart i3
 install *args:
-  cargo install --offline --path . "$@"
+  RUSTFLAGS="--emit=asm" cargo install --offline --path . "$@"
   mkdir -p ~/.config/istat/
   -cp --no-clobber ./sample_config.toml ~/.config/istat/config.toml
   i3-msg restart

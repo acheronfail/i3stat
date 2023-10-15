@@ -127,10 +127,9 @@ impl Drop for LogOnDropChild {
         if env::var("DEBUG").is_ok() {
             macro_rules! get {
                 ($std:expr) => {{
-                    let mut r = $std
-                        .take()
-                        .unwrap()
-                        .with_timeout(Duration::from_millis(100));
+                    let mut r = $std.take().unwrap().with_timeout(Duration::from_millis(
+                        if env::var("CI").is_ok() { 1000 } else { 100 },
+                    ));
                     let mut s = String::new();
                     let _ = r.read_to_string(&mut s);
                     s

@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use serde_derive::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
@@ -18,7 +20,7 @@ pub enum I3Button {
     Unknown,
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum I3Modifier {
     Mod1,
     Mod2,
@@ -35,7 +37,7 @@ pub struct I3ClickEvent {
     pub name: Option<String>,
     pub instance: Option<String>,
     pub button: I3Button,
-    pub modifiers: Vec<I3Modifier>,
+    pub modifiers: HashSet<I3Modifier>,
     pub x: usize,
     pub y: usize,
     pub relative_x: usize,
