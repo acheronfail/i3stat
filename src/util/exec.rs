@@ -18,6 +18,9 @@ pub fn exec(cmd: impl AsRef<str>) {
                 if !output.status.success() {
                     log::warn!("exit: command --> {} <-- {}", cmd, output.status);
                 }
+
+                eprintln!("exec stdout: {}", String::from_utf8_lossy(&output.stdout));
+                eprintln!("exec stderr: {}", String::from_utf8_lossy(&output.stderr));
             }
             Err(e) => log::error!("fail: command --> {} <-- {}", cmd, e),
         }

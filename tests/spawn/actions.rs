@@ -26,7 +26,7 @@ spawn_test!(
         test.add_fake_file("out", "asdf");
         let echo_name_then_signal = || {
             format!(
-                "#!/usr/bin/env bash\necho -n ${{0##*/}} > /out; istat-ipc --socket {} signal 0",
+                "#!/usr/bin/env bash\necho -n ${{0##*/}} > /out; echo $PATH; which foo; istat-ipc --socket {} signal 0",
                 test.istat_socket_file.display()
             )
         };
@@ -41,6 +41,8 @@ spawn_test!(
             json!([{ "instance": "0", "name": "script", "full_text": "asdf" }])
         );
 
+        // FIXME: https://github.com/acheronfail/istat/actions/runs/6521800730/job/17710733529?pr=11
+        // in CI it looks like it can't find "foo" command
         istat.click("0", I3Button::Left, &[]);
         assert_eq!(
             istat.next_line_json().unwrap(),
