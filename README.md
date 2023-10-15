@@ -39,7 +39,7 @@ Here's an image of a bar in i3:
 
 ![screenshot of i3bar](./.github/assets/full.png)
 
-And another one which `powerline` mode set:
+And another one with `powerline` mode enabled:
 
 ![screenshot of i3bar with powerline](./.github/assets/full-powerline.png)
 
@@ -141,7 +141,7 @@ $ istat-signals
 {"max":30,"min":0,"sigrtmax":64,"sigrtmin":34}
 ```
 
-The same signal can be configured for multiple bar items, so you many can be refreshed with the same signal!
+The same signal can be configured for multiple bar items, so many can be refreshed with the same signal!
 
 #### Custom IPC events
 
