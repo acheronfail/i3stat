@@ -69,12 +69,15 @@ With Rust (via cargo):
 
 ```sh
 cargo install istat
-# Make sure to look at the `sample_config.toml` file for configuration options
+# Make sure to look at the `sample_config.toml` file for configuration options!
 ```
 
 Via the AUR (Arch Linux):
 
 ```sh
+# just download the latest release and install it
+paru -S istat-bin
+# build the latest release with cargo
 paru -S istat
 ```
 

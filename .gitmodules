@@ -1,3 +1,6 @@
 [submodule "aur/istat"]
 	path = aur/istat
 	url = ssh://aur@aur.archlinux.org/istat.git
+[submodule "aur/istat-bin"]
+	path = aur/istat-bin
+	url = ssh://aur@aur.archlinux.org/istat-bin.git
