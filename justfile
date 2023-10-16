@@ -70,13 +70,13 @@ test *args:
 test-publish:
   #!/usr/bin/env bash
   set -ex
-  aur_target="./aur/target"
+  aur_target="./aur/istat/target"
   rm -rf "$aur_target"
 
   just test
   cargo publish --dry-run --allow-dirty --target-dir "$aur_target"
 
-  pushd aur
+  pushd aur/istat
   source PKGBUILD
   cp "$(find . -name '*.crate')" "${source%%::*}"
   makepkg --cleanbuild --force --skipinteg --skipchecksums
@@ -85,14 +85,29 @@ test-publish:
 # publish the create and update AUR package
 publish: test-publish
   cargo publish
-  just aur
+  just aur-istat
+  just aur-istat-bin
 
-# update the AUR package
-aur:
+# update the AUR `istat` package
+# NOTE: this must be run after the package has been published to crates.io
+aur-istat:
   #!/usr/bin/env bash
   set -ex
   version=$(grep -m1 'version' ./Cargo.toml | cut -d' ' -f3)
-  pushd aur
+  pushd aur/istat
+  sed --regexp-extended --in-place -E "0,/pkgver=.+$/{s/(pkgver=)(.+$)/\1${version}/}" ./PKGBUILD
+  sed --regexp-extended --in-place -E "0,/sha512sums=.+$/{s/sha512sums=.+$/$(makepkg --geninteg)/}" ./PKGBUILD
+  makepkg --printsrcinfo > .SRCINFO
+  git commit --all --message $(echo $version | tr -d '"'})
+  popd
+
+# update the AUR `istat-bin` package
+# NOTE: this must be run after a release has been created on Github
+aur-istat-bin:
+  #!/usr/bin/env bash
+  set -ex
+  version=$(grep -m1 'version' ./Cargo.toml | cut -d' ' -f3)
+  pushd aur/istat-bin
   sed --regexp-extended --in-place -E "0,/pkgver=.+$/{s/(pkgver=)(.+$)/\1${version}/}" ./PKGBUILD
   sed --regexp-extended --in-place -E "0,/sha512sums=.+$/{s/sha512sums=.+$/$(makepkg --geninteg)/}" ./PKGBUILD
   makepkg --printsrcinfo > .SRCINFO
