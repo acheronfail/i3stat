@@ -13,5 +13,4 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 
 ## Improvements
 
-* CI builds and automatic release publishing
 * a bin PKGBUILD for the AUR
