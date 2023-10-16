@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  build-release:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+
+    name: build-release
+    runs-on: ${{ matrix.os }}
+    steps:
+      # checkout code
+      - uses: actions/checkout@v4
+      # install just
+      - uses: extractions/setup-just@v1
+      # install rust
+      - run: rustup show && rustup target add ${{ matrix.target }}
+      # install dependencies
+      - run: just setup
+      # build (generates binaries)
+      - run: just build --locked --release --target=${{ matrix.target }}
+      - run: cargo test --locked manpage
+      # create archive
+      - name: Archive
+        shell: bash
+        run: |
+          staging="istat-${{ matrix.target }}"
+
+          mkdir "$staging"
+          cp -a doc "$staging"
+
+          files=(
+            "target/${{ matrix.target }}/release/istat"
+            "target/${{ matrix.target }}/release/istat-ipc"
+            "target/${{ matrix.target }}/release/istat-acpi"
+            "target/${{ matrix.target }}/release/istat-sensors"
+            "target/${{ matrix.target }}/release/istat-signals"
+            "README.md"
+            "sample_config.toml"
+            "sample_included_config.toml"
+            "LICENSE"
+          )
+          for file in ${files[@]}; do
+            cp $file "$staging"
+          done
+
+          zip -r "$staging.zip" "$staging"
+      # upload zip as an artifact (as a folder called `artifact`)
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: artifacts
+          path: istat-${{ matrix.target }}.zip
+
+  release:
+    name: Release
+    needs: ['build-release']
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get the release version from the tag
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+        # downloads artifacts (this downloads the folder called `artifacts` defined above)
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+        with:
+          path: .
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/istat-x86_64-unknown-linux-gnu.zip
+          tag_name: ${{ env.RELEASE_VERSION }}
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
