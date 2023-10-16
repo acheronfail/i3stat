@@ -1,6 +1,4 @@
 on:
-  push:
-    branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
 
@@ -8,7 +6,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  linux:
+  verify:
     name: Build & Test
     runs-on: ubuntu-latest
     steps:
@@ -23,5 +21,3 @@ jobs:
       - run: just setup
       - run: just build
       - run: DEBUG=1 just test
-
-  # TODO: build and upload to release tag
