@@ -1,3 +1,0 @@
-[submodule "aur"]
-	path = aur/istat-git
-	url = https://aur.archlinux.org/istat.git
