@@ -11,6 +11,9 @@ So, I decided to write my own `status_command` generator, and what better langua
   - [Features](#features)
     - [Screenshots](#screenshots)
   - [Install](#install)
+      - [Download the latest release from GitHub](#download-the-latest-release-from-github)
+      - [With Rust (via cargo):](#with-rust-via-cargo)
+      - [Via the AUR (Arch Linux):](#via-the-aur-arch-linux)
   - [Usage](#usage)
     - [Setting it up](#setting-it-up)
     - [Interacting with `istat`](#interacting-with-istat)
@@ -65,14 +68,18 @@ This table contains screenshots of some bar items:
 
 ## Install
 
-With Rust (via cargo):
+#### Download the latest release from GitHub
+
+[Link to the latest release](https://github.com/acheronfail/istat/releases/latest)
+
+#### With Rust (via cargo):
 
 ```sh
 cargo install istat
 # Make sure to look at the `sample_config.toml` file for configuration options!
 ```
 
-Via the AUR (Arch Linux):
+#### Via the AUR (Arch Linux):
 
 ```sh
 # just download the latest release and install it
