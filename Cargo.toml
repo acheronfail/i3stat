@@ -1,6 +1,6 @@
 [package]
 name = "istat"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2021"
 authors = ["acheronfail <acheronfail@gmail.com>"]
 description = "A lightweight and batteries-included status_command for i3 and sway"
