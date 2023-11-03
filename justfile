@@ -84,10 +84,8 @@ test-publish:
   popd
 
 # publish the create and update AUR package
-publish: test-publish
+publish:
   cargo publish
-  just aur-istat
-  just aur-istat-bin
 
 # update the AUR `istat` package
 # NOTE: this must be run after the package has been published to crates.io
