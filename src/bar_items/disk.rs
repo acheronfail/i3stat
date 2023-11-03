@@ -12,7 +12,13 @@ use crate::context::{BarItem, Context, StopAction};
 use crate::error::Result;
 use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
-use crate::util::Paginator;
+use crate::util::{expand_path, Paginator};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiskAlias {
+    path: PathBuf,
+    name: String,
+}
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Disk {
@@ -20,18 +26,22 @@ pub struct Disk {
     interval: Duration,
     #[serde(default)]
     mounts: HashSet<PathBuf>,
+    #[serde(default)]
+    aliases: Vec<DiskAlias>,
 }
 
 struct DiskStats {
-    mount_point: String,
+    alias: Option<String>,
+    mount_point: PathBuf,
     available_bytes: u64,
     total_bytes: u64,
 }
 
 impl DiskStats {
-    fn from_disk(disk: &SysDisk) -> DiskStats {
+    fn new(disk: &SysDisk, alias: Option<String>) -> DiskStats {
         DiskStats {
-            mount_point: disk.mount_point().to_string_lossy().into_owned(),
+            alias,
+            mount_point: disk.mount_point().to_path_buf(),
             available_bytes: disk.available_space(),
             total_bytes: disk.total_space(),
         }
@@ -48,13 +58,19 @@ impl DiskStats {
     }
 
     fn format(&self, _: &Theme) -> (String, String) {
+        let name = self
+            .alias
+            .as_ref()
+            .cloned()
+            .unwrap_or_else(|| self.mount_point.to_string_lossy().to_string());
+
         (
             format!(
                 "󰋊 {} {}",
-                self.mount_point,
+                name,
                 ByteSize(self.available_bytes).to_string_as(true)
             ),
-            format!("{}", self.mount_point),
+            format!("{}", name),
         )
     }
 }
@@ -78,7 +94,17 @@ impl BarItem for Disk {
                             self.mounts.contains(d.mount_point())
                         }
                     })
-                    .map(DiskStats::from_disk)
+                    .map(|d| {
+                        DiskStats::new(
+                            d,
+                            self.aliases
+                                .iter()
+                                .find(|a| {
+                                    expand_path(&a.path).map_or(false, |p| p == d.mount_point())
+                                })
+                                .map(|a| a.name.clone()),
+                        )
+                    })
                     .collect()
             };
             let len = stats.len();
@@ -93,7 +119,7 @@ impl BarItem for Disk {
                 let mut item = I3Item::new(full)
                     .short_text(short)
                     .markup(I3Markup::Pango)
-                    .with_data("mount_point", disk.mount_point.clone().into());
+                    .with_data("mount_point", disk.mount_point.to_string_lossy().into());
 
                 if let Some(fg) = disk.get_color(theme) {
                     item = item.color(fg);

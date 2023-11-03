@@ -13,7 +13,7 @@ use istat::ipc::protocol::{encode_ipc_msg, IpcBarEvent, IpcMessage, IpcReply, IP
 use serde_json::Value;
 
 #[derive(Debug, Parser)]
-#[clap(name = "istat-ipc", color = ColorChoice::Always)]
+#[clap(author, version, long_about, name = "istat-ipc", color = ColorChoice::Always)]
 struct Cli {
     #[command(subcommand)]
     cmd: CliCommand,
@@ -319,14 +319,4 @@ fn main() -> Result<()> {
 mod test_utils;
 
 #[cfg(test)]
-mod tests {
-    use clap::CommandFactory;
-
-    use super::test_utils::generate_manpage;
-    use super::*;
-
-    #[test]
-    fn manpage() {
-        generate_manpage(Cli::command());
-    }
-}
+crate::gen_manpage!(Cli);

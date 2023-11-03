@@ -5,7 +5,7 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 
 ## Features
 
-* man pages for all binaries
+* ...
 
 ## Bugs
 

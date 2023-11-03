@@ -154,7 +154,12 @@ wireless_refresh_interval = "2m"
 type = "disk"
 # How often this item should refresh
 interval = "60s"
-# Optionally only include these specific mount points
+# Optionally provide an alias for mount points (rather than the path)
+aliases = [
+  { path = "/", name = "root" },
+  { path = "~/some_other_mount", name = "my_cool_mount" }
+]
+# Optionally only include these specific mount points rather than autodetecting
 # mounts = ["/"]
 [items.actions]
 # Open the currently displayed mount point:
