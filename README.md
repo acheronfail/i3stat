@@ -148,7 +148,7 @@ Linux offers many realtime signals, to see which your machine supports the `ista
 
 ```bash
 $ istat-signals
-{"max":30,"min":0,"sigrtmax":64,"sigrtmin":34}
+{"count":30,"sigrtmax":64,"sigrtmin":34}
 ```
 
 The same signal can be configured for multiple bar items, so many can be refreshed with the same signal!

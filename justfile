@@ -36,7 +36,7 @@ ipc *args: _lbuild
 
 # run a binary
 run bin *args:
-  cargo lrun --bin istat-{{bin}} -- "$@"
+  cargo lrun --bin istat-{{bin}} -- "${@:2}"
 
 # install locally, copy sample configuration and restart i3
 install *args:
@@ -52,6 +52,7 @@ debug dimensions="3800x200": _lbuild
   env -u I3SOCK DISPLAY=:1.0 i3-with-shmlog --config ./scripts/i3.conf
 
 # run tests in a nested dbus session so the host session isn't affected
+alias t := test
 test *args:
   dbus-run-session -- env RUST_LOG=istat=trace ISTAT_TEST=1 cargo test --all "$@"
 
