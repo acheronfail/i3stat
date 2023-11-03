@@ -1,6 +1,6 @@
 pub mod filter;
 
-use std::net::IpAddr;
+use std::net::{IpAddr, Ipv6Addr};
 
 use tokio::sync::{broadcast, mpsc, OnceCell};
 
@@ -149,7 +149,7 @@ async fn watch_net_updates(
                     any if any.is_loopback() => false,
                     // get rid of link local addresses
                     IpAddr::V4(v4) if v4.is_link_local() => false,
-                    IpAddr::V6(v6) if v6.is_unicast_link_local() => false,
+                    IpAddr::V6(v6) if v6_is_unicast_link_local(v6) => false,
                     _ => true,
                 });
 
@@ -160,4 +160,11 @@ async fn watch_net_updates(
             tx.send(interfaces)?;
         }
     }
+}
+
+/// This exists so we don't need a nightly toolchain to compile.
+/// see: https://github.com/rust-lang/rust/issues/27709
+/// see: https://doc.rust-lang.org/nightly/std/net/struct.Ipv6Addr.html#method.is_unicast_link_local
+fn v6_is_unicast_link_local(ipv6: &Ipv6Addr) -> bool {
+    (ipv6.segments()[0] & 0xffc0) == 0xfe80
 }
