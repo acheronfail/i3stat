@@ -10,11 +10,7 @@ use async_trait::async_trait;
 use clap::ValueEnum;
 use libpulse_binding::callbacks::ListResult;
 use libpulse_binding::context::introspect::{
-    Introspector,
-    SinkInfo,
-    SinkPortInfo,
-    SourceInfo,
-    SourcePortInfo,
+    Introspector, SinkInfo, SinkPortInfo, SourceInfo, SourcePortInfo,
 };
 use libpulse_binding::context::subscribe::{Facility, InterestMaskSet, Operation};
 use libpulse_binding::context::{Context as PAContext, FlagSet, State};
@@ -215,7 +211,7 @@ impl NotificationSetting {
     }
 }
 
-const SAMPLE_NAME: &str = "istat-pulse-volume";
+const SAMPLE_NAME: &str = "i3stat-pulse-volume";
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Pulse {

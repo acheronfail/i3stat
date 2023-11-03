@@ -2,7 +2,7 @@ use clap::{ColorChoice, Parser};
 use sysinfo::{ComponentExt, RefreshKind, System, SystemExt};
 
 #[derive(Debug, Parser)]
-#[clap(author, version, long_about, name = "istat-sensors", color = ColorChoice::Always)]
+#[clap(author, version, long_about, name = "i3stat-sensors", color = ColorChoice::Always)]
 /// Outputs a list of system temperature sensors.
 ///
 /// Each line contains a sensor and its temperature, in the following format:

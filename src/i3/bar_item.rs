@@ -211,12 +211,12 @@ impl I3Item {
 
     impl_get_set! (
         /// Set the name of the item. NOTE: setting this from within an item implementation will
-        /// have no effect, since istat manages this property itself from config.
+        /// have no effect, since i3stat manages this property itself from config.
         (name, Option<String>)
     );
     impl_get_set!(
         /// Set the instance of the item. NOTE: setting this from within an item implementation ill
-        /// have no effect, since istat manages this property itself from config.
+        /// have no effect, since i3stat manages this property itself from config.
         (instance, Option<String>)
     );
 

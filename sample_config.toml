@@ -53,15 +53,15 @@ powerline = [
 # type:   required;    the type of the item
 # name:   optional;    a name for the item - makes some ipc operations easier
 # index:  optional;    where to position this item in the bar - defaults to the current index in `items`
-# signal: optional;    a real-time signal can be mapped to an item, and when istat receives this signal
+# signal: optional;    a real-time signal can be mapped to an item, and when i3stat receives this signal
 #                      the item will be refreshed - useful for manually triggering item updates.
 #                      The same signal can be used for multiple items.
-#                      The `istat-signals` command can be used to query limits for signals on the
+#                      The `i3stat-signals` command can be used to query limits for signals on the
 #                      current system.
 # actions: optional;   custom commands to run when the item is clicked.
 #                      These actions take precedence over any item's default behaviour (e.g., the pulse
 #                      item already does things on click, but these actions would prevent that behaviour).
-#                      The item's fields are added to the command's environment (use `istat-ipc get-bar` to see fields).
+#                      The item's fields are added to the command's environment (use `i3stat-ipc get-bar` to see fields).
 #                      See the examples in these config files (search for `[items.actions]`).
 #
 ## FLOAT FORMAT OPTIONS
@@ -109,8 +109,8 @@ middle_click = { modifiers = ["Shift"], command = "i3-msg exec nemo" }
 # Define different commands for different modifier combinations
 right_click = [
   # Hint: triple quotes are an easy way to escape inner quotes in TOML.
-  { modifiers = ['Shift'], command = """ i3-msg exec "zenity --info --text 'HELLO FROM ISTAT!'" """ },
-  { modifiers = ['Control'], command = """ i3-msg exec "zenity --info --text 'hello from istat!'" """ },
+  { modifiers = ['Shift'], command = """ i3-msg exec "zenity --info --text 'HELLO FROM I3STAT!'" """ },
+  { modifiers = ['Control'], command = """ i3-msg exec "zenity --info --text 'hello from i3stat!'" """ },
 ]
 
 [[items]]
@@ -183,7 +183,7 @@ name = "cpu-temp"
 # How often this item should refresh
 interval = "5s"
 # The name of the component to display temperature for.
-# The `istat-sensors` command is provided and outputs a list of components that can be used.
+# The `i3stat-sensors` command is provided and outputs a list of components that can be used.
 label = "coretemp Package id 0"
 # See: FLOAT FORMAT OPTIONS
 pad = ' '
@@ -208,7 +208,7 @@ display = "bytes"
 # Left clicking will cycle between ports for the current sink (i.e., speakers, headphones, etc).
 # All of the above actions will affect the source rather than the sink while `shift` is held.
 #
-# This item also has a highly featured ipc interface, see `istat-ipc custom pulse` for more info.
+# This item also has a highly featured ipc interface, see `i3stat-ipc custom pulse` for more info.
 type = "pulse"
 
 # Control the increment of volume changes (expressed in percent) when increasing/decreasing the volume.
@@ -248,7 +248,7 @@ type = "kbd"
 show = ["caps_lock", "num_lock"]
 # This item doesn't watch any keyboard input or anything, so to make it useful it's recommended to
 # assign a signal to it here, and then bind a key to that in i3' config in order to refresh it.
-# For example: `bindsym --release Caps_Lock exec pkill -RTMIN+4 istat`.
+# For example: `bindsym --release Caps_Lock exec pkill -RTMIN+4 i3stat`.
 # See: COMMON OPTIONS
 signal = 4
 

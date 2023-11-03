@@ -1,9 +1,9 @@
 use clap::{ColorChoice, Parser};
-use istat::error::Result;
-use istat::util::{local_block_on, netlink_acpi_listen};
+use i3stat::error::Result;
+use i3stat::util::{local_block_on, netlink_acpi_listen};
 
 #[derive(Debug, Parser)]
-#[clap(author, version, long_about, name = "istat-acpi", color = ColorChoice::Always)]
+#[clap(author, version, long_about, name = "i3stat-acpi", color = ColorChoice::Always)]
 /// A command which uses netlink and listens for acpi events, and prints them to
 /// stdout as they're received.
 ///

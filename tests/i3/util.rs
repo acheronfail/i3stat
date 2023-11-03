@@ -1,4 +1,4 @@
-pub use istat::i3::I3Button as MouseButton;
+pub use i3stat::i3::I3Button as MouseButton;
 use x11::xlib;
 use xcb::x::{self, Drawable, WarpPointer};
 use xcb::xtest::FakeInput;

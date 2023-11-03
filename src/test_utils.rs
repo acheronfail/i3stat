@@ -62,7 +62,7 @@ macro_rules! gen_manpage {
 #[test]
 fn ensure_proper_test_env() {
     assert!(
-        std::env::var("ISTAT_TEST").is_ok(),
+        std::env::var("I3STAT_TEST").is_ok(),
         "Please ensure you're running the tests via the justfile!"
     );
 }

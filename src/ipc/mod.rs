@@ -49,7 +49,7 @@ pub fn get_socket_path(socket_path: Option<&PathBuf>) -> Result<PathBuf> {
             let my_socket = PathBuf::from(&i3_socket).with_extension(
                 i3_socket
                     .extension()
-                    .map(|ext| format!("{}.istat", ext.to_string_lossy()))
+                    .map(|ext| format!("{}.i3stat", ext.to_string_lossy()))
                     .unwrap(),
             );
 

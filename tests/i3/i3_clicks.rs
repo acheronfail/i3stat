@@ -25,7 +25,7 @@ x_test!(
 
         // check initial state
         assert_json_contains!(
-            x_test.istat_get_bar(),
+            x_test.i3stat_get_bar(),
             json!([
                 { "instance": "0", "full_text": "btn=none" },
                 { "instance": "1", "full_text": "btn=none" }
@@ -37,12 +37,12 @@ x_test!(
         x_test.click(Right, x + (w - 200) as i16, y);
 
         // get the bar once before we check it - attempting to avoid flakes by
-        // delaying a little here to let istat process the click events
-        let _ = x_test.istat_get_bar();
+        // delaying a little here to let i3stat process the click events
+        let _ = x_test.i3stat_get_bar();
 
         // check item received the click
         assert_json_contains!(
-            x_test.istat_get_bar(),
+            x_test.i3stat_get_bar(),
             json!([
                 { "instance": "0", "full_text": "btn=3" },
                 { "instance": "1", "full_text": "btn=1" }

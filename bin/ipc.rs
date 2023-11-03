@@ -5,15 +5,15 @@ use std::path::PathBuf;
 
 use clap::builder::PossibleValue;
 use clap::{ColorChoice, Parser, Subcommand, ValueEnum};
-use istat::bail;
-use istat::error::Result;
-use istat::i3::{I3Button, I3ClickEvent, I3Modifier};
-use istat::ipc::get_socket_path;
-use istat::ipc::protocol::{encode_ipc_msg, IpcBarEvent, IpcMessage, IpcReply, IPC_HEADER_LEN};
+use i3stat::bail;
+use i3stat::error::Result;
+use i3stat::i3::{I3Button, I3ClickEvent, I3Modifier};
+use i3stat::ipc::get_socket_path;
+use i3stat::ipc::protocol::{encode_ipc_msg, IpcBarEvent, IpcMessage, IpcReply, IPC_HEADER_LEN};
 use serde_json::Value;
 
 #[derive(Debug, Parser)]
-#[clap(author, version, long_about, name = "istat-ipc", color = ColorChoice::Always)]
+#[clap(author, version, long_about, name = "i3stat-ipc", color = ColorChoice::Always)]
 struct Cli {
     #[command(subcommand)]
     cmd: CliCommand,
@@ -45,9 +45,9 @@ enum CliCommand {
     },
     /// Update the theme at runtime, some examples:
     ///
-    /// `istat-ipc set-theme "/powerline_enable" true`
-    /// `istat-ipc set-theme "/powerline_separator/value" "$(printf "\xee\x82\xbe")"`
-    /// `istat-ipc set-theme "" "{new theme as json...}"`
+    /// `i3stat-ipc set-theme "/powerline_enable" true`
+    /// `i3stat-ipc set-theme "/powerline_separator/value" "$(printf "\xee\x82\xbe")"`
+    /// `i3stat-ipc set-theme "" "{new theme as json...}"`
     SetTheme {
         /// JSON Pointer for the theme https://datatracker.ietf.org/doc/html/rfc6901
         pointer: String,
@@ -81,7 +81,7 @@ enum CliCommand {
         height: Option<usize>,
     },
     /// Send a signal event to a bar item, this is the same as setting `signal=1` in the config file
-    /// and then sending the signal (e.g., `pkill -RTMIN+1 istat`)
+    /// and then sending the signal (e.g., `pkill -RTMIN+1 i3stat`)
     Signal {
         /// The target bar item: can be an index or the name of the item
         target: String,
