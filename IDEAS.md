@@ -9,7 +9,7 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 
 ## Bugs
 
-* ...
+* script item: error bg right separator isn't the right colour
 
 ## Improvements
 
