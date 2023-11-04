@@ -1,5 +1,7 @@
 # `i3stat`: an i3 (or sway) status_command
 
+> **Please Note** this used to be called `istat` and [was renamed](https://github.com/acheronfail/i3stat/issues/14).
+
 I used to use [`i3blocks`](https://github.com/vivien/i3blocks) for `i3`'s `status_command`, but I found that having all
 my configuration in separate scripts was getting a little cumbersome.
 
