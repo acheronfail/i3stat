@@ -17,9 +17,9 @@ spawn_test!(
             }
         ]
     }),
-    |mut istat: SpawnedProgram| {
+    |mut i3stat: SpawnedProgram| {
         assert_eq!(
-            istat.next_line_json().unwrap(),
+            i3stat.next_line_json().unwrap(),
             json!([
                 {
                     "instance": "0",
@@ -31,7 +31,7 @@ spawn_test!(
             ])
         );
         assert_eq!(
-            istat.next_line_json().unwrap(),
+            i3stat.next_line_json().unwrap(),
             json!([
                 {
                     "instance": "0",
@@ -42,7 +42,7 @@ spawn_test!(
                 }
             ])
         );
-        istat.send_shutdown();
-        assert_eq!(istat.next_line_json().unwrap(), json!(null));
+        i3stat.send_shutdown();
+        assert_eq!(i3stat.next_line_json().unwrap(), json!(null));
     }
 );

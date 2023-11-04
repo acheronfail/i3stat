@@ -3,7 +3,7 @@ use libc::{SIGRTMAX, SIGRTMIN};
 use serde_json::json;
 
 #[derive(Debug, Parser)]
-#[clap(author, version, long_about, name = "istat-signals", color = ColorChoice::Always)]
+#[clap(author, version, long_about, name = "i3stat-signals", color = ColorChoice::Always)]
 /// Outputs the available realtime signals on the current machine.
 ///
 /// Format is JSON.

@@ -872,6 +872,51 @@ dependencies = [
 ]
 
 [[package]]
+name = "i3stat"
+version = "0.9.0"
+dependencies = [
+ "async-trait",
+ "automod",
+ "bytesize",
+ "chrono",
+ "clap",
+ "clap_mangen",
+ "dirs",
+ "fakeroot",
+ "figment",
+ "futures",
+ "hex_color",
+ "hound",
+ "humantime-serde",
+ "indexmap 2.1.0",
+ "libc",
+ "libpulse-binding",
+ "libpulse-tokio",
+ "log",
+ "neli",
+ "nix 0.27.1",
+ "num-traits",
+ "paste",
+ "pretty_env_logger",
+ "rand",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "serde_repr",
+ "signal-hook",
+ "signal-hook-tokio",
+ "strum",
+ "sysinfo",
+ "timeout-readwrite",
+ "tokio",
+ "tokio-util",
+ "wordexp",
+ "x11",
+ "xcb",
+ "zbus",
+]
+
+[[package]]
 name = "iana-time-zone"
 version = "0.1.56"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -951,51 +996,6 @@ dependencies = [
  "io-lifetimes",
  "rustix",
  "windows-sys 0.48.0",
-]
-
-[[package]]
-name = "istat"
-version = "0.8.0"
-dependencies = [
- "async-trait",
- "automod",
- "bytesize",
- "chrono",
- "clap",
- "clap_mangen",
- "dirs",
- "fakeroot",
- "figment",
- "futures",
- "hex_color",
- "hound",
- "humantime-serde",
- "indexmap 2.1.0",
- "libc",
- "libpulse-binding",
- "libpulse-tokio",
- "log",
- "neli",
- "nix 0.27.1",
- "num-traits",
- "paste",
- "pretty_env_logger",
- "rand",
- "serde",
- "serde_derive",
- "serde_json",
- "serde_repr",
- "signal-hook",
- "signal-hook-tokio",
- "strum",
- "sysinfo",
- "timeout-readwrite",
- "tokio",
- "tokio-util",
- "wordexp",
- "x11",
- "xcb",
- "zbus",
 ]
 
 [[package]]

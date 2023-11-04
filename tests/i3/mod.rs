@@ -1,4 +1,4 @@
-//! These are full integration tests which run an X server, i3 and use istat as the status bar.
+//! These are full integration tests which run an X server, i3 and use i3stat as the status bar.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
@@ -11,15 +11,8 @@ use serde_json::Value;
 use self::util::x_click;
 use crate::i3::util::MouseButton;
 use crate::util::{
-    find_object_containing,
-    get_current_exe,
-    get_exe,
-    get_fakeroot_lib,
-    get_faketime_lib,
-    wait_for_file,
-    LogOnDropChild,
-    Test,
-    FAKE_TIME,
+    find_object_containing, get_current_exe, get_exe, get_fakeroot_lib, get_faketime_lib,
+    wait_for_file, LogOnDropChild, Test, FAKE_TIME,
 };
 
 // start nested x server displays at 10
@@ -45,7 +38,7 @@ bar {{
         position top
         tray_output none
         workspace_buttons yes
-        status_command RUST_LOG=istat=trace {exe} --config {config}
+        status_command RUST_LOG=i3stat=trace {exe} --config {config}
 
         colors {{
             background #2e3440
@@ -110,10 +103,10 @@ impl<'a> X11Test<'a> {
         // create i3 config file
         let i3_config = test.dir.join("i3.conf");
         let i3_socket = test.dir.join("i3.sock");
-        let istat_socket = test.dir.join("i3.sock.istat");
+        let i3stat_socket = test.dir.join("i3.sock.i3stat");
         fs::write(
             &i3_config,
-            create_i3_conf(&i3_socket, &test.istat_config_file),
+            create_i3_conf(&i3_socket, &test.i3stat_config_file),
         )
         .unwrap();
 
@@ -140,7 +133,7 @@ impl<'a> X11Test<'a> {
                 .env("FAKEROOT", &test.fakeroot)
                 .env("FAKEROOT_DIRS", "1")
                 // setup logs
-                .env("RUST_LOG", "istat=trace")
+                .env("RUST_LOG", "i3stat=trace")
                 // spawn in nested X server
                 .env_remove("I3SOCK")
                 .env("DISPLAY", &x_display)
@@ -155,8 +148,8 @@ impl<'a> X11Test<'a> {
         // wait for i3's socket to appear
         wait_for_file(&i3_socket, MAX_WAIT_TIME);
 
-        // wait for istat's socket to appear
-        wait_for_file(&istat_socket, MAX_WAIT_TIME);
+        // wait for i3stat's socket to appear
+        wait_for_file(&i3stat_socket, MAX_WAIT_TIME);
 
         let screenshots_dir = PathBuf::from(SCREENSHOTS_DIR);
         fs::create_dir_all(&screenshots_dir).unwrap();
@@ -230,12 +223,12 @@ impl<'a> X11Test<'a> {
         String::from_utf8(self.cmd("i3-msg -t get_config")).unwrap()
     }
 
-    pub fn istat_get_bar(&self) -> Value {
-        self.istat_ipc("get-bar")
+    pub fn i3stat_get_bar(&self) -> Value {
+        self.i3stat_ipc("get-bar")
     }
 
-    pub fn istat_ipc(&self, ipc_cmd: impl AsRef<str>) -> Value {
-        let ipc = get_exe("istat-ipc");
+    pub fn i3stat_ipc(&self, ipc_cmd: impl AsRef<str>) -> Value {
+        let ipc = get_exe("i3stat-ipc");
         serde_json::from_slice(&self.cmd(format!(
             "{ipc} {cmd}",
             ipc = ipc.display(),

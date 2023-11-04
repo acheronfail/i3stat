@@ -38,7 +38,7 @@ pub fn parse(args: &Cli) -> Result<AppConfig> {
         .config
         .as_ref()
         .map(|p| p.to_owned())
-        .or_else(|| dirs::config_dir().map(|d| d.join("istat/config")))
+        .or_else(|| dirs::config_dir().map(|d| d.join("i3stat/config")))
         .ok_or_else(|| "failed to find config file")?;
 
     let cfg_dir = cfg_file

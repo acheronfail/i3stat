@@ -11,9 +11,9 @@ spawn_test!(
             { "type": "raw", "full_text": "2", "name": "custom_name" },
         ]
     }),
-    |mut istat: SpawnedProgram| {
+    |mut i3stat: SpawnedProgram| {
         assert_eq!(
-            istat.next_line_json().unwrap(),
+            i3stat.next_line_json().unwrap(),
             json!([
                 { "instance": "0", "full_text": "0", "name": "raw" },
                 { "instance": "1", "full_text": "1", "name": "raw" },

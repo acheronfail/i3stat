@@ -31,17 +31,17 @@ jobs:
       - name: Archive
         shell: bash
         run: |
-          staging="istat-${{ matrix.target }}"
+          staging="i3stat-${{ matrix.target }}"
 
           mkdir "$staging"
           cp -a doc "$staging"
 
           files=(
-            "target/${{ matrix.target }}/release/istat"
-            "target/${{ matrix.target }}/release/istat-ipc"
-            "target/${{ matrix.target }}/release/istat-acpi"
-            "target/${{ matrix.target }}/release/istat-sensors"
-            "target/${{ matrix.target }}/release/istat-signals"
+            "target/${{ matrix.target }}/release/i3stat"
+            "target/${{ matrix.target }}/release/i3stat-ipc"
+            "target/${{ matrix.target }}/release/i3stat-acpi"
+            "target/${{ matrix.target }}/release/i3stat-sensors"
+            "target/${{ matrix.target }}/release/i3stat-signals"
             "README.md"
             "sample_config.toml"
             "sample_included_config.toml"
@@ -57,7 +57,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: artifacts
-          path: istat-${{ matrix.target }}.zip
+          path: i3stat-${{ matrix.target }}.zip
 
   release:
     name: Release
@@ -77,7 +77,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            artifacts/istat-x86_64-unknown-linux-gnu.zip
+            artifacts/i3stat-x86_64-unknown-linux-gnu.zip
           tag_name: ${{ env.RELEASE_VERSION }}
           prerelease: true
         env:

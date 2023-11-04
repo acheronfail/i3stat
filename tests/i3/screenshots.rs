@@ -315,23 +315,23 @@ screenshot!(
 
         at_0: {
             files => { "/proc/meminfo": mem(31250000, 31250000) };
-            test_fn => |test: &X11Test| test.istat_ipc("click mem left");
+            test_fn => |test: &X11Test| test.i3stat_ipc("click mem left");
         },
         at_25: {
             files => { "/proc/meminfo": mem(31250000, 23437500) };
-            test_fn => |test: &X11Test| test.istat_ipc("click mem left");
+            test_fn => |test: &X11Test| test.i3stat_ipc("click mem left");
         },
         at_50: {
             files => { "/proc/meminfo": mem(31250000, 15625000) };
-            test_fn => |test: &X11Test| test.istat_ipc("click mem left");
+            test_fn => |test: &X11Test| test.i3stat_ipc("click mem left");
         },
         at_75: {
             files => { "/proc/meminfo": mem(31250000, 7812500) };
-            test_fn => |test: &X11Test| test.istat_ipc("click mem left");
+            test_fn => |test: &X11Test| test.i3stat_ipc("click mem left");
         },
         at_100: {
             files => { "/proc/meminfo": mem(31250000, 0) };
-            test_fn => |test: &X11Test| test.istat_ipc("click mem left");
+            test_fn => |test: &X11Test| test.i3stat_ipc("click mem left");
          }
     }
 );
@@ -367,7 +367,7 @@ screenshot!(
             test_fn => |t: &X11Test| {
                 t.cmd("echo 1 > /sys/class/net/wlan1/statistics/rx_bytes");
                 t.cmd("echo 2 > /sys/class/net/wlan1/statistics/tx_bytes");
-                t.istat_ipc("click net_usage left");
+                t.i3stat_ipc("click net_usage left");
             };
         },
         threshold_1: {
@@ -378,7 +378,7 @@ screenshot!(
             test_fn => |t: &X11Test| {
                 t.cmd("echo 2048 > /sys/class/net/wlan1/statistics/rx_bytes");
                 t.cmd("echo 4096 > /sys/class/net/wlan1/statistics/tx_bytes");
-                t.istat_ipc("click net_usage left");
+                t.i3stat_ipc("click net_usage left");
             };
         },
         threshold_2: {
@@ -389,7 +389,7 @@ screenshot!(
             test_fn => |t: &X11Test| {
                 t.cmd("echo 4000000 > /sys/class/net/wlan1/statistics/rx_bytes");
                 t.cmd("echo 8000000 > /sys/class/net/wlan1/statistics/tx_bytes");
-                t.istat_ipc("click net_usage left");
+                t.i3stat_ipc("click net_usage left");
             };
         },
         threshold_3: {
@@ -400,7 +400,7 @@ screenshot!(
             test_fn => |t: &X11Test| {
                 t.cmd("echo 14000000 > /sys/class/net/wlan1/statistics/rx_bytes");
                 t.cmd("echo 18000000 > /sys/class/net/wlan1/statistics/tx_bytes");
-                t.istat_ipc("click net_usage left");
+                t.i3stat_ipc("click net_usage left");
             };
         },
         threshold_4: {
@@ -411,7 +411,7 @@ screenshot!(
             test_fn => |t: &X11Test| {
                 t.cmd("echo 31000000 > /sys/class/net/wlan1/statistics/rx_bytes");
                 t.cmd("echo 32000000 > /sys/class/net/wlan1/statistics/tx_bytes");
-                t.istat_ipc("click net_usage left");
+                t.i3stat_ipc("click net_usage left");
             };
         },
         threshold_max: {
@@ -422,7 +422,7 @@ screenshot!(
             test_fn => |t: &X11Test| {
                 t.cmd("echo 420000000 > /sys/class/net/wlan1/statistics/rx_bytes");
                 t.cmd("echo 430000000 > /sys/class/net/wlan1/statistics/tx_bytes");
-                t.istat_ipc("click net_usage left");
+                t.i3stat_ipc("click net_usage left");
             };
         },
     }

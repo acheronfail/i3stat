@@ -60,7 +60,7 @@ pub fn get_exe(name: impl AsRef<str>) -> PathBuf {
 
 /// Find the location of the binary we're testing.
 pub fn get_current_exe() -> PathBuf {
-    get_exe("istat")
+    get_exe("i3stat")
 }
 
 pub fn wait_for_file(path: impl AsRef<Path>, timeout: Duration) {
@@ -161,15 +161,15 @@ pub struct Test {
     pub dir: PathBuf,
     pub bin_dir: PathBuf,
     pub fakeroot: PathBuf,
-    pub istat_socket_file: PathBuf,
-    pub istat_config_file: PathBuf,
+    pub i3stat_socket_file: PathBuf,
+    pub i3stat_config_file: PathBuf,
 }
 
 impl Test {
     pub fn new(name: impl AsRef<str>, config: Value) -> Test {
         let name = name.as_ref();
         let dir = env::temp_dir().join(format!(
-            "istat-test-{}.{}",
+            "i3stat-test-{}.{}",
             name,
             UNIQUE_ID.fetch_add(1, Ordering::SeqCst)
         ));
@@ -200,8 +200,8 @@ impl Test {
             env,
             bin_dir,
             fakeroot: fake_root,
-            istat_config_file: config_file,
-            istat_socket_file: socket_file,
+            i3stat_config_file: config_file,
+            i3stat_socket_file: socket_file,
         }
     }
 

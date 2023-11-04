@@ -1,4 +1,4 @@
-//! These tests spawn istat directly and use its IPC channel for assertions.
+//! These tests spawn i3stat directly and use its IPC channel for assertions.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::marker::PhantomData;
@@ -7,19 +7,14 @@ use std::path::PathBuf;
 use std::process::{ChildStdin, ChildStdout, Command, Stdio};
 use std::time::Duration;
 
-use istat::config::AppConfig;
-use istat::i3::{I3Button, I3ClickEvent, I3Modifier};
-use istat::ipc::protocol::{encode_ipc_msg, IpcMessage, IpcReply, IpcResult, IPC_HEADER_LEN};
+use i3stat::config::AppConfig;
+use i3stat::i3::{I3Button, I3ClickEvent, I3Modifier};
+use i3stat::ipc::protocol::{encode_ipc_msg, IpcMessage, IpcReply, IpcResult, IPC_HEADER_LEN};
 use serde_json::Value;
 use timeout_readwrite::{TimeoutReadExt, TimeoutReader};
 
 use crate::util::{
-    get_current_exe,
-    get_fakeroot_lib,
-    get_faketime_lib,
-    LogOnDropChild,
-    Test,
-    FAKE_TIME,
+    get_current_exe, get_fakeroot_lib, get_faketime_lib, LogOnDropChild, Test, FAKE_TIME,
 };
 
 /// Convenience struct for running assertions on and communicating with a running instance of the program
@@ -47,13 +42,13 @@ impl<'a> SpawnedProgram<'a> {
                 .env("FAKEROOT", &test.fakeroot)
                 .env("FAKEROOT_DIRS", "1")
                 // setup logs
-                .env("RUST_LOG", "istat=trace")
+                .env("RUST_LOG", "i3stat=trace")
                 // socket
                 .arg("--socket")
-                .arg(&test.istat_socket_file)
+                .arg(&test.i3stat_socket_file)
                 // config
                 .arg("--config")
-                .arg(&test.istat_config_file)
+                .arg(&test.i3stat_config_file)
                 // stdio
                 .stdin(Stdio::piped())
                 .stderr(Stdio::piped())
@@ -71,7 +66,7 @@ impl<'a> SpawnedProgram<'a> {
         let mut test = SpawnedProgram {
             test: PhantomData,
             child,
-            socket: test.istat_socket_file.clone(),
+            socket: test.i3stat_socket_file.clone(),
             stdin,
             stdout,
         };
@@ -172,8 +167,8 @@ macro_rules! spawn_test {
         fn $name() {
             let mut test = crate::util::Test::new(stringify!($name), $config);
             $setup_fn(&mut test);
-            let istat = crate::spawn::SpawnedProgram::spawn(&test);
-            $test_fn(istat);
+            let i3stat = crate::spawn::SpawnedProgram::spawn(&test);
+            $test_fn(i3stat);
         }
     };
 }

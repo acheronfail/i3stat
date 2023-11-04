@@ -1,4 +1,4 @@
-use istat::i3::{I3Button, I3Modifier};
+use i3stat::i3::{I3Button, I3Modifier};
 use serde_json::json;
 
 use crate::spawn::SpawnedProgram;
@@ -27,8 +27,8 @@ spawn_test!(
         let echo_name_then_signal = || {
             format!(
                 "#!/usr/bin/env bash\necho -n ${{0##*/}} > /out; {ipc} --socket {socket} signal 0",
-                ipc = get_exe("istat-ipc").display(),
-                socket = test.istat_socket_file.display()
+                ipc = get_exe("i3stat-ipc").display(),
+                socket = test.i3stat_socket_file.display()
             )
         };
 
@@ -36,32 +36,32 @@ spawn_test!(
         test.add_bin("bar", echo_name_then_signal());
         test.add_bin("baz", echo_name_then_signal());
     },
-    |mut istat: SpawnedProgram| {
+    |mut i3stat: SpawnedProgram| {
         assert_eq!(
-            istat.next_line_json().unwrap(),
+            i3stat.next_line_json().unwrap(),
             json!([{ "instance": "0", "name": "script", "full_text": "asdf" }])
         );
 
-        istat.click("0", I3Button::Left, &[]);
+        i3stat.click("0", I3Button::Left, &[]);
         assert_eq!(
-            istat.next_line_json().unwrap(),
+            i3stat.next_line_json().unwrap(),
             json!([{ "instance": "0", "name": "script", "full_text": "foo" }])
         );
 
-        istat.click("0", I3Button::Middle, &[I3Modifier::Shift]);
+        i3stat.click("0", I3Button::Middle, &[I3Modifier::Shift]);
         assert_eq!(
-            istat.next_line_json().unwrap(),
+            i3stat.next_line_json().unwrap(),
             json!([{ "instance": "0", "name": "script", "full_text": "bar" }])
         );
 
-        istat.click("0", I3Button::Right, &[I3Modifier::Control]);
+        i3stat.click("0", I3Button::Right, &[I3Modifier::Control]);
         assert_eq!(
-            istat.next_line_json().unwrap(),
+            i3stat.next_line_json().unwrap(),
             json!([{ "instance": "0", "name": "script", "full_text": "baz" }])
         );
-        istat.click("0", I3Button::Right, &[I3Modifier::Shift]);
+        i3stat.click("0", I3Button::Right, &[I3Modifier::Shift]);
         assert_eq!(
-            istat.next_line_json().unwrap(),
+            i3stat.next_line_json().unwrap(),
             json!([{ "instance": "0", "name": "script", "full_text": "foo" }])
         );
     }

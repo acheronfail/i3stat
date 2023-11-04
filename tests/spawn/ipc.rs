@@ -1,5 +1,5 @@
-use istat::i3::{I3Button, I3ClickEvent};
-use istat::ipc::protocol::{IpcBarEvent, IpcMessage};
+use i3stat::i3::{I3Button, I3ClickEvent};
+use i3stat::ipc::protocol::{IpcBarEvent, IpcMessage};
 use serde_json::{json, Value};
 
 use crate::spawn::SpawnedProgram;
@@ -7,13 +7,13 @@ use crate::spawn::SpawnedProgram;
 spawn_test!(
     shutdown,
     json!({ "items": [] }),
-    |mut istat: SpawnedProgram| {
+    |mut i3stat: SpawnedProgram| {
         // request shutdown
-        istat.send_shutdown();
+        i3stat.send_shutdown();
         // there were no items in the config, so nothing should have been outputted
-        assert_eq!(istat.next_line().unwrap(), None);
+        assert_eq!(i3stat.next_line().unwrap(), None);
         // check exit status
-        let status = istat.child.wait().unwrap();
+        let status = i3stat.child.wait().unwrap();
         assert_eq!(status.code(), Some(0));
     }
 );
@@ -27,9 +27,9 @@ spawn_test!(
             { "type": "raw", "full_text": "2", "name": "custom_name" },
         ]
     }),
-    |mut istat: SpawnedProgram| {
+    |mut i3stat: SpawnedProgram| {
         assert_eq!(
-            istat.send_ipc(IpcMessage::Info),
+            i3stat.send_ipc(IpcMessage::Info),
             json!({
                 "value": {
                     "0": "raw",
@@ -49,10 +49,10 @@ spawn_test!(
             { "type": "script", "command": "echo -n signal: ${I3_SIGNAL:-false}", "output": "simple" }
         ]
     }),
-    |mut istat: SpawnedProgram| {
+    |mut i3stat: SpawnedProgram| {
         // initial state
         assert_eq!(
-            istat.next_line_json().unwrap(),
+            i3stat.next_line_json().unwrap(),
             json!([
                 { "instance": "0", "name": "raw", "full_text": "0" },
                 { "instance": "1", "name": "script", "full_text": "signal: false" },
@@ -61,21 +61,21 @@ spawn_test!(
 
         // send refresh
         assert_eq!(
-            istat.send_ipc(IpcMessage::RefreshAll),
+            i3stat.send_ipc(IpcMessage::RefreshAll),
             json!({ "result": { "detail": null, "type": "success" } })
         );
 
         // we only expect a single update - "raw" items don't update
         assert_eq!(
-            istat.next_line_json().unwrap(),
+            i3stat.next_line_json().unwrap(),
             json!([
                 { "instance": "0", "name": "raw", "full_text": "0" },
                 { "instance": "1", "name": "script", "full_text": "signal: true" },
             ])
         );
 
-        istat.send_shutdown();
-        assert_eq!(istat.next_line_json().unwrap(), json!(null));
+        i3stat.send_shutdown();
+        assert_eq!(i3stat.next_line_json().unwrap(), json!(null));
     }
 );
 
@@ -88,9 +88,9 @@ spawn_test!(
             { "type": "script", "command": "echo -n signal: ${I3_SIGNAL:-false}", "output": "simple" },
         ]
     }),
-    |mut istat: SpawnedProgram| {
+    |mut i3stat: SpawnedProgram| {
         assert_eq!(
-            istat.next_line_json().unwrap(),
+            i3stat.next_line_json().unwrap(),
             json!([
                 { "instance": "0", "name": "script", "full_text": "signal: false" },
                 { "instance": "1", "name": "script", "full_text": "signal: false" },
@@ -99,7 +99,7 @@ spawn_test!(
         );
 
         assert_eq!(
-            istat.send_ipc(IpcMessage::BarEvent {
+            i3stat.send_ipc(IpcMessage::BarEvent {
                 instance: "1".into(),
                 event: IpcBarEvent::Signal
             }),
@@ -107,7 +107,7 @@ spawn_test!(
         );
 
         assert_eq!(
-            istat.next_line_json().unwrap(),
+            i3stat.next_line_json().unwrap(),
             json!([
                 { "instance": "0", "name": "script", "full_text": "signal: false" },
                 { "instance": "1", "name": "script", "full_text": "signal: true" },
@@ -126,9 +126,9 @@ spawn_test!(
             { "type": "script", "command": "echo -n signal: ${I3_SIGNAL:-false}", "output": "simple" },
         ]
     }),
-    |mut istat: SpawnedProgram| {
+    |mut i3stat: SpawnedProgram| {
         assert_eq!(
-            istat.next_line_json().unwrap(),
+            i3stat.next_line_json().unwrap(),
             json!([
                 { "instance": "0", "name": "script", "full_text": "signal: false" },
                 { "instance": "1", "name": "script", "full_text": "signal: false" },
@@ -137,7 +137,7 @@ spawn_test!(
         );
 
         assert_eq!(
-            istat.send_ipc(IpcMessage::BarEvent {
+            i3stat.send_ipc(IpcMessage::BarEvent {
                 instance: "script".into(),
                 event: IpcBarEvent::Signal
             }),
@@ -145,7 +145,7 @@ spawn_test!(
         );
 
         assert_eq!(
-            istat.next_line_json().unwrap(),
+            i3stat.next_line_json().unwrap(),
             json!([
                 { "instance": "0", "name": "script", "full_text": "signal: true" },
                 { "instance": "1", "name": "script", "full_text": "signal: false" },
@@ -164,9 +164,9 @@ spawn_test!(
             { "type": "script", "command": "echo -n signal: ${I3_SIGNAL:-false}", "output": "simple", "name": "foo" },
         ]
     }),
-    |mut istat: SpawnedProgram| {
+    |mut i3stat: SpawnedProgram| {
         assert_eq!(
-            istat.next_line_json().unwrap(),
+            i3stat.next_line_json().unwrap(),
             json!([
                 { "instance": "0", "name": "script", "full_text": "signal: false" },
                 { "instance": "1", "name": "script", "full_text": "signal: false" },
@@ -175,7 +175,7 @@ spawn_test!(
         );
 
         assert_eq!(
-            istat.send_ipc(IpcMessage::BarEvent {
+            i3stat.send_ipc(IpcMessage::BarEvent {
                 instance: "foo".into(),
                 event: IpcBarEvent::Signal
             }),
@@ -183,7 +183,7 @@ spawn_test!(
         );
 
         assert_eq!(
-            istat.next_line_json().unwrap(),
+            i3stat.next_line_json().unwrap(),
             json!([
                 { "instance": "0", "name": "script", "full_text": "signal: false" },
                 { "instance": "1", "name": "script", "full_text": "signal: false" },
@@ -204,9 +204,9 @@ spawn_test!(
             }
         ]
     }),
-    |mut istat: SpawnedProgram| {
+    |mut i3stat: SpawnedProgram| {
         assert_eq!(
-            istat.next_line_json().unwrap(),
+            i3stat.next_line_json().unwrap(),
             json!([
                 { "instance": "0", "name": "script", "full_text": "bar item" }
             ])
@@ -214,7 +214,7 @@ spawn_test!(
 
         // ipc click with index
         assert_eq!(
-            istat.send_ipc(IpcMessage::BarEvent {
+            i3stat.send_ipc(IpcMessage::BarEvent {
                 instance: "0".into(),
                 event: IpcBarEvent::Click(I3ClickEvent {
                     button: I3Button::Left,
@@ -225,7 +225,7 @@ spawn_test!(
         );
 
         assert_eq!(
-            istat.next_line_json().unwrap(),
+            i3stat.next_line_json().unwrap(),
             json!([
                 { "instance": "0", "name": "script", "full_text": "button=1" }
             ])
@@ -233,7 +233,7 @@ spawn_test!(
 
         // ipc click with name
         assert_eq!(
-            istat.send_ipc(IpcMessage::BarEvent {
+            i3stat.send_ipc(IpcMessage::BarEvent {
                 instance: "script".into(),
                 event: IpcBarEvent::Click(I3ClickEvent {
                     button: I3Button::Right,
@@ -244,7 +244,7 @@ spawn_test!(
         );
 
         assert_eq!(
-            istat.next_line_json().unwrap(),
+            i3stat.next_line_json().unwrap(),
             json!([
                 { "instance": "0", "name": "script", "full_text": "button=3" }
             ])
@@ -255,8 +255,8 @@ spawn_test!(
 spawn_test!(
     get_config,
     json!({ "items": [{ "type": "raw", "full_text": "raw" }] }),
-    |mut istat: SpawnedProgram| {
-        let reply = istat.send_ipc(IpcMessage::GetConfig);
+    |mut i3stat: SpawnedProgram| {
+        let reply = i3stat.send_ipc(IpcMessage::GetConfig);
         let config = reply.get("value").unwrap();
         assert_eq!(config.get("items").unwrap().as_array().unwrap().len(), 1);
         assert!(config.get("socket").unwrap().is_string());
@@ -267,11 +267,11 @@ spawn_test!(
 spawn_test!(
     get_theme,
     json!({ "items": [] }),
-    |mut istat: SpawnedProgram| {
-        let reply = istat.send_ipc(IpcMessage::GetConfig);
+    |mut i3stat: SpawnedProgram| {
+        let reply = i3stat.send_ipc(IpcMessage::GetConfig);
         let config = reply.get("value").unwrap();
 
-        let reply = istat.send_ipc(IpcMessage::GetTheme);
+        let reply = i3stat.send_ipc(IpcMessage::GetTheme);
         let theme = reply.get("value").unwrap();
 
         assert_eq!(config.get("theme").unwrap(), theme);
@@ -281,9 +281,9 @@ spawn_test!(
 spawn_test!(
     set_theme,
     json!({ "items": [] }),
-    |mut istat: SpawnedProgram| {
+    |mut i3stat: SpawnedProgram| {
         // get theme
-        let mut reply = istat.send_ipc(IpcMessage::GetTheme);
+        let mut reply = i3stat.send_ipc(IpcMessage::GetTheme);
         let mut theme = reply.as_object_mut().unwrap().remove("value").unwrap();
 
         // ensure `powerline_enable` is false
@@ -295,12 +295,12 @@ spawn_test!(
         // send message to set it to true
         *theme.pointer_mut("/powerline_enable").unwrap() = Value::Bool(true);
         assert_eq!(
-            istat.send_ipc(IpcMessage::SetTheme(theme)),
+            i3stat.send_ipc(IpcMessage::SetTheme(theme)),
             json!({ "result": { "detail": null, "type": "success" } })
         );
 
         // fetch again and assert it was updated
-        let reply = istat.send_ipc(IpcMessage::GetTheme);
+        let reply = i3stat.send_ipc(IpcMessage::GetTheme);
         let theme = reply.get("value").unwrap();
         assert_eq!(
             *theme.pointer("/powerline_enable").unwrap(),

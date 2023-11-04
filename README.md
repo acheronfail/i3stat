@@ -1,4 +1,6 @@
-# `istat`: an i3 (or sway) status_command
+# `i3stat`: an i3 (or sway) status_command
+
+> **Please Note** this used to be called `istat` and [was renamed](https://github.com/acheronfail/i3stat/issues/14).
 
 I used to use [`i3blocks`](https://github.com/vivien/i3blocks) for `i3`'s `status_command`, but I found that having all
 my configuration in separate scripts was getting a little cumbersome.
@@ -7,7 +9,7 @@ That, and also I could never find a good block for volume control that wasn't ja
 
 So, I decided to write my own `status_command` generator, and what better language to write it in than Rust!
 
-- [`istat`: an i3 (or sway) status\_command](#istat-an-i3-or-sway-status_command)
+- [`i3stat`: an i3 (or sway) status\_command](#i3stat-an-i3-or-sway-status_command)
   - [Features](#features)
     - [Screenshots](#screenshots)
   - [Install](#install)
@@ -16,7 +18,7 @@ So, I decided to write my own `status_command` generator, and what better langua
       - [Via the AUR (Arch Linux):](#via-the-aur-arch-linux)
   - [Usage](#usage)
     - [Setting it up](#setting-it-up)
-    - [Interacting with `istat`](#interacting-with-istat)
+    - [Interacting with `i3stat`](#interacting-with-i3stat)
       - [Signals](#signals)
       - [Custom IPC events](#custom-ipc-events)
   - [Development](#development)
@@ -70,12 +72,12 @@ This table contains screenshots of some bar items:
 
 #### Download the latest release from GitHub
 
-[Link to the latest release](https://github.com/acheronfail/istat/releases/latest)
+[Link to the latest release](https://github.com/acheronfail/i3stat/releases/latest)
 
 #### With Rust (via cargo):
 
 ```sh
-cargo install istat
+cargo install i3stat
 # Make sure to look at the `sample_config.toml` file for configuration options!
 ```
 
@@ -83,35 +85,35 @@ cargo install istat
 
 ```sh
 # just download the latest release and install it
-paru -S istat-bin
+paru -S i3stat-bin
 # build the latest release with cargo
-paru -S istat
+paru -S i3stat
 ```
 
 ## Usage
 
 ### Setting it up
 
-First, create a config file for `istat`. View [the sample config](./sample_config.toml) for what's available.
+First, create a config file for `i3stat`. View [the sample config](./sample_config.toml) for what's available.
 This file should be placed in:
 
-* `$XDG_CONFIG_HOME/istat/<here>`, or
-* `$HOME/.config/istat/<here>`
+* `$XDG_CONFIG_HOME/i3stat/<here>`, or
+* `$HOME/.config/i3stat/<here>`
 
 Even though the [sample configuration file](./sample_config.toml) is a TOML file, YAML and JSON are also supported.
 
-Then, update your i3/sway config to use `istat` as the `status_command`:
+Then, update your i3/sway config to use `i3stat` as the `status_command`:
 
 ```
 bar {
-        status_command istat
+        status_command i3stat
         # ... other config
 }
 ```
 
-### Interacting with `istat`
+### Interacting with `i3stat`
 
-`istat` offers multiple ways of interacting with it:
+`i3stat` offers multiple ways of interacting with it:
 
 * standard click events from i3/sway
 * real-time signals
@@ -136,18 +138,18 @@ show = ["caps_lock", "num_lock"]
 signal = 8
 ```
 
-Now, whenever `istat` receives the `SIGRTMIN+8` signal, the bar item will be refreshed.
+Now, whenever `i3stat` receives the `SIGRTMIN+8` signal, the bar item will be refreshed.
 Pair this with the following config in i3/sway, and you'll have a bar item that reflects your keys all the time:
 
 ```
-bindsym --release Caps_Lock exec --no-startup-id pkill -RTMIN+8 istat
-bindsym --release Num_Lock  exec --no-startup-id pkill -RTMIN+8 istat
+bindsym --release Caps_Lock exec --no-startup-id pkill -RTMIN+8 i3stat
+bindsym --release Num_Lock  exec --no-startup-id pkill -RTMIN+8 i3stat
 ```
 
-Linux offers many realtime signals, to see which your machine supports the `istat-signals` command is provided:
+Linux offers many realtime signals, to see which your machine supports the `i3stat-signals` command is provided:
 
 ```bash
-$ istat-signals
+$ i3stat-signals
 {"count":30,"sigrtmax":64,"sigrtmin":34}
 ```
 
@@ -155,7 +157,7 @@ The same signal can be configured for multiple bar items, so many can be refresh
 
 #### Custom IPC events
 
-The command `istat-ipc` is provided to interface with `istat`. It supports:
+The command `i3stat-ipc` is provided to interface with `i3stat`. It supports:
 
 * fetching the name and index of all the currently running bar items
 * refreshing all bar items at once
@@ -166,30 +168,30 @@ The command `istat-ipc` is provided to interface with `istat`. It supports:
 **Refresh all bar items at once**:
 
 ```bash
-istat-ipc refresh-all
+i3stat-ipc refresh-all
 ```
 
 **Send a click event to a bar item - without actually clicking it!**:
 
 ```bash
 # emulate a left click on the disk item:
-istat-ipc click disk left
+i3stat-ipc click disk left
 ```
 
 **Control PulseAudio/Pipewire via custom IPC events**:
 
 ```bash
 # see all the custom events that pulse has to offer:
-istat-ipc custom pulse
+i3stat-ipc custom pulse
 
 # Some examples:
 
 # turn the output (speakers) volume up
-istat-ipc custom pulse volume-down sink
+i3stat-ipc custom pulse volume-down sink
 # turn the input (microphone) volume down
-istat-ipc custom pulse volume-up   source
+i3stat-ipc custom pulse volume-up   source
 # mute or unmute the output
-istat-ipc custom pulse mute-toggle sink
+i3stat-ipc custom pulse mute-toggle sink
 ```
 
 ## Development

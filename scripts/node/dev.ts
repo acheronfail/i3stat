@@ -21,7 +21,7 @@ const BACKSP = '\x7f';
 const RETURN = '\r';
 const UP_ARR = '\x1B[A';
 const DN_ARR = '\x1B[B';
-const SOCKET_PATH = '/tmp/istat-socket.dev';
+const SOCKET_PATH = '/tmp/i3stat-socket.dev';
 
 let prev_commands: string[] = [];
 let prev_command_idx = 0;
@@ -32,8 +32,8 @@ let _input = '';
 
 // spawn, pipe stdout/err and write initial stdin
 process.chdir('../..');
-const { sigrtmin, sigrtmax } = JSON.parse((await $`${Bin.iStatSignals}`).stdout);
-const child = execa(Bin.iStat, ['--config=./sample_config.toml', `--socket=${SOCKET_PATH}`]);
+const { sigrtmin, sigrtmax } = JSON.parse((await $`${Bin.i3StatSignals}`).stdout);
+const child = execa(Bin.i3Stat, ['--config=./sample_config.toml', `--socket=${SOCKET_PATH}`]);
 if (!child.stdin) throw new Error("Child's STDIN was not setup correctly!");
 if (!child.stdout) throw new Error("Child's STDOUT was not setup correctly!");
 if (!child.stderr) throw new Error("Child's STDERR was not setup correctly!");

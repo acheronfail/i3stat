@@ -1,4 +1,4 @@
-use istat::i3::I3Button;
+use i3stat::i3::I3Button;
 use serde_json::json;
 
 use crate::spawn::SpawnedProgram;
@@ -14,9 +14,9 @@ spawn_test!(
             }
         ]
     }),
-    |mut istat: SpawnedProgram| {
+    |mut i3stat: SpawnedProgram| {
         assert_eq!(
-            istat.next_line_json().unwrap(),
+            i3stat.next_line_json().unwrap(),
             json!([
                 {
                     "instance": "0",
@@ -26,9 +26,9 @@ spawn_test!(
             ])
         );
 
-        istat.click("0", I3Button::Left, &[]);
+        i3stat.click("0", I3Button::Left, &[]);
         assert_eq!(
-            istat.next_line_json().unwrap(),
+            i3stat.next_line_json().unwrap(),
             json!([
                 {
                     "instance": "0",
@@ -38,9 +38,9 @@ spawn_test!(
             ])
         );
 
-        istat.click("0", I3Button::Middle, &[]);
+        i3stat.click("0", I3Button::Middle, &[]);
         assert_eq!(
-            istat.next_line_json().unwrap(),
+            i3stat.next_line_json().unwrap(),
             json!([
                 {
                     "instance": "0",
@@ -64,9 +64,9 @@ spawn_test!(
             }
         ]
     }),
-    |mut istat: SpawnedProgram| {
+    |mut i3stat: SpawnedProgram| {
         assert_eq!(
-            istat.next_line_json().unwrap(),
+            i3stat.next_line_json().unwrap(),
             json!([
                 {
                     "instance": "0",

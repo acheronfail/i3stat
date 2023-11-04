@@ -1,30 +1,30 @@
 [package]
-name = "istat"
-version = "0.8.0"
+name = "i3stat"
+version = "0.9.0"
 edition = "2021"
 authors = ["acheronfail <acheronfail@gmail.com>"]
 description = "A lightweight and batteries-included status_command for i3 and sway"
 license = "GPL-3.0-only"
-homepage = "https://github.com/acheronfail/istat"
-repository = "https://github.com/acheronfail/istat"
-keywords = ["i3", "sway", "status_command", "istat", "status"]
+homepage = "https://github.com/acheronfail/i3stat"
+repository = "https://github.com/acheronfail/i3stat"
+keywords = ["i3", "sway", "status_command", "i3stat", "status"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [[bin]]
-name = "istat-acpi"
+name = "i3stat-acpi"
 path = "bin/acpi.rs"
 
 [[bin]]
-name = "istat-ipc"
+name = "i3stat-ipc"
 path = "bin/ipc.rs"
 
 [[bin]]
-name = "istat-sensors"
+name = "i3stat-sensors"
 path = "bin/sensors.rs"
 
 [[bin]]
-name = "istat-signals"
+name = "i3stat-signals"
 path = "bin/signals.rs"
 
 [dependencies]

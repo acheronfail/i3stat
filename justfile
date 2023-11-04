@@ -26,26 +26,26 @@ build *args:
 _lbuild:
   cargo lbuild --all
 
-# run `istat` in the terminal and interact with it
+# run `i3stat` in the terminal and interact with it
 dev *args: _lbuild
-  cd ./scripts/node && RUST_BACKTRACE=1 RUST_LOG=istat=trace yarn dev "$@"
+  cd ./scripts/node && RUST_BACKTRACE=1 RUST_LOG=i3stat=trace yarn dev "$@"
 
-# send an ipc event to the running debug version of istat (either `just dev` or `just debug`)
+# send an ipc event to the running debug version of i3stat (either `just dev` or `just debug`)
 ipc *args: _lbuild
-  cargo lrun --quiet --bin istat-ipc -- --socket /tmp/istat-socket.dev "$@"
+  cargo lrun --quiet --bin i3stat-ipc -- --socket /tmp/i3stat-socket.dev "$@"
 
 # run a binary
 run bin *args:
-  cargo lrun --bin istat-{{bin}} -- "${@:2}"
+  cargo lrun --bin i3stat-{{bin}} -- "${@:2}"
 
 # install locally, copy sample configuration and restart i3
 install *args:
   RUSTFLAGS="--emit=asm" cargo install --offline --path . "$@"
-  mkdir -p ~/.config/istat/
-  -cp --no-clobber ./sample_config.toml ~/.config/istat/config.toml
+  mkdir -p ~/.config/i3stat/
+  -cp --no-clobber ./sample_config.toml ~/.config/i3stat/config.toml
   i3-msg restart
 
-# start a nested X server with i3 and istat
+# start a nested X server with i3 and i3stat
 debug dimensions="3800x200": _lbuild
   Xephyr -ac -br -reset -terminate -screen {{dimensions}} :1 &
   until [ -e /tmp/.X11-unix/X1 ]; do sleep 0.1; done
@@ -54,7 +54,7 @@ debug dimensions="3800x200": _lbuild
 # run tests in a nested dbus session so the host session isn't affected
 alias t := test
 test *args:
-  dbus-run-session -- env RUST_LOG=istat=trace ISTAT_TEST=1 cargo test --all "$@"
+  dbus-run-session -- env RUST_LOG=i3stat=trace I3STAT_TEST=1 cargo test --all "$@"
 
 # `eval` this for an easy debug loop for screenshot tests
 # NOTE: requires `fd` be present, and the terminal is `kitty`
@@ -71,13 +71,13 @@ test *args:
 test-publish:
   #!/usr/bin/env bash
   set -ex
-  aur_target="./aur/istat/target"
+  aur_target="./aur/i3stat/target"
   rm -rf "$aur_target"
 
   just test
   cargo publish --dry-run --allow-dirty --target-dir "$aur_target"
 
-  pushd aur/istat
+  pushd aur/i3stat
   source PKGBUILD
   cp "$(find . -name '*.crate')" "${source%%::*}"
   makepkg --cleanbuild --force --skipinteg --skipchecksums
@@ -87,26 +87,26 @@ test-publish:
 publish:
   cargo publish
 
-# update the AUR `istat` package
+# update the AUR `i3stat` package
 # NOTE: this must be run after the package has been published to crates.io
-aur-istat:
+aur-i3stat:
   #!/usr/bin/env bash
   set -ex
   version=$(grep -m1 'version' ./Cargo.toml | cut -d' ' -f3)
-  pushd aur/istat
+  pushd aur/i3stat
   sed --regexp-extended --in-place -E "0,/pkgver=.+$/{s/(pkgver=)(.+$)/\1${version}/}" ./PKGBUILD
   sed --regexp-extended --in-place -E "0,/sha512sums=.+$/{s/sha512sums=.+$/$(makepkg --geninteg)/}" ./PKGBUILD
   makepkg --printsrcinfo > .SRCINFO
   git commit --all --message $(echo $version | tr -d '"'})
   popd
 
-# update the AUR `istat-bin` package
+# update the AUR `i3stat-bin` package
 # NOTE: this must be run after a release has been created on Github
-aur-istat-bin:
+aur-i3stat-bin:
   #!/usr/bin/env bash
   set -ex
   version=$(grep -m1 'version' ./Cargo.toml | cut -d' ' -f3)
-  pushd aur/istat-bin
+  pushd aur/i3stat-bin
   sed --regexp-extended --in-place -E "0,/pkgver=.+$/{s/(pkgver=)(.+$)/\1${version}/}" ./PKGBUILD
   sed --regexp-extended --in-place -E "0,/sha512sums=.+$/{s/sha512sums=.+$/$(makepkg --geninteg)/}" ./PKGBUILD
   makepkg --printsrcinfo > .SRCINFO
