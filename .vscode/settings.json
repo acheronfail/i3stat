@@ -1,7 +1,4 @@
 {
-  "files.exclude": {
-    "**/aur/{target,pkg,src}": true
-  },
   "rust-analyzer.debug.openDebugPane": true,
   "rust-analyzer.runnables.extraEnv": {
     // enable debug symbols for dependencies

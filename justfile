@@ -67,48 +67,6 @@ test *args:
   echo '  done'
   echo '}'
 
-# test, test package and test AUR with package
-test-publish:
-  #!/usr/bin/env bash
-  set -ex
-  aur_target="./aur/i3stat/target"
-  rm -rf "$aur_target"
-
-  just test
-  cargo publish --dry-run --allow-dirty --target-dir "$aur_target"
-
-  pushd aur/i3stat
-  source PKGBUILD
-  cp "$(find . -name '*.crate')" "${source%%::*}"
-  makepkg --cleanbuild --force --skipinteg --skipchecksums
-  popd
-
-# publish the create and update AUR package
+# publish the crate
 publish:
   cargo publish
-
-# update the AUR `i3stat` package
-# NOTE: this must be run after the package has been published to crates.io
-aur-i3stat:
-  #!/usr/bin/env bash
-  set -ex
-  version=$(grep -m1 'version' ./Cargo.toml | cut -d' ' -f3)
-  pushd aur/i3stat
-  sed --regexp-extended --in-place -E "0,/pkgver=.+$/{s/(pkgver=)(.+$)/\1${version}/}" ./PKGBUILD
-  sed --regexp-extended --in-place -E "0,/sha512sums=.+$/{s/sha512sums=.+$/$(makepkg --geninteg)/}" ./PKGBUILD
-  makepkg --printsrcinfo > .SRCINFO
-  git commit --all --message $(echo $version | tr -d '"'})
-  popd
-
-# update the AUR `i3stat-bin` package
-# NOTE: this must be run after a release has been created on Github
-aur-i3stat-bin:
-  #!/usr/bin/env bash
-  set -ex
-  version=$(grep -m1 'version' ./Cargo.toml | cut -d' ' -f3)
-  pushd aur/i3stat-bin
-  sed --regexp-extended --in-place -E "0,/pkgver=.+$/{s/(pkgver=)(.+$)/\1${version}/}" ./PKGBUILD
-  sed --regexp-extended --in-place -E "0,/sha512sums=.+$/{s/sha512sums=.+$/$(makepkg --geninteg)/}" ./PKGBUILD
-  makepkg --printsrcinfo > .SRCINFO
-  git commit --all --message $(echo $version | tr -d '"'})
-  popd
