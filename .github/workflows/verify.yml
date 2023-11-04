@@ -17,7 +17,17 @@ jobs:
       # setup rust toolchain
       # https://github.com/actions-rs/toolchain/issues/126#issuecomment-782989659
       - run: rustup show
+      # cache
+      - uses: actions/cache@v3
+        with:
+          path: scripts/node/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/yarn.lock') }}
+      - uses: actions/cache@v3
+        with:
+          path: target/
+          key: ${{ runner.os }}-cargo
 
+      # verify
       - run: just setup
       - run: just build
       - run: DEBUG=1 just test
