@@ -105,6 +105,7 @@ impl Bar {
         let mut powerline_bar = vec![];
         let mut powerline_idx = powerline_len - (visible_items % powerline_len);
 
+        // Each time we iterate over an item, we place in a separator and then the item.
         for i in 0..self.items.len() {
             let item = &self.items[i];
             if item.is_empty() {
@@ -142,17 +143,21 @@ impl Bar {
                 .color(item_bg)
                 .with_data("powerline_sep", true.into());
 
+            // ensure the separator meshes with the previous item's background
             // the first separator doesn't blend with any other item (hence > 0)
             if i > 0 {
-                // ensure the separator meshes with the previous item's background
-                let prev_item = &self.items[i - 1];
-                if *prev_item.get_urgent().unwrap_or(&false) {
-                    sep_item = sep_item.background_color(theme.urgent_bg);
-                } else {
-                    sep_item = sep_item.background_color(match prev_item.get_background_color() {
-                        Some(bg) => *bg,
-                        None => prev_color.bg,
-                    });
+                // find the first previous item which isn't empty
+                let prev_item = self.items.iter().take(i).rev().find(|i| !i.is_empty());
+                if let Some(prev_item) = prev_item {
+                    if *prev_item.get_urgent().unwrap_or(&false) {
+                        sep_item = sep_item.background_color(theme.urgent_bg);
+                    } else {
+                        sep_item =
+                            sep_item.background_color(match prev_item.get_background_color() {
+                                Some(bg) => *bg,
+                                None => prev_color.bg,
+                            });
+                    }
                 }
             }
 
