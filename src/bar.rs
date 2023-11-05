@@ -105,7 +105,7 @@ impl Bar {
         let mut powerline_bar = vec![];
         let mut powerline_idx = powerline_len - (visible_items % powerline_len);
 
-        // Each time we iterate over an item, we place in a separator and then the item.
+        // each time we iterate over an item, we place in a separator and then the item itself
         for i in 0..self.items.len() {
             let item = &self.items[i];
             if item.is_empty() {
@@ -210,5 +210,49 @@ fn make_color_adjuster(bg: &HexColor, fg: &HexColor) -> impl Fn(&HexColor) -> He
             g.saturating_add(c.g),
             b.saturating_add(c.b),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn properly_format_separator_with_empty() {
+        let mut bar = Bar::new(3);
+
+        // first item: has a red background
+        bar[0] = I3Item::new("0")
+            .instance("0")
+            .background_color(HexColor::RED);
+        // second item: empty (should not be displayed)
+        bar[1] = I3Item::new("").instance("1");
+        // third item: separator of this one should skip second item, and be the first item's colour
+        bar[2] = I3Item::new("2").instance("2");
+
+        let items = bar.create_powerline_bar(&Theme::default());
+        // 4 because bar[1] is empty and should be skipped
+        assert_eq!(items.len(), 4);
+        // separator should be red
+        assert_eq!(items[2].get_background_color(), Some(&HexColor::RED));
+    }
+
+    #[test]
+    fn format_sep_with_all_empty() {
+        let mut bar = Bar::new(3);
+
+        bar[0] = I3Item::new("").instance("0");
+        bar[1] = I3Item::new("").instance("1");
+        bar[2] = I3Item::new("foo")
+            .instance("2")
+            .background_color(HexColor::RED);
+
+        let items = bar.create_powerline_bar(&Theme::default());
+        assert_eq!(items.len(), 2);
+        // separator should be red
+        assert_eq!(items[0].get_color(), Some(&HexColor::RED));
+        assert_eq!(items[0].get_background_color(), None);
+        // item itself is red
+        assert_eq!(items[1].get_background_color(), Some(&HexColor::RED));
     }
 }
