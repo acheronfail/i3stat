@@ -69,4 +69,5 @@ test *args:
 
 # publish the crate
 publish:
+  just test
   cargo publish
