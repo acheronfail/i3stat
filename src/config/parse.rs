@@ -64,7 +64,13 @@ pub fn parse(args: &Cli) -> Result<AppConfig> {
                 Ok(user_paths) => {
                     let mut paths = vec![];
                     for unexpanded in user_paths {
-                        paths.extend(expand_include_path(unexpanded, &cfg_dir)?);
+                        match expand_include_path(&unexpanded, &cfg_dir) {
+                            Ok(path) => paths.extend(path),
+                            Err(e) => {
+                                log::warn!("failed to include config '{}': {}", unexpanded, e);
+                                continue;
+                            }
+                        }
                     }
 
                     paths

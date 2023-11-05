@@ -23,7 +23,7 @@ The following environment variables are available:
 ## Why `Rc<str>` over `String`, or `Rc<[T]>` over `Vec<T>` in struct fields?
 
 It's a cheaper method of keeping immutable data around without having to reallocate the inner data every time.
-Since mutating the data isn't necessary, this can just point the the exiting data and we get cheap clones.
+Since mutating the data isn't necessary, this can just point the the existing data and we get cheap clones.
 See https://www.youtube.com/watch?v=A4cKi7PTJSs for a good explanation.
 
 # Creating the next release
@@ -34,6 +34,9 @@ This is mainly here so I remember how to do a release when I haven't done one in
 Steps:
 
 1. Create GH PR from `next` to `master`
-2. Test publish locally with `just test-publish`
-3. Push commit with version bump
-4. Run `just publish` and make sure the AUR is also updated
+2. Push commit with version bump
+3. Check CI is green
+4. Cargo publish $NEW_VERSION
+5. Git tag $NEW_VERSION
+6. Update [`i3stat` AUR package](https://aur.archlinux.org/packages/i3stat)
+7. Update [`i3stat-bin` AUR package](https://aur.archlinux.org/packages/i3stat-bin)
