@@ -23,7 +23,7 @@ The following environment variables are available:
 ## Why `Rc<str>` over `String`, or `Rc<[T]>` over `Vec<T>` in struct fields?
 
 It's a cheaper method of keeping immutable data around without having to reallocate the inner data every time.
-Since mutating the data isn't necessary, this can just point the the exiting data and we get cheap clones.
+Since mutating the data isn't necessary, this can just point the the existing data and we get cheap clones.
 See https://www.youtube.com/watch?v=A4cKi7PTJSs for a good explanation.
 
 # Creating the next release
