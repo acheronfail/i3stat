@@ -14,7 +14,12 @@ use serde_json::Value;
 use timeout_readwrite::{TimeoutReadExt, TimeoutReader};
 
 use crate::util::{
-    get_current_exe, get_fakeroot_lib, get_faketime_lib, LogOnDropChild, Test, FAKE_TIME,
+    get_current_exe,
+    get_fakeroot_lib,
+    get_faketime_lib,
+    LogOnDropChild,
+    Test,
+    FAKE_TIME,
 };
 
 /// Convenience struct for running assertions on and communicating with a running instance of the program

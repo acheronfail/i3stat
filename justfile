@@ -26,6 +26,10 @@ build *args:
 _lbuild:
   cargo lbuild --all
 
+# runs rustfmt with nightly to enable all its features
+fmt:
+  rustup run nightly cargo fmt
+
 # run `i3stat` in the terminal and interact with it
 dev *args: _lbuild
   cd ./scripts/node && RUST_BACKTRACE=1 RUST_LOG=i3stat=trace yarn dev "$@"
