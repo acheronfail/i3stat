@@ -1264,6 +1264,20 @@ pub enum Nl80211Bss {
 }
 impl neli::consts::genl::NlAttrType for Nl80211Bss {}
 
+/// The BSS status is a BSS attribute in scan dumps, which indicates the status
+/// the interface has wrt. this BSS.
+#[neli::neli_enum(serialized_type = "u32")]
+pub enum Nl80211BssStatus {
+    /// Authenticated with this BSS. Note that this is no longer used since
+    /// cfg80211 no longer keeps track of whether or not authentication was done
+    /// with a given BSS.
+    Authenticated = 0,
+    /// Associated with this BSS.
+    Associated = 1,
+    /// Joined to this IBSS.
+    IbssJoined = 2,
+}
+
 #[neli::neli_enum(serialized_type = "u32")]
 pub enum Nl80211IfType {
     /// unspecified type, driver decides
