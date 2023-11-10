@@ -31,13 +31,10 @@ use neli::utils::Groups;
 use tokio::sync::OnceCell;
 
 use self::enums::{
-    Nl80211Attribute,
-    Nl80211Bss,
-    Nl80211Command,
-    Nl80211IfType,
-    Nl80211StationInfo,
+    Nl80211Attribute, Nl80211Bss, Nl80211Command, Nl80211IfType, Nl80211StationInfo,
 };
 use super::NetlinkInterface;
+use crate::util::nl80211::enums::Nl80211BssStatus;
 use crate::util::{MacAddr, Result};
 
 // init ------------------------------------------------------------------------
@@ -52,7 +49,10 @@ async fn init_socket() -> Result<Nl80211Socket> {
 }
 
 async fn init_family(socket: &NlRouter) -> Result<u16> {
-    Ok(socket.resolve_genl_family(NL80211_FAMILY_NAME).await?)
+    let id = socket.resolve_genl_family(NL80211_FAMILY_NAME).await?;
+    log::debug!("nl80211 family id: {id}");
+
+    Ok(id)
 }
 
 // util ------------------------------------------------------------------------
@@ -95,6 +95,14 @@ async fn genl80211_send(
         .get_or_try_init(|| init_family(socket))
         .await?;
 
+    log::trace!(
+        "genl80211_send: cmd={cmd:?}, flags={flags:?}, attrs={:02x?}",
+        attrs
+            .iter()
+            .map(|attr| (attr.nla_type().nla_type(), attr.nla_payload().as_ref()))
+            .collect::<Vec<_>>()
+    );
+
     // create generic netlink message
     let genl_payload: Nl80211Payload = {
         let mut builder = GenlmsghdrBuilder::default().version(1).cmd(cmd);
@@ -106,6 +114,7 @@ async fn genl80211_send(
     };
 
     // send it to netlink
+
     Ok(socket
         .send::<_, _, u16, Nl80211Payload>(family_id, flags, NlPayload::Payload(genl_payload))
         .await?)
@@ -334,45 +343,63 @@ async fn get_scan(
     )
     .await?;
 
-    // look for our requested data inside netlink's results
+    // look for our requested data inside netlink's results - GetScan returns a list of scanned stations...
     while let Some(result) = recv.next().await as NextNl80211 {
         match result {
             Ok(msg) => {
                 if let NlPayload::Payload(gen_msg) = msg.nl_payload() {
                     let attr_handle = gen_msg.attrs().get_attr_handle();
 
+                    // extract the `Nl80211Bss` attributes so we can inspect them
                     if let Ok(bss_attrs) =
                         attr_handle.get_nested_attributes::<Nl80211Bss>(Nl80211Attribute::Bss)
                     {
-                        // set the ssid if it's not set
-                        if ssid.is_none() {
-                            if let Ok(bytes) = bss_attrs
-                                .get_attr_payload_as_with_len_borrowed::<&[u8]>(
-                                    Nl80211Bss::InformationElements,
-                                )
-                            {
-                                log::debug!(
-                                    "index {} updating ssid from information elements",
-                                    index
-                                );
-                                match ssid_from_ie(bytes) {
-                                    Ok(option) => *ssid = option,
-                                    Err(e) => log::error!(
-                                        "index {} failed to parse information elements: {}",
-                                        index,
-                                        e
-                                    ),
+                        // extract the bssid itself
+                        let bssid = match bss_attrs
+                            .get_attr_payload_as_with_len_borrowed::<&[u8]>(Nl80211Bss::Bssid)
+                            .map(|bytes| MacAddr::try_from(bytes))
+                        {
+                            Ok(Ok(mac_addr)) => mac_addr,
+                            // if we can't find a bssid, then keep looking for another one
+                            _ => continue,
+                        };
+
+                        // NOTE: this is the important part - we find the bssid that the device is currently associated
+                        // with! The GetScan can return multiple stations (even when we're connected to one) but we only
+                        // want the information about the station we're currently associated with
+                        if let Ok(Nl80211BssStatus::Associated) =
+                            bss_attrs.get_attr_payload_as::<Nl80211BssStatus>(Nl80211Bss::Status)
+                        {
+                            log::debug!("index {} found associated bssid: {}", index, bssid);
+
+                            // set the ssid if it's not set already, this works around a quirk in netlink
+                            // see: https://github.com/systemd/systemd/issues/24585
+                            // either way, this seems to be the more "reliable" way of getting the ssid
+                            if ssid.is_none() {
+                                // parse the information elements attributes
+                                if let Ok(bytes) = bss_attrs
+                                    .get_attr_payload_as_with_len_borrowed::<&[u8]>(
+                                        Nl80211Bss::InformationElements,
+                                    )
+                                {
+                                    match ssid_from_ie(bytes) {
+                                        Ok(option) => {
+                                            *ssid = option;
+                                            log::debug!(
+                                            "index {} updated ssid {:?} from information elements",
+                                            index,
+                                            ssid
+                                        );
+                                        }
+                                        Err(e) => log::error!(
+                                            "index {} failed to parse information elements: {}",
+                                            index,
+                                            e
+                                        ),
+                                    }
                                 }
                             }
-                        }
-
-                        if let Ok(bytes) = bss_attrs
-                            .get_attr_payload_as_with_len_borrowed::<&[u8]>(Nl80211Bss::Bssid)
-                        {
-                            if let Ok(bssid) = MacAddr::try_from(bytes) {
-                                log::debug!("index {} found bssid: {}", index, bssid);
-                                return Ok(Some(bssid));
-                            }
+                            return Ok(Some(bssid));
                         }
                     }
                 }
