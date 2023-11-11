@@ -44,7 +44,7 @@ run bin *args:
 
 # install locally, copy sample configuration and restart i3
 install *args:
-  RUSTFLAGS="--emit=asm" cargo install --offline --path . "$@"
+  cargo install --offline --path . "$@"
   mkdir -p ~/.config/i3stat/
   -cp --no-clobber ./sample_config.toml ~/.config/i3stat/config.toml
   i3-msg restart
