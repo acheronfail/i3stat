@@ -40,3 +40,4 @@ Steps:
 5. Git tag $NEW_VERSION
 6. Update [`i3stat` AUR package](https://aur.archlinux.org/packages/i3stat)
 7. Update [`i3stat-bin` AUR package](https://aur.archlinux.org/packages/i3stat-bin)
+8. Merge GH PR
