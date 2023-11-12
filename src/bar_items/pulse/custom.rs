@@ -4,7 +4,7 @@ use serde_derive::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tokio::sync::oneshot;
 
-use super::{InOut, Object, Port, PortAvailable, PulseState, Vol};
+use super::{Dir, InOut, Object, Port, PortAvailable, PulseState, Vol};
 use crate::context::CustomResponse;
 use crate::util::RcCell;
 
@@ -67,6 +67,10 @@ enum PulseCommand {
         what: Object,
         obj_name: String,
         port_name: String,
+    },
+    Cycle {
+        what: Object,
+        dir: Dir,
     },
 }
 
@@ -235,6 +239,13 @@ impl RcCell<PulseState> {
                                 "failed to find {what} with name {obj_name}",
                             )),
                         }
+                    }
+                    PulseCommand::Cycle { what, dir } => {
+                        return self.cycle_objects_and_ports(
+                            what,
+                            dir,
+                            Self::custom_responder(tx, move || format!("failed to cycle {what}")),
+                        );
                     }
                 };
 

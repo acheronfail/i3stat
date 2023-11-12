@@ -7,6 +7,8 @@
 //! * https://gavv.net/articles/pulseaudio-under-the-hood/
 //! * https://www.freedesktop.org/wiki/Software/PulseAudio/Documentation/Developer/
 //! * https://github.com/danieldg/rwaybar/blob/master/src/pulse.rs
+//! * https://gitlab.freedesktop.org/pulseaudio/pavucontrol/-/blob/master/src/sinkwidget.cc
+//! * https://gitlab.gnome.org/GNOME/libgnome-volume-control/-/blob/master/gvc-mixer-control.c
 
 mod audio;
 mod custom;
@@ -326,7 +328,7 @@ macro_rules! impl_pa_methods {
     };
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, ValueEnum)]
 enum Dir {
     Prev,
     Next,
@@ -372,7 +374,10 @@ impl RcCell<PulseState> {
             .cloned()
     }
 
-    fn cycle_objects_and_ports(&mut self, what: Object, dir: Dir) {
+    fn cycle_objects_and_ports<F>(&mut self, what: Object, dir: Dir, mut f: F)
+    where
+        F: FnMut(bool) + 'static,
+    {
         let objects = match what {
             Object::Sink => &self.sinks,
             Object::Source => &self.sources,
@@ -395,7 +400,7 @@ impl RcCell<PulseState> {
         let next_prt_idx = (curr_prt_idx + obj.ports.len() + dir) % obj.ports.len();
 
         if curr_prt_idx < obj.ports.len() - 1 || next_obj_idx == curr_obj_idx {
-            self.set_object_port(what, obj.index, &obj.ports[next_prt_idx].name, move |_| {});
+            self.set_object_port(what, obj.index, &obj.ports[next_prt_idx].name, f);
         } else {
             let next_obj = &objects[next_obj_idx];
             let next_obj_index = next_obj.index;
@@ -410,6 +415,7 @@ impl RcCell<PulseState> {
                         if !success {
                             log::warn!("failed to set default to {next_obj_name} while cycling");
                         }
+                        f(false);
                     })
                 }
             };
@@ -427,6 +433,7 @@ impl RcCell<PulseState> {
                     if !success {
                         log::warn!("failed to set default to {next_obj_name} while cycling");
                     }
+                    f(false);
                 });
             }
 
@@ -436,25 +443,26 @@ impl RcCell<PulseState> {
             // groups, etc)
             let mut inner = self.clone();
             self.set_object_port(what, next_obj_index, &next_prt_name, move |success| {
-                if success {
-                    // sometimes setting the active port doesn't change the default, so check for
-                    // that and set it ourselves if needed
-                    let should_try_update = match what {
+                // sometimes setting the active port doesn't change the default, so check for
+                // that and set it ourselves if needed
+                let should_try_set_default = success
+                    && match what {
                         Object::Sink => inner.default_sink != next_obj_name,
                         Object::Source => inner.default_source != next_obj_name,
                     };
 
-                    if should_try_update {
-                        let next_obj_name = next_obj_name.clone();
-                        inner.set_default(what, next_obj_name.clone(), move |success| {
-                            if !success {
-                                log::warn!(
-                                    "failed to set default to {next_obj_name} while cycling"
-                                );
-                            }
-                        });
-                    }
+                if should_try_set_default {
+                    let next_obj_name = next_obj_name.clone();
+                    inner.set_default(what, next_obj_name.clone(), move |success| {
+                        if !success {
+                            log::warn!("failed to set default to {next_obj_name} while cycling");
+                        }
+                    });
                 }
+
+                // it would be nice to call this after the above `set_default` is called (if it is)
+                // rather than just here, but our closure bounds don't make that easy right now
+                f(success);
             });
         }
     }
@@ -860,12 +868,20 @@ impl BarItem for Pulse {
                     BarEvent::Click(click) => match click.button {
                         // cycle source ports
                         I3Button::Left if click.modifiers.contains(&I3Modifier::Shift) => {
-                            inner.cycle_objects_and_ports(Object::Source, Dir::Next);
+                            inner.cycle_objects_and_ports(Object::Source, Dir::Next, |success| {
+                                if !success {
+                                    log::warn!("failed to cycle {}", Object::Source);
+                                }
+                            });
                         }
 
                         // cycle sink ports
                         I3Button::Left => {
-                            inner.cycle_objects_and_ports(Object::Sink, Dir::Prev);
+                            inner.cycle_objects_and_ports(Object::Sink, Dir::Next, |success| {
+                                if !success {
+                                    log::warn!("failed to cycle {}", Object::Sink);
+                                }
+                            });
                         }
 
                         // source
