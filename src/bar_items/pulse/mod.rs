@@ -76,6 +76,16 @@ enum Vol {
     Set(u32),
 }
 
+impl Display for Vol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&match self {
+            Vol::Incr(amount) => format!("+{}%", amount),
+            Vol::Decr(amount) => format!("-{}%", amount),
+            Vol::Set(value) => format!("={}%", value),
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 struct Port {
     name: Rc<str>,
@@ -473,6 +483,7 @@ impl RcCell<PulseState> {
     {
         let port_name = port_name.as_ref();
         let mut introspect = self.pa_ctx.introspect();
+        log::trace!("set_{what}_port_by_index {object_idx} {port_name}");
         match what {
             Object::Sink => {
                 introspect.set_sink_port_by_index(object_idx, &port_name, Some(Box::new(f)));
@@ -524,6 +535,7 @@ impl RcCell<PulseState> {
     where
         F: FnMut(bool) + 'static,
     {
+        log::trace!("set_volume_{what} {vol}");
         (match what {
             Object::Sink => self.default_sink().map(|mut p| {
                 self.set_volume_sink(p.index, self.update_volume(&mut p.volume, vol), f);
@@ -545,6 +557,7 @@ impl RcCell<PulseState> {
     where
         F: FnMut(bool) + 'static,
     {
+        log::trace!("set_mute_{what} {mute}");
         (match what {
             Object::Sink => self.default_sink().map(|mut p| {
                 p.mute = mute;
@@ -596,6 +609,7 @@ impl RcCell<PulseState> {
         F: FnMut(bool) + 'static,
     {
         let name = name.as_ref();
+        log::trace!("set_default_{what} {name}");
         match what {
             Object::Sink => self.pa_ctx.set_default_sink(name, f),
             Object::Source => self.pa_ctx.set_default_source(name, f),
