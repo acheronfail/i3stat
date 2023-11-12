@@ -1,7 +1,20 @@
+//! This bar item connects to pulseaudio/pipewire directly for the lowest latency
+//! possible when interacting with it (for example, changing volume happens extremely
+//! fast, since it's not invoking `pactl` each time, it's communicating directly with
+//! the audio server).
+//!
+//! The following were great resources:
+//! * https://gavv.net/articles/pulseaudio-under-the-hood/
+//! * https://www.freedesktop.org/wiki/Software/PulseAudio/Documentation/Developer/
+//! * https://github.com/danieldg/rwaybar/blob/master/src/pulse.rs
+//! * https://gitlab.freedesktop.org/pulseaudio/pavucontrol/-/blob/master/src/sinkwidget.cc
+//! * https://gitlab.gnome.org/GNOME/libgnome-volume-control/-/blob/master/gvc-mixer-control.c
+
 mod audio;
 mod custom;
 
 use std::fmt::{Debug, Display};
+use std::ops::Add;
 use std::path::{Path, PathBuf};
 use std::process;
 use std::rc::Rc;
@@ -63,6 +76,16 @@ enum Vol {
     Set(u32),
 }
 
+impl Display for Vol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&match self {
+            Vol::Incr(amount) => format!("+{}%", amount),
+            Vol::Decr(amount) => format!("-{}%", amount),
+            Vol::Set(value) => format!("={}%", value),
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 struct Port {
     name: Rc<str>,
@@ -116,6 +139,24 @@ impl InOut {
             },
             None => None,
         }
+    }
+
+    fn current_port_idx(&self) -> usize {
+        self.active_port.as_ref().map_or(0, |active| {
+            match self.ports.iter().position(|p| p == active) {
+                Some(idx) => idx,
+                None => {
+                    log::warn!(
+                        "failed to find active port: object={:?}, active_port={:?}",
+                        self,
+                        active
+                    );
+
+                    // default to 0
+                    0
+                }
+            }
+        })
     }
 
     fn notify_volume_mute(&self) -> Command {
@@ -257,10 +298,14 @@ macro_rules! impl_pa_methods {
                             Some(s) => *s = info.into(),
                             None => {
                                 let obj = info.into();
+
                                 if matches!(obj, InOut { .. }) {
-                                    if !obj.name.contains("auto_null") {
-                                        let _ = self.tx.send(obj.notify_new(stringify!($name)));
+                                    // ignore any null sinks/sources - they're not useful for this bar item anyway
+                                    if obj.name.contains("auto_null") {
+                                        return;
                                     }
+
+                                    let _ = self.tx.send(obj.notify_new(stringify!($name)));
                                 }
 
                                 self.[<$name s>].push(obj);
@@ -293,6 +338,34 @@ macro_rules! impl_pa_methods {
     };
 }
 
+#[derive(Debug, Copy, Clone, ValueEnum)]
+enum Dir {
+    Prev,
+    Next,
+}
+
+impl Add<usize> for Dir {
+    type Output = usize;
+
+    fn add(self, rhs: usize) -> Self::Output {
+        match self {
+            Dir::Prev => rhs - 1,
+            Dir::Next => rhs + 1,
+        }
+    }
+}
+
+impl Add<Dir> for usize {
+    type Output = usize;
+
+    fn add(self, rhs: Dir) -> Self::Output {
+        match rhs {
+            Dir::Prev => self - 1,
+            Dir::Next => self + 1,
+        }
+    }
+}
+
 impl RcCell<PulseState> {
     impl_pa_methods!(sink);
     impl_pa_methods!(source);
@@ -311,56 +384,112 @@ impl RcCell<PulseState> {
             .cloned()
     }
 
-    fn cycle_port(&self, object: InOut, what: Object) {
-        if object.ports.is_empty() {
-            return;
-        }
+    fn cycle_objects_and_ports<F>(&mut self, what: Object, dir: Dir, mut f: F)
+    where
+        F: FnMut(bool) + 'static,
+    {
+        let objects = match what {
+            Object::Sink => &self.sinks,
+            Object::Source => &self.sources,
+        };
 
-        // find index of current port
-        let current_port_idx = object.active_port.as_ref().map_or(0, |active| {
-            match object.ports.iter().position(|p| p == active) {
-                Some(idx) => idx,
-                None => {
-                    log::warn!(
-                        "failed to find active port: object={:?}, active_port={:?}",
-                        object,
-                        active
-                    );
-
-                    // default to 0
-                    0
-                }
+        let curr_obj_idx = match objects.iter().position(|s| match what {
+            Object::Sink => s.name == self.default_sink,
+            Object::Source => s.name == self.default_source,
+        }) {
+            Some(idx) => idx,
+            None => {
+                log::warn!("failed to find active {what}");
+                return;
             }
-        });
+        };
 
-        // get name of next port
-        let next_port_name = object.ports[(current_port_idx + 1) % object.ports.len()]
-            .name
-            .clone();
+        let obj = &objects[curr_obj_idx];
+        let next_obj_idx = (curr_obj_idx + objects.len() + dir) % objects.len();
+        let curr_prt_idx = obj.current_port_idx();
+        let next_prt_idx = (curr_prt_idx + obj.ports.len() + dir) % obj.ports.len();
 
+        if curr_prt_idx < obj.ports.len() - 1 || next_obj_idx == curr_obj_idx {
+            self.set_object_port(what, obj.index, &obj.ports[next_prt_idx].name, f);
+        } else {
+            let next_obj = &objects[next_obj_idx];
+            let next_obj_index = next_obj.index;
+            let next_obj_name = next_obj.name.clone();
+
+            // I don't believe a pulse source/sink can ever have zero ports, but handle it gracefully
+            // just in case this assumption is incorrect
+            let next_prt_name = match next_obj.ports.first() {
+                Some(port) => port.name.clone(),
+                None => {
+                    return self.set_default(what, next_obj_name.clone(), move |success| {
+                        if !success {
+                            log::warn!("failed to set default to {next_obj_name} while cycling");
+                        }
+                        f(false);
+                    })
+                }
+            };
+
+            let next_obj_port_already_set = next_obj
+                .active_port
+                .as_ref()
+                .map(|p| p.name == next_prt_name)
+                .unwrap_or(false);
+
+            // if the object we're moving to already has the right port set, just set that object as
+            // the new default
+            if next_obj_port_already_set {
+                return self.set_default(what, next_obj_name.clone(), move |success| {
+                    if !success {
+                        log::warn!("failed to set default to {next_obj_name} while cycling");
+                    }
+                    f(false);
+                });
+            }
+
+            // otherwise, if the object we're moving to needs its active port changed, first change
+            // the active port - under the hood pulse sometimes sets this object as the default when
+            // we change the port (I believe there are some heuristics to do with port availability
+            // groups, etc)
+            let mut inner = self.clone();
+            self.set_object_port(what, next_obj_index, &next_prt_name, move |success| {
+                // sometimes setting the active port doesn't change the default, so check for
+                // that and set it ourselves if needed
+                let should_try_set_default = success
+                    && match what {
+                        Object::Sink => inner.default_sink != next_obj_name,
+                        Object::Source => inner.default_source != next_obj_name,
+                    };
+
+                if should_try_set_default {
+                    let next_obj_name = next_obj_name.clone();
+                    inner.set_default(what, next_obj_name.clone(), move |success| {
+                        if !success {
+                            log::warn!("failed to set default to {next_obj_name} while cycling");
+                        }
+                    });
+                }
+
+                // it would be nice to call this after the above `set_default` is called (if it is)
+                // rather than just here, but our closure bounds don't make that easy right now
+                f(success);
+            });
+        }
+    }
+
+    fn set_object_port<F>(&self, what: Object, object_idx: u32, port_name: impl AsRef<str>, f: F)
+    where
+        F: FnMut(bool) + 'static,
+    {
+        let port_name = port_name.as_ref();
         let mut introspect = self.pa_ctx.introspect();
+        log::trace!("set_{what}_port_by_index {object_idx} {port_name}");
         match what {
             Object::Sink => {
-                introspect.set_sink_port_by_index(
-                    object.index,
-                    &next_port_name,
-                    Some(Box::new(move |success: bool| {
-                        if !success {
-                            log::error!("cycle_port failed: object={:?}", object);
-                        }
-                    })),
-                );
+                introspect.set_sink_port_by_index(object_idx, &port_name, Some(Box::new(f)));
             }
             Object::Source => {
-                introspect.set_source_port_by_index(
-                    object.index,
-                    &next_port_name,
-                    Some(Box::new(move |success: bool| {
-                        if !success {
-                            log::error!("cycle_port failed: object={:?}", object);
-                        }
-                    })),
-                );
+                introspect.set_source_port_by_index(object_idx, &port_name, Some(Box::new(f)));
             }
         }
     }
@@ -406,6 +535,7 @@ impl RcCell<PulseState> {
     where
         F: FnMut(bool) + 'static,
     {
+        log::trace!("set_volume_{what} {vol}");
         (match what {
             Object::Sink => self.default_sink().map(|mut p| {
                 self.set_volume_sink(p.index, self.update_volume(&mut p.volume, vol), f);
@@ -427,6 +557,7 @@ impl RcCell<PulseState> {
     where
         F: FnMut(bool) + 'static,
     {
+        log::trace!("set_mute_{what} {mute}");
         (match what {
             Object::Sink => self.default_sink().map(|mut p| {
                 p.mute = mute;
@@ -478,6 +609,7 @@ impl RcCell<PulseState> {
         F: FnMut(bool) + 'static,
     {
         let name = name.as_ref();
+        log::trace!("set_default_{what} {name}");
         match what {
             Object::Sink => self.pa_ctx.set_default_sink(name, f),
             Object::Source => self.pa_ctx.set_default_source(name, f),
@@ -750,12 +882,20 @@ impl BarItem for Pulse {
                     BarEvent::Click(click) => match click.button {
                         // cycle source ports
                         I3Button::Left if click.modifiers.contains(&I3Modifier::Shift) => {
-                            inner.default_source().map(|io| inner.cycle_port(io, Object::Source));
+                            inner.cycle_objects_and_ports(Object::Source, Dir::Next, |success| {
+                                if !success {
+                                    log::warn!("failed to cycle {}", Object::Source);
+                                }
+                            });
                         }
 
                         // cycle sink ports
                         I3Button::Left => {
-                            inner.default_sink().map(|io| inner.cycle_port(io, Object::Sink));
+                            inner.cycle_objects_and_ports(Object::Sink, Dir::Next, |success| {
+                                if !success {
+                                    log::warn!("failed to cycle {}", Object::Sink);
+                                }
+                            });
                         }
 
                         // source

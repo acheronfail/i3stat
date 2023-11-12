@@ -4,7 +4,7 @@ use serde_derive::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tokio::sync::oneshot;
 
-use super::{InOut, Object, PulseState, Vol};
+use super::{Dir, InOut, Object, Port, PortAvailable, PulseState, Vol};
 use crate::context::CustomResponse;
 use crate::util::RcCell;
 
@@ -39,13 +39,39 @@ impl From<Bool> for bool {
 #[command(name = "pulse", no_binary_name = true)]
 enum PulseCommand {
     Info,
-    List { what: Object },
-    VolumeUp { what: Object },
-    VolumeDown { what: Object },
-    VolumeSet { what: Object, vol: u32 },
-    Mute { what: Object, mute: Bool },
-    MuteToggle { what: Object },
-    SetDefault { what: Object, name: String },
+    List {
+        what: Object,
+    },
+    VolumeUp {
+        what: Object,
+    },
+    VolumeDown {
+        what: Object,
+    },
+    VolumeSet {
+        what: Object,
+        vol: u32,
+    },
+    Mute {
+        what: Object,
+        mute: Bool,
+    },
+    MuteToggle {
+        what: Object,
+    },
+    SetDefault {
+        what: Object,
+        name: String,
+    },
+    SetPort {
+        what: Object,
+        obj_name: String,
+        port_name: String,
+    },
+    Cycle {
+        what: Object,
+        dir: Dir,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -57,6 +83,21 @@ pub enum PulseResponse {
     Failure(String),
 }
 
+impl Port {
+    fn to_value(&self) -> Value {
+        json!({
+            "name": self.name,
+            "description": self.description,
+            "available": match self.available {
+                PortAvailable::Unknown => "unknown",
+                PortAvailable::No => "no",
+                PortAvailable::Yes => "yes",
+            },
+            "port_type": self.port_type.to_i64(),
+        })
+    }
+}
+
 impl InOut {
     fn to_value(&self) -> Value {
         json!({
@@ -64,7 +105,8 @@ impl InOut {
             "name": self.name,
             "volume": self.volume_pct(),
             "mute": self.mute,
-            "port_type": self.active_port.as_ref().map(|t| t.port_type.to_i64()).flatten()
+            "ports": self.ports.iter().map(|p| p.to_value()).collect::<Vec<_>>(),
+            "active_port": self.active_port.as_ref().map_or(Value::Null, |p| p.to_value()),
         })
     }
 }
@@ -73,12 +115,15 @@ impl RcCell<PulseState> {
     // NOTE: since pulse's callback API requires `FnMut`, but `oneshot::tx.send` consumes itself
     // we wrap it in an option so it's only send once. This should be fine, because pulse only runs
     // this callback once anyway.
-    fn custom_responder<F>(tx: oneshot::Sender<CustomResponse>, f: F) -> impl FnMut(bool) + 'static
+    fn custom_responder<F>(
+        tx: oneshot::Sender<CustomResponse>,
+        failure_fn: F,
+    ) -> impl FnMut(bool) + 'static
     where
         F: FnOnce() -> String + 'static,
     {
         let mut tx = Some(tx);
-        let mut f = Some(f);
+        let mut f = Some(failure_fn);
         move |success| match (tx.take(), f.take()) {
             (Some(tx), Some(f)) => {
                 let _ = tx.send(CustomResponse::Json(json!(match success {
@@ -166,6 +211,40 @@ impl RcCell<PulseState> {
                                     what, name
                                 )
                             }),
+                        );
+                    }
+                    PulseCommand::SetPort {
+                        what,
+                        obj_name,
+                        port_name,
+                    } => {
+                        let obj_name = obj_name.into();
+                        let obj = match what {
+                            Object::Sink => self.sinks.iter().find(|o| o.name == obj_name),
+                            Object::Source => self.sinks.iter().find(|o| o.name == obj_name),
+                        };
+
+                        match obj {
+                            Some(obj) => {
+                                return self.set_object_port(
+                                    what,
+                                    obj.index,
+                                    port_name.clone(),
+                                    Self::custom_responder(tx, move || {
+                                        format!("failed to set {what} port to {port_name}, is the port name right?")
+                                    })
+                                );
+                            }
+                            None => PulseResponse::Failure(String::from(
+                                "failed to find {what} with name {obj_name}",
+                            )),
+                        }
+                    }
+                    PulseCommand::Cycle { what, dir } => {
+                        return self.cycle_objects_and_ports(
+                            what,
+                            dir,
+                            Self::custom_responder(tx, move || format!("failed to cycle {what}")),
                         );
                     }
                 };
