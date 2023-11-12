@@ -34,10 +34,10 @@ This is mainly here so I remember how to do a release when I haven't done one in
 Steps:
 
 1. Create GH PR from `next` to `master`
-2. Push commit with version bump
+2. Push commit with $NEW_VERSION
 3. Check CI is green
-4. Cargo publish $NEW_VERSION
-5. Git tag $NEW_VERSION
+4. `just publish`
+5. `git tag $NEW_VERSION`
 6. Update [`i3stat` AUR package](https://aur.archlinux.org/packages/i3stat)
 7. Update [`i3stat-bin` AUR package](https://aur.archlinux.org/packages/i3stat-bin)
 8. Merge GH PR
