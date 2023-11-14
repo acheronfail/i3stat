@@ -132,9 +132,18 @@ impl InOut {
     fn port_symbol(&self) -> Option<&str> {
         match &self.active_port {
             Some(port) => match port.port_type {
+                DevicePortType::Aux => Some("󱎔 "),
                 DevicePortType::Bluetooth => Some("󰂰 "),
+                DevicePortType::Car => Some("󰄋 "),
+                DevicePortType::Earpiece => Some("󰟅 "),
+                DevicePortType::HDMI => Some("󰡁 "),
                 DevicePortType::Headphones => Some("󰋋 "),
                 DevicePortType::Headset => Some("󰋎 "),
+                DevicePortType::HiFi => Some("󰓃 "),
+                DevicePortType::Mic => Some("󰍬 "),
+                DevicePortType::Network => Some("󰛳 "),
+                DevicePortType::Radio => Some("󰐹 "),
+                DevicePortType::TV => Some(" "),
                 _ => None,
             },
             None => None,
