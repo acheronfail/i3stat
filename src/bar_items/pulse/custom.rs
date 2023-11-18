@@ -108,6 +108,7 @@ impl InOut {
             "mute": self.mute,
             "ports": self.ports.iter().map(|p| p.to_value()).collect::<Vec<_>>(),
             "active_port": self.active_port.as_ref().map_or(Value::Null, |p| p.to_value()),
+            "is_source_monitor": self.is_source_monitor,
         })
     }
 }
