@@ -75,5 +75,5 @@ test *args:
 publish:
   just test
   cargo publish
-  git tag "$(grep -m1 'version' ./Cargo.toml | cut -d' ' -f3)"
+  git tag "$(grep -m1 'version' ./Cargo.toml | cut -d'"' -f2)"
   echo "tagged current commit with: $(git tag --points-at HEAD), push to trigger github release"
