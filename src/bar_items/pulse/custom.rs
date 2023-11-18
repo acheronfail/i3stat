@@ -4,7 +4,8 @@ use serde_derive::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tokio::sync::oneshot;
 
-use super::{Dir, InOut, Object, Port, PortAvailable, PulseState, Vol};
+use super::structs::Port;
+use super::{Dir, InOut, Object, PortAvailable, PulseState, Vol};
 use crate::context::CustomResponse;
 use crate::util::RcCell;
 
