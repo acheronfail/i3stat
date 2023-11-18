@@ -266,6 +266,33 @@ pub enum Dir {
     Next,
 }
 
+impl Dir {
+    /// Returns `None` if
+    /// * `items` was empty
+    /// * `f` excludes all items
+    pub fn cycle<'a, 'b, T, F>(&'a self, start: usize, items: &'b [T], f: F) -> Option<&'b T>
+    where
+        F: Fn(&&T) -> bool,
+    {
+        let limit = items.len() * 2;
+        match self {
+            Dir::Next => items
+                .into_iter()
+                .cycle()
+                .skip(start + 1)
+                .take(limit)
+                .find(f),
+            Dir::Prev => items
+                .into_iter()
+                .rev()
+                .cycle()
+                .skip(items.len() - start)
+                .take(limit)
+                .find(f),
+        }
+    }
+}
+
 impl Add<usize> for Dir {
     type Output = usize;
 
@@ -291,6 +318,10 @@ impl Add<Dir> for usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /**
+     * Port tests
+     */
 
     macro_rules! port {
         ($name:expr, $available:expr, $type:expr) => {
@@ -357,5 +388,62 @@ mod tests {
         let obj = obj!(0, "one", ports, active = 2);
         assert_eq!(obj.next_port(Dir::Next), None);
         assert_eq!(obj.next_port(Dir::Prev), Some(&ports[0]));
+    }
+
+    /**
+     * Dir tests
+     */
+
+    #[test]
+    fn dir_cycle_none() {
+        assert_eq!(Dir::Next.cycle(0, &[], |()| true), None);
+        assert_eq!(Dir::Prev.cycle(0, &[], |()| true), None);
+    }
+
+    #[test]
+    fn dir_cycle_one() {
+        assert_eq!(Dir::Next.cycle(0, &[1], |_| true), Some(&1));
+        assert_eq!(Dir::Prev.cycle(0, &[1], |_| true), Some(&1));
+    }
+
+    #[test]
+    fn dir_cycle_one_filter() {
+        assert_eq!(Dir::Next.cycle(0, &[1], |_| false), None);
+        assert_eq!(Dir::Prev.cycle(0, &[1], |_| false), None);
+    }
+
+    #[test]
+    fn dir_cycle_many() {
+        assert_eq!(Dir::Next.cycle(0, &[1, 2, 3], |_| true), Some(&2));
+        assert_eq!(Dir::Next.cycle(1, &[1, 2, 3], |_| true), Some(&3));
+        assert_eq!(Dir::Next.cycle(2, &[1, 2, 3], |_| true), Some(&1));
+
+        assert_eq!(Dir::Prev.cycle(0, &[1, 2, 3], |_| true), Some(&3));
+        assert_eq!(Dir::Prev.cycle(1, &[1, 2, 3], |_| true), Some(&1));
+        assert_eq!(Dir::Prev.cycle(2, &[1, 2, 3], |_| true), Some(&2));
+    }
+
+    #[test]
+    fn dir_cycle_many_filter() {
+        assert_eq!(Dir::Next.cycle(0, &[1, 2, 3], |x| **x != 2), Some(&3));
+        assert_eq!(Dir::Next.cycle(1, &[1, 2, 3], |x| **x != 2), Some(&3));
+        assert_eq!(Dir::Next.cycle(2, &[1, 2, 3], |x| **x != 2), Some(&1));
+
+        assert_eq!(Dir::Prev.cycle(0, &[1, 2, 3], |x| **x != 2), Some(&3));
+        assert_eq!(Dir::Prev.cycle(1, &[1, 2, 3], |x| **x != 2), Some(&1));
+        assert_eq!(Dir::Prev.cycle(2, &[1, 2, 3], |x| **x != 2), Some(&1));
+
+        assert_eq!(Dir::Next.cycle(0, &[1, 2, 3], |x| **x == 9), None);
+        assert_eq!(Dir::Next.cycle(1, &[1, 2, 3], |x| **x == 9), None);
+        assert_eq!(Dir::Next.cycle(2, &[1, 2, 3], |x| **x == 9), None);
+
+        assert_eq!(Dir::Prev.cycle(0, &[1, 2, 3], |x| **x == 9), None);
+        assert_eq!(Dir::Prev.cycle(1, &[1, 2, 3], |x| **x == 9), None);
+        assert_eq!(Dir::Prev.cycle(2, &[1, 2, 3], |x| **x == 9), None);
+    }
+
+    #[test]
+    fn dir_cycle_start_past_end() {
+        assert_eq!(Dir::Next.cycle(999, &[1], |_| true), Some(&1));
     }
 }

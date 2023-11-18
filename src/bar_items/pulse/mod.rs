@@ -176,14 +176,18 @@ impl RcCell<PulseState> {
             }
         }
 
-        let next_obj_idx = (curr_obj_idx + objects.len() + dir) % objects.len();
-        if curr_obj_idx == next_obj_idx {
-            // no other objects to cycle, so there's nothing to do
+        // get the next object (that isn't a source monitor)
+        let next_obj = match dir.cycle(curr_obj_idx, &objects, |o| !o.is_source_monitor) {
+            Some(obj) => obj,
+            None => return,
+        };
+
+        // if there aren't any other objects to cycle to, then we're done
+        if curr_obj.index == next_obj.index {
             return;
         }
 
         // cycle next object
-        let next_obj = &objects[next_obj_idx];
         let next_obj_name = next_obj.name.clone();
         let next_prt = next_obj.first_port();
         let next_prt_name = match next_prt {
@@ -213,8 +217,8 @@ impl RcCell<PulseState> {
         // the active port - under the hood pulse sometimes sets this object as the default when
         // we change the port (I believe there are some heuristics to do with port availability
         // groups, etc)
-        let next_obj_index = next_obj.index;
         let mut inner = self.clone();
+        let next_obj_index = next_obj.index;
         self.set_object_port(what, next_obj_index, &next_prt_name, move |success| {
             // sometimes setting the active port doesn't change the default, so check for
             // that and set it ourselves if needed
