@@ -30,8 +30,7 @@ jobs:
             ~/.cargo/git/db/
             ~/.cargo/.crates.toml
             ~/.cargo/.crates2.json
-            target/
-          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ matrix.target }}
       # install rust
       - run: rustup show && rustup target add ${{ matrix.target }}
       # install dependencies
