@@ -36,7 +36,6 @@ Steps:
 1. Create GH PR from `next` to `master`
 2. Push commit with $NEW_VERSION
 3. Check CI is green
-4. `just publish` and `git push --tags`
-5. Update [`i3stat` AUR package](https://aur.archlinux.org/packages/i3stat)
-6. Update [`i3stat-bin` AUR package](https://aur.archlinux.org/packages/i3stat-bin)
-7. Merge GH PR
+4. `git tag $NEW_VERSION` and `git push --tags`
+5. CI should publish crate, create GH release and update AUR packages
+6. Merge GH PR
