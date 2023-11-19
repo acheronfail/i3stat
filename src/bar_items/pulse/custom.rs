@@ -4,7 +4,8 @@ use serde_derive::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tokio::sync::oneshot;
 
-use super::{Dir, InOut, Object, Port, PortAvailable, PulseState, Vol};
+use super::structs::Port;
+use super::{Dir, InOut, Object, PortAvailable, PulseState, Vol};
 use crate::context::CustomResponse;
 use crate::util::RcCell;
 
@@ -107,6 +108,7 @@ impl InOut {
             "mute": self.mute,
             "ports": self.ports.iter().map(|p| p.to_value()).collect::<Vec<_>>(),
             "active_port": self.active_port.as_ref().map_or(Value::Null, |p| p.to_value()),
+            "is_source_monitor": self.is_source_monitor,
         })
     }
 }
