@@ -63,7 +63,6 @@ jobs:
           docker run \
             --rm \
             -v "$PWD:/pkg" \
-            --user "$(id -u)" \
             --env "GIT_AUTHOR_NAME=acheronfail" \
             --env "GIT_COMMITTER_NAME=acheronfail" \
             --env "GIT_AUTHOR_EMAIL=acheronfail@gmail.com" \
