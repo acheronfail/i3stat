@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - '[0-9]+.[0-9]+.[0-9]+'
+      - '[0-9]+.[0-9]+.[0-9]+-rc[0-9]+'
 
 env:
   CARGO_TERM_COLOR: always
@@ -12,9 +13,12 @@ jobs:
   prepare-env:
     name: Prepare environment
     runs-on: ubuntu-latest
+    outputs:
+      release_version: ${{ steps.prepare-env.outputs.RELEASE_VERSION }}
     steps:
       - name: Get the release version from the tag
-        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+        id: prepare-env
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
   build-release:
     strategy:
@@ -79,13 +83,7 @@ jobs:
         with:
           name: artifacts
           path: i3stat-${{ matrix.target }}.zip
-
-  release-crates:
-    name: Publish crate
-    needs: ['build-release']
-    runs-on: ubuntu-latest
-    steps:
-      - run: rustup show
+      # publish crate
       - shell: bash
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
@@ -93,7 +91,7 @@ jobs:
 
   release-aur:
     name: Update AUR(i3stat)
-    needs: ['release-crates']
+    needs: ['build-release', 'prepare-env']
     runs-on: ubuntu-latest
     steps:
       - uses: extractions/setup-just@v1
@@ -107,7 +105,7 @@ jobs:
           echo "${{ vars.SSH_KNOWN_HOSTS }}" >> $HOME/.ssh/known_hosts
           chmod 0600 $HOME/.ssh/*
       - run: |
-          git clone ssh://aur@aur.archlinux.org/i3stat.git aur && cd "$_"
+          git clone ssh://aur@aur.archlinux.org/i3stat.git aur && cd "$_" && git checkout master
           sudo chown -R 1000:1000 "$PWD"
           docker run \
             --rm \
@@ -116,13 +114,13 @@ jobs:
             --env "GIT_COMMITTER_NAME=acheronfail" \
             --env "GIT_AUTHOR_EMAIL=acheronfail@gmail.com" \
             --env "GIT_COMMITTER_EMAIL=acheronfail@gmail.com" \
-            acheronfail/makepkg just update ${{ env.RELEASE_VERSION }}
+            acheronfail/makepkg just update ${{ needs.prepare-env.outputs.release_version }}
           sudo chown -R $USER:$USER "$PWD"
           git push
 
   release-aur-bin:
     name: Update AUR(i3stat-bin)
-    needs: ['release-github']
+    needs: ['release-github', 'prepare-env']
     runs-on: ubuntu-latest
     steps:
       - uses: extractions/setup-just@v1
@@ -136,7 +134,7 @@ jobs:
           echo "${{ vars.SSH_KNOWN_HOSTS }}" >> $HOME/.ssh/known_hosts
           chmod 0600 $HOME/.ssh/*
       - run: |
-          git clone ssh://aur@aur.archlinux.org/i3stat-bin.git aur && cd "$_"
+          git clone ssh://aur@aur.archlinux.org/i3stat-bin.git aur && cd "$_" && git checkout master
           sudo chown -R 1000:1000 "$PWD"
           docker run \
             --rm \
@@ -145,13 +143,13 @@ jobs:
             --env "GIT_COMMITTER_NAME=acheronfail" \
             --env "GIT_AUTHOR_EMAIL=acheronfail@gmail.com" \
             --env "GIT_COMMITTER_EMAIL=acheronfail@gmail.com" \
-            acheronfail/makepkg just update ${{ env.RELEASE_VERSION }}
+            acheronfail/makepkg just update ${{ needs.prepare-env.outputs.release_version }}
           sudo chown -R $USER:$USER "$PWD"
           git push
 
   release-github:
     name: GitHub Release
-    needs: ['build-release']
+    needs: ['build-release', 'prepare-env']
     runs-on: ubuntu-latest
     steps:
       # downloads artifacts (this downloads the folder called `artifacts` defined in the `build-release` step)
@@ -165,7 +163,7 @@ jobs:
         with:
           files: |
             artifacts/i3stat-x86_64-unknown-linux-gnu.zip
-          tag_name: ${{ env.RELEASE_VERSION }}
+          tag_name: ${{ needs.prepare-env.outputs.release_version }}
           prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
