@@ -59,7 +59,7 @@ jobs:
           echo "${{ vars.SSH_KNOWN_HOSTS }}" >> $HOME/.ssh/known_hosts
           chmod 0600 $HOME/.ssh/*
       - run: |
-          git clone ssh://aur@aur.archlinux.org/i3stat-git.git aur && cd "$_"
+          git clone ssh://aur@aur.archlinux.org/i3stat-git.git aur && cd "$_" && git checkout master
           sudo chown -R 1000:1000 "$PWD"
           docker run \
             --rm \
