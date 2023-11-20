@@ -59,6 +59,7 @@ macro_rules! hints {
     }};
 }
 
+static PULSE_DEFAULTS_ID: OnceCell<u32> = OnceCell::const_new();
 static PULSE_NOTIFICATION_ID: OnceCell<u32> = OnceCell::const_new();
 static BATTERY_NOTIFICATION_ID: OnceCell<u32> = OnceCell::const_new();
 
@@ -144,8 +145,8 @@ impl<'a> NotificationsProxy<'a> {
     }
 
     pub async fn pulse_defaults_change(&self, name: impl AsRef<str>, what: impl AsRef<str>) {
-        self.notify(
-            None,
+        self.notify_id(
+            &PULSE_DEFAULTS_ID,
             hints! { "urgency" => Urgency::Low },
             format!("Default {}", what.as_ref()),
             name,
