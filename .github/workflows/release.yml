@@ -83,6 +83,21 @@ jobs:
         with:
           name: artifacts
           path: i3stat-${{ matrix.target }}.zip
+
+
+  release-crates:
+    name: Publish crate
+    needs: ['build-release']
+    runs-on: ubuntu-latest
+    steps:
+      # checkout code
+      - uses: actions/checkout@v4
+      # install just
+      - uses: extractions/setup-just@v1
+      # install rust
+      - run: rustup show
+      # install dependencies
+      - run: just setup
       # publish crate
       - shell: bash
         env:
@@ -91,7 +106,7 @@ jobs:
 
   release-aur:
     name: Update AUR(i3stat)
-    needs: ['build-release', 'prepare-env']
+    needs: ['release-crates', 'prepare-env']
     runs-on: ubuntu-latest
     steps:
       - uses: extractions/setup-just@v1

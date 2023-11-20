@@ -1,6 +1,6 @@
 [package]
 name = "i3stat"
-version = "0.10.4-rc2"
+version = "0.10.4-rc3"
 edition = "2021"
 authors = ["acheronfail <acheronfail@gmail.com>"]
 description = "A lightweight and batteries-included status_command for i3 and sway"
