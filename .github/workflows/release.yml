@@ -107,7 +107,8 @@ jobs:
           echo "${{ vars.SSH_KNOWN_HOSTS }}" >> $HOME/.ssh/known_hosts
           chmod 0600 $HOME/.ssh/*
       - run: |
-          git clone ssh://aur@aur.archlinux.org/i3stat.git i3stat && cd "$_"
+          git clone ssh://aur@aur.archlinux.org/i3stat.git aur && cd "$_"
+          sudo chown -R 1000:1000 "$PWD"
           docker run \
             --rm \
             -v "$PWD:/pkg" \
@@ -116,6 +117,7 @@ jobs:
             --env "GIT_AUTHOR_EMAIL=acheronfail@gmail.com" \
             --env "GIT_COMMITTER_EMAIL=acheronfail@gmail.com" \
             acheronfail/makepkg just update ${{ env.RELEASE_VERSION }}
+          sudo chown -R $USER:$USER "$PWD"
           git push
 
   release-aur-bin:
@@ -134,7 +136,8 @@ jobs:
           echo "${{ vars.SSH_KNOWN_HOSTS }}" >> $HOME/.ssh/known_hosts
           chmod 0600 $HOME/.ssh/*
       - run: |
-          git clone ssh://aur@aur.archlinux.org/i3stat-bin.git i3stat && cd "$_"
+          git clone ssh://aur@aur.archlinux.org/i3stat-bin.git aur && cd "$_"
+          sudo chown -R 1000:1000 "$PWD"
           docker run \
             --rm \
             -v "$PWD:/pkg" \
@@ -143,6 +146,7 @@ jobs:
             --env "GIT_AUTHOR_EMAIL=acheronfail@gmail.com" \
             --env "GIT_COMMITTER_EMAIL=acheronfail@gmail.com" \
             acheronfail/makepkg just update ${{ env.RELEASE_VERSION }}
+          sudo chown -R $USER:$USER "$PWD"
           git push
 
   release-github:
