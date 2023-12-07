@@ -105,9 +105,8 @@ impl LightFile {
     pub async fn format(&self) -> Result<I3Item> {
         let pct = self.get().await?;
         let icon = match pct {
-            0..=14 => "󰃚",
-            15..=29 => "󰃛",
-            30..=44 => "󰃜",
+            0..=29 => "󰃜",
+            30..=44 => "󰃛",
             45..=59 => "󰃝",
             60..=74 => "󰃞",
             75..=89 => "󰃟",
