@@ -102,6 +102,11 @@ fn setup_i3_bar(config: &RcCell<AppConfig>) -> Result<(RcCell<Bar>, RcCell<Dispa
 
     // Iterate config and create bar items
     for (idx, item) in config.items.iter().enumerate() {
+        if config.disable.contains(&idx) {
+            log::info!("not creating item {idx} since it was disabled by config");
+            continue;
+        }
+
         let bar_item = item.to_bar_item();
 
         // all cheaply cloneable (smart pointers, senders, etc)
