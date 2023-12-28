@@ -13,4 +13,4 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 
 ## Improvements
 
-* ...
+* add an aarch64 build to github releases
