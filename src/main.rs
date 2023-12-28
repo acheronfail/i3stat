@@ -102,6 +102,11 @@ fn setup_i3_bar(config: &RcCell<AppConfig>) -> Result<(RcCell<Bar>, RcCell<Dispa
 
     // Iterate config and create bar items
     for (idx, item) in config.items.iter().enumerate() {
+        if config.disable.contains(&idx) {
+            log::info!("not creating item {idx} since it was disabled by config");
+            continue;
+        }
+
         let bar_item = item.to_bar_item();
 
         // all cheaply cloneable (smart pointers, senders, etc)
@@ -172,9 +177,10 @@ fn setup_i3_bar(config: &RcCell<AppConfig>) -> Result<(RcCell<Bar>, RcCell<Dispa
                         log::error!("item[{}] exited with error: {}", idx, e);
                         // replace with an error item
                         let theme = config.theme.clone();
-                        bar[idx] = I3Item::new("ERROR")
+                        bar[idx] = I3Item::new(format!("ERROR({})", config.items[idx].name()))
                             .color(theme.bg)
-                            .background_color(theme.red);
+                            .background_color(theme.red)
+                            .instance(idx.to_string());
                         break;
                     }
                 }

@@ -88,6 +88,8 @@ cargo install i3stat
 paru -S i3stat-bin
 # build the latest release with cargo
 paru -S i3stat
+# build the latest commit on `next`
+paru -S i3stat-git
 ```
 
 ## Usage

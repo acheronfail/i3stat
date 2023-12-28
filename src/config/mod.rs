@@ -29,11 +29,16 @@ pub struct AppConfig {
     /// List of the items for the bar
     pub items: Vec<Item>,
 
+    /// Optional list of item indices to disable.
+    /// Useful when defining additional config files which disable items defined in previous config
+    /// files.
+    #[serde(default)]
+    pub disable: Vec<usize>,
+
     /// Path to the socket to use for ipc. Useful when having multiple bars to separate their sockets.
     /// The CLI option takes precedence over this.
     #[serde(rename = "socket")]
     socket: Option<PathBuf>,
-    /// Runtime only cache for the resolved socket path.
 
     /// Runtime only cache for index to name item mappings
     #[serde(skip)]
