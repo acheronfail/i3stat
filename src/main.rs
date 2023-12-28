@@ -172,7 +172,7 @@ fn setup_i3_bar(config: &RcCell<AppConfig>) -> Result<(RcCell<Bar>, RcCell<Dispa
                         log::error!("item[{}] exited with error: {}", idx, e);
                         // replace with an error item
                         let theme = config.theme.clone();
-                        bar[idx] = I3Item::new("ERROR")
+                        bar[idx] = I3Item::new(format!("ERROR({})", config.items[idx].name()))
                             .color(theme.bg)
                             .background_color(theme.red)
                             .instance(idx.to_string());
