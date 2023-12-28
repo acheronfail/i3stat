@@ -174,7 +174,8 @@ fn setup_i3_bar(config: &RcCell<AppConfig>) -> Result<(RcCell<Bar>, RcCell<Dispa
                         let theme = config.theme.clone();
                         bar[idx] = I3Item::new("ERROR")
                             .color(theme.bg)
-                            .background_color(theme.red);
+                            .background_color(theme.red)
+                            .instance(idx.to_string());
                         break;
                     }
                 }
