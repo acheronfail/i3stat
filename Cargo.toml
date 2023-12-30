@@ -12,6 +12,10 @@ keywords = ["i3", "sway", "status_command", "i3stat", "status"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [[bin]]
+name = "i3stat-net"
+path = "bin/net.rs"
+
+[[bin]]
 name = "i3stat-acpi"
 path = "bin/acpi.rs"
 
