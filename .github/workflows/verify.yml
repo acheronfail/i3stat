@@ -9,6 +9,14 @@ env:
 
 jobs:
   verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
     name: Build & Test
     runs-on: ubuntu-latest
     steps:
@@ -18,7 +26,7 @@ jobs:
       - uses: extractions/setup-just@v1
       # setup rust toolchain
       # https://github.com/actions-rs/toolchain/issues/126#issuecomment-782989659
-      - run: rustup show
+      - run: rustup show && rustup target add ${{ matrix.target }}
       # cache
       - uses: actions/cache@v3
         with:
@@ -34,12 +42,15 @@ jobs:
             ~/.cargo/.crates.toml
             ~/.cargo/.crates2.json
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
 
+      # install dependencies
+      - run: cargo install cross --git https://github.com/cross-rs/cross
       # verify
-      - run: just setup
-      - run: just build
-      - run: DEBUG=1 just test
+      - run: cross build --all --all-features --target ${{ matrix.target }}
+      # TODO: tests don't work for aarch64 in CI right now
+      - if: ${{ matrix.target }} == 'x86_64-unknown-linux-gnu'
+        run: DEBUG=1 just test
 
   release-aur-git:
     name: Update AUR(i3stat-git)

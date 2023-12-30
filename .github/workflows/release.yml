@@ -22,10 +22,13 @@ jobs:
 
   build-release:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
     needs: ['prepare-env']
     name: build-release
     runs-on: ${{ matrix.os }}
@@ -48,9 +51,9 @@ jobs:
       # install rust
       - run: rustup show && rustup target add ${{ matrix.target }}
       # install dependencies
-      - run: just setup
+      - run: cargo install cross --git https://github.com/cross-rs/cross
       # build (generates binaries)
-      - run: just build --locked --release --target=${{ matrix.target }}
+      - run: cross build --all --all-features --locked --release --target=${{ matrix.target }}
       - run: cargo test --locked manpage
       # create archive
       - name: Archive
