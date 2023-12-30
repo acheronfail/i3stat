@@ -1,5 +1,6 @@
 use ::std::os::raw::{c_char, c_uint};
 use serde_derive::{Deserialize, Serialize};
+use std::any::TypeId;
 
 use crate::error::{Error, Result};
 
@@ -50,17 +51,28 @@ impl AcpiGenericNetlinkEvent {
 /// Checks a slice of C's chars to ensure they're not signed, needed because C's `char` type could
 /// be either signed or unsigned unless specified. See: https://stackoverflow.com/a/2054941/5552584
 fn get_u8_bytes(slice: &[c_char]) -> Result<Vec<u8>> {
-    slice
-        .into_iter()
-        .take_while(|c| **c != 0)
-        .map(|c| -> Result<u8> {
-            if *c < 0 {
-                Err(format!("slice contained signed char: {}", c).into())
-            } else {
-                Ok(*c as u8)
-            }
-        })
-        .collect::<Result<Vec<_>>>()
+    // NOTE: on some platforms `c_char` is `i8` and on others it's `u8`. Instead of targeting those
+    // directly with `#cfg[...]` attributes (because it's not straightforward, have a look at the
+    // cfg match for `c_char` in the stdlib, it's huge) we instead perform a runtime comparison
+    // with `TypeId` here.
+    // According to my tests (with `cargo-show-asm`), this is always optimised out completely since
+    // `TypeId` returns a constant value, so it's just as good as a compile-time check.
+    if TypeId::of::<c_char>() == TypeId::of::<i8>() {
+        slice
+            .into_iter()
+            .take_while(|c| **c != 0)
+            .map(|c| -> Result<u8> {
+                #[allow(unused_comparisons)]
+                if *c < 0 {
+                    Err(format!("slice contained signed char: {}", c).into())
+                } else {
+                    Ok(*c as u8)
+                }
+            })
+            .collect::<Result<Vec<_>>>()
+    } else {
+        Ok(slice.iter().map(|&c| c as u8).collect())
+    }
 }
 
 impl<'a> TryFrom<&'a acpi_genl_event> for AcpiGenericNetlinkEvent {
