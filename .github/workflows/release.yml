@@ -22,13 +22,16 @@ jobs:
 
   build-release:
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - runs-on: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+          - runs-on: buildjet-4vcpu-ubuntu-2204-arm
+            target: aarch64-unknown-linux-gnu
     needs: ['prepare-env']
     name: build-release
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runs-on }}
     steps:
       # checkout code
       - uses: actions/checkout@v4
@@ -44,7 +47,7 @@ jobs:
             ~/.cargo/git/db/
             ~/.cargo/.crates.toml
             ~/.cargo/.crates2.json
-          key: ${{ runner.os }}-cargo-${{ matrix.target }}
+          key: ${{ runner.runs-on }}-cargo-${{ matrix.target }}
       # install rust
       - run: rustup show && rustup target add ${{ matrix.target }}
       # install dependencies
