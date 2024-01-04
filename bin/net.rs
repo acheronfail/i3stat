@@ -4,6 +4,7 @@ use i3stat::error::Result;
 use i3stat::util::route::InterfaceUpdate;
 use i3stat::util::{local_block_on, netlink_ipaddr_listen};
 use serde_json::json;
+use tokio::io::{stdout, AsyncWriteExt};
 use tokio::sync::mpsc;
 
 #[derive(Debug, Parser)]
@@ -30,13 +31,12 @@ fn main() -> Result<()> {
 
     let (output, _) = local_block_on(async {
         let (manual_tx, manual_rx) = mpsc::channel(1);
-        manual_tx.send(()).await?;
-
         let mut rx = netlink_ipaddr_listen(manual_rx).await?;
+        manual_tx.send(()).await?;
 
         if let Command::Info = args.command {
             match rx.recv().await {
-                Some(interfaces) => print_interfaces(&interfaces).await,
+                Some(interfaces) => print_interfaces(&interfaces).await?,
                 None => println!("null"),
             }
 
@@ -44,7 +44,7 @@ fn main() -> Result<()> {
         }
 
         while let Some(interfaces) = rx.recv().await {
-            print_interfaces(&interfaces).await;
+            print_interfaces(&interfaces).await?;
         }
 
         Err("Unexpected end of netlink subscription".into())
@@ -53,9 +53,9 @@ fn main() -> Result<()> {
     output
 }
 
-async fn print_interfaces(interfaces: &InterfaceUpdate) {
-    println!(
-        "{}",
+async fn print_interfaces(interfaces: &InterfaceUpdate) -> Result<()> {
+    let s = format!(
+        "{}\n",
         json!(
             join_all(interfaces.values().map(|interface| async {
                 json!({
@@ -80,6 +80,14 @@ async fn print_interfaces(interfaces: &InterfaceUpdate) {
             .await
         )
     );
+
+    // flush output each time to facilitate common usage patterns like
+    // `i3stat-net watch | while read x; do ... done`, etc.
+    let mut stdout = stdout();
+    stdout.write_all(s.as_bytes()).await?;
+    stdout.flush().await?;
+
+    Ok(())
 }
 
 #[cfg(test)]
