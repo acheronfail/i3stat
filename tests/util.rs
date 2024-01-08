@@ -21,6 +21,7 @@ const FAKE_TIME_LIB_PATHS: &[&str] = &[
     "/usr/lib/faketime/libfaketime.so.1",
     // Debian/Ubuntu (used in CI)
     "/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1",
+    "/usr/lib/aarch64-linux-gnu/faketime/libfaketime.so.1",
 ];
 
 pub fn get_faketime_lib() -> &'static str {
