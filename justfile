@@ -5,8 +5,6 @@ _default:
 
 # setup repository and install dev dependencies
 setup:
-  cd ./scripts/node && yarn
-
   if ! command -v cargo-lbuild >/dev/null 2>&1 /dev/null; then cargo install cargo-limit; fi
 
   if command -v pacman >/dev/null 2>&1 /dev/null; then sudo pacman -S --needed \
@@ -16,6 +14,12 @@ setup:
   if command -v apt-get >/dev/null 2>&1 /dev/null; then sudo apt-get install -y \
     build-essential clang dbus dunst i3-wm imagemagick libfaketime libiw-dev libpulse-dev libx11-dev scrot xserver-xephyr xvfb; \
   fi
+
+  if command -v dnf >/dev/null 2>&1 /dev/null; then sudo dnf install -y \
+    clang dbus dunst libfaketime i3 ImageMagick iw scrot xorg-x11-server-Xephyr xorg-x11-server-Xvfb libX11-devel yarnpkg; \
+  fi
+
+  cd ./scripts/node && yarn
 
 @check +CMDS:
     echo {{CMDS}} | xargs -n1 sh -c 'if ! command -v $1 >/dev/null 2>&1 /dev/null; then echo "$1 is required!"; exit 1; fi' bash
