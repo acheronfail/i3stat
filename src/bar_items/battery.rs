@@ -104,7 +104,7 @@ impl Bat {
     }
 
     async fn read(&self, file_name: impl AsRef<str>) -> Result<String> {
-        Ok(read_to_string(dbg!(self.dir.join(file_name.as_ref()))).await?)
+        Ok(read_to_string(self.dir.join(file_name.as_ref())).await?)
     }
 
     async fn read_usize(&self, file_name: impl AsRef<str>) -> Result<usize> {
@@ -115,7 +115,6 @@ impl Bat {
         Ok(BatState::from_str(self.read("status").await?.trim())?)
     }
 
-    // NOTE: there is also `/capacity` which returns an integer percentage
     pub async fn percent(&self) -> Result<f32> {
         match self.uses_charge() {
             false => Ok(self.read_usize("capacity").await? as f32),
