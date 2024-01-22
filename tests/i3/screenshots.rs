@@ -470,7 +470,7 @@ screenshot!(
     json!({
         "type": "sensors",
         "interval": "1s",
-        "label": "name temp1"
+        "component": "name temp1"
     }),
     {
         at_0: {
