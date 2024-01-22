@@ -158,8 +158,12 @@ impl Bat {
                 let b = fs::try_exists(file.join("capacity")).await;
                 let a = fs::try_exists(file.join("charge_now")).await;
 
-                if a.is_ok() || b.is_ok() {
-                    batteries.push(Bat::new(file));
+                match (a, b) {
+                    (Ok(true), _) | (_, Ok(true)) => {
+                        log::debug!("autodetected battery: {}", &file.display());
+                        batteries.push(Bat::new(file));
+                    }
+                    _ => {}
                 }
             }
         }
