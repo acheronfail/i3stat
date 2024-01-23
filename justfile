@@ -7,11 +7,11 @@ _default:
 setup:
   if ! command -v cargo-lbuild >/dev/null 2>&1 /dev/null; then cargo install cargo-limit; fi
 
-  if command -v pacman >/dev/null 2>&1 /dev/null; then sudo pacman -S --needed \
+  if command -v pacman >/dev/null 2>&1 /dev/null; then sudo pacman -Sy --needed \
     clang dbus dunst libfaketime libpulse i3-wm imagemagick scrot xorg-server-xephyr xorg-server-xvfb yarn; \
   fi
 
-  if command -v apt-get >/dev/null 2>&1 /dev/null; then sudo apt-get install -y \
+  if command -v apt-get >/dev/null 2>&1 /dev/null; then sudo apt-get update && sudo apt-get install -y \
     build-essential clang dbus dunst i3-wm imagemagick libfaketime libiw-dev libpulse-dev libx11-dev scrot xserver-xephyr xvfb; \
   fi
 
