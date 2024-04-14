@@ -9,6 +9,15 @@ pub struct EnumCycle<T: IntoEnumIterator> {
     inner: Peekable<Box<dyn Iterator<Item = T>>>,
 }
 
+impl<T: IntoEnumIterator + Clone + 'static> Iterator for EnumCycle<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // SAFETY: `self.inner` is a cycling iterator that has at least one variant
+        self.inner.next()
+    }
+}
+
 impl<T: IntoEnumIterator + Clone + 'static> EnumCycle<T> {
     /// Creates a new `EnumCycle` for the given type.
     /// Returns an error if the enum doesn't have at least one variant.
@@ -26,11 +35,6 @@ impl<T: IntoEnumIterator + Clone + 'static> EnumCycle<T> {
     pub fn current(&mut self) -> &T {
         // SAFETY: `self.inner` is a cycling iterator that has at least one variant
         self.inner.peek().unwrap()
-    }
-
-    pub fn next(&mut self) -> T {
-        // SAFETY: `self.inner` is a cycling iterator that has at least one variant
-        self.inner.next().unwrap()
     }
 }
 

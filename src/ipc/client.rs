@@ -68,30 +68,30 @@ async fn handle_ipc_request(stream: &UnixStream, mut ctx: IpcContext, len: usize
     let msg = serde_json::from_slice::<IpcMessage>(&buf)?;
     match msg {
         IpcMessage::Shutdown => {
-            send_ipc_response(&stream, &IpcReply::Result(IpcResult::Success(None))).await?;
+            send_ipc_response(stream, &IpcReply::Result(IpcResult::Success(None))).await?;
             ctx.token.cancel();
         }
         IpcMessage::GetBar => {
             send_ipc_response(
-                &stream,
+                stream,
                 &IpcReply::Value(ctx.bar.to_value(&ctx.config.theme)?),
             )
             .await?;
         }
         IpcMessage::Info => {
             let info = serde_json::to_value(ctx.config.item_idx_to_name())?;
-            send_ipc_response(&stream, &IpcReply::Value(info)).await?;
+            send_ipc_response(stream, &IpcReply::Value(info)).await?;
         }
         IpcMessage::GetConfig => {
             send_ipc_response(
-                &stream,
+                stream,
                 &IpcReply::Value(serde_json::to_value(&*ctx.config)?),
             )
             .await?;
         }
         IpcMessage::GetTheme => {
             send_ipc_response(
-                &stream,
+                stream,
                 &IpcReply::Value(serde_json::to_value(&ctx.config.theme)?),
             )
             .await?;
@@ -104,12 +104,12 @@ async fn handle_ipc_request(stream: &UnixStream, mut ctx: IpcContext, len: usize
                 }
                 Err(e) => IpcReply::Result(IpcResult::Failure(e.to_string())),
             };
-            send_ipc_response(&stream, &reply).await?;
+            send_ipc_response(stream, &reply).await?;
             ctx.dispatcher.manual_bar_update().await?;
         }
         IpcMessage::RefreshAll => {
             ctx.dispatcher.signal_all().await?;
-            send_ipc_response(&stream, &IpcReply::Result(IpcResult::Success(None))).await?;
+            send_ipc_response(stream, &IpcReply::Result(IpcResult::Success(None))).await?;
         }
         IpcMessage::BarEvent { instance, event } => {
             // NOTE: special considerations here for `instance`: if it's a number, then it maps to the item at the index
@@ -137,7 +137,7 @@ async fn handle_ipc_request(stream: &UnixStream, mut ctx: IpcContext, len: usize
                         None => {
                             let err = format!("failed to parse ipc instance property: {}", e);
                             log::warn!("{}", err);
-                            send_ipc_response(&stream, &IpcReply::Result(IpcResult::Failure(err)))
+                            send_ipc_response(stream, &IpcReply::Result(IpcResult::Failure(err)))
                                 .await?;
 
                             return Ok(());
@@ -171,7 +171,7 @@ async fn handle_ipc_request(stream: &UnixStream, mut ctx: IpcContext, len: usize
                     IpcReply::Result(IpcResult::Failure(e.to_string()))
                 }
             };
-            send_ipc_response(&stream, &reply).await?;
+            send_ipc_response(stream, &reply).await?;
         }
     }
 

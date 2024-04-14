@@ -70,7 +70,7 @@ impl DiskStats {
                 name,
                 ByteSize(self.available_bytes).to_string_as(true)
             ),
-            format!("{}", name),
+            name,
         )
     }
 }

@@ -50,7 +50,7 @@ pub fn float<F: Float>(n: F, fmt: &FloatFormat) -> String {
 
     let pad_char = fmt.pad.unwrap_or(' ');
     let precision = fmt.precision.unwrap_or(0);
-    let pad_count = fmt.pad_count.unwrap_or_else(|| {
+    let pad_count = fmt.pad_count.unwrap_or({
         if precision > 0 {
             // three digits (e.g., 100%) + decimal separator
             3 + 1

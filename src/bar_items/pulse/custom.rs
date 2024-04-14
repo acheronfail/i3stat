@@ -126,14 +126,13 @@ impl RcCell<PulseState> {
     {
         let mut tx = Some(tx);
         let mut f = Some(failure_fn);
-        move |success| match (tx.take(), f.take()) {
-            (Some(tx), Some(f)) => {
+        move |success| {
+            if let (Some(tx), Some(f)) = (tx.take(), f.take()) {
                 let _ = tx.send(CustomResponse::Json(json!(match success {
                     true => PulseResponse::Success,
                     false => PulseResponse::Failure(f()),
                 })));
             }
-            _ => {}
         }
     }
 

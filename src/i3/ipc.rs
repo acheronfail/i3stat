@@ -24,7 +24,7 @@ pub async fn handle_click_events(
         let mut line = lines
             .next_line()
             .await?
-            .ok_or_else(|| "received unexpected end of STDIN")?;
+            .ok_or("received unexpected end of STDIN")?;
 
         // skip opening array as part of the protocol
         if line.trim() == "[" {

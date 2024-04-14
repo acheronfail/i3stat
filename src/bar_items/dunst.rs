@@ -31,7 +31,7 @@ impl BarItem for Dunst {
     async fn start(&self, mut ctx: Context) -> Result<StopAction> {
         // get initial state
         let connection = dbus_connection(BusType::Session).await?;
-        let dunst_proxy = DunstProxy::new(&connection).await?;
+        let dunst_proxy = DunstProxy::new(connection).await?;
         let _ = ctx
             .update_item(Dunst::item(&ctx.config.theme, dunst_proxy.paused().await?))
             .await;

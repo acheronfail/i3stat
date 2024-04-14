@@ -59,7 +59,7 @@ fn get_u8_bytes(slice: &[c_char]) -> Result<Vec<u8>> {
     // `TypeId` returns a constant value, so it's just as good as a compile-time check.
     if TypeId::of::<c_char>() == TypeId::of::<i8>() {
         slice
-            .into_iter()
+            .iter()
             .take_while(|c| **c != 0)
             .map(|c| -> Result<u8> {
                 #[allow(unused_comparisons)]

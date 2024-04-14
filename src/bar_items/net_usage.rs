@@ -44,7 +44,7 @@ pub struct NetUsage {
 
 impl NetUsage {
     fn get_color(&self, theme: &Theme, bytes: u64) -> Option<HexColor> {
-        if self.thresholds.len() == 0 {
+        if self.thresholds.is_empty() {
             return None;
         }
 
@@ -91,7 +91,7 @@ fn format_bytes(bytes: u64, si: bool, as_bits: bool) -> String {
 impl BarItem for NetUsage {
     async fn start(&self, mut ctx: Context) -> Result<StopAction> {
         let fg = |bytes: u64, theme: &Theme| {
-            self.get_color(&theme, bytes)
+            self.get_color(theme, bytes)
                 .map(|c| format!(r#" foreground="{}""#, c))
                 .unwrap_or("".into())
         };
@@ -126,7 +126,7 @@ impl BarItem for NetUsage {
 
                 // this returns the number of bytes since the last refresh
                 let (down, up) = networks.iter().fold((0, 0), |(d, u), (interface, net)| {
-                    if self.ignored_interfaces.contains(&interface) {
+                    if self.ignored_interfaces.contains(interface) {
                         (d, u)
                     } else {
                         (d + net.received(), u + net.transmitted())
@@ -157,11 +157,9 @@ impl BarItem for NetUsage {
             .await?;
 
             // swap between bits and bytes on click
-            if let Some(event) = ctx.wait_for_event(Some(self.interval)).await {
-                if let BarEvent::Click(click) = event {
-                    if click.button == I3Button::Left {
-                        display.next();
-                    }
+            if let Some(BarEvent::Click(click)) = ctx.wait_for_event(Some(self.interval)).await {
+                if click.button == I3Button::Left {
+                    display.next();
                 }
             }
         }

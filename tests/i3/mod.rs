@@ -11,15 +11,8 @@ use serde_json::Value;
 use self::util::x_click;
 use crate::i3::util::MouseButton;
 use crate::util::{
-    find_object_containing,
-    get_current_exe,
-    get_exe,
-    get_fakeroot_lib,
-    get_faketime_lib,
-    wait_for_file,
-    LogOnDropChild,
-    Test,
-    FAKE_TIME,
+    find_object_containing, get_current_exe, get_exe, get_fakeroot_lib, get_faketime_lib,
+    wait_for_file, LogOnDropChild, Test, FAKE_TIME,
 };
 
 // start nested x server displays at 10
@@ -156,7 +149,7 @@ impl<'a> X11Test<'a> {
         wait_for_file(&i3_socket, MAX_WAIT_TIME);
 
         // wait for i3stat's socket to appear
-        wait_for_file(&i3stat_socket, MAX_WAIT_TIME);
+        wait_for_file(i3stat_socket, MAX_WAIT_TIME);
 
         let screenshots_dir = PathBuf::from(SCREENSHOTS_DIR);
         fs::create_dir_all(&screenshots_dir).unwrap();
@@ -184,7 +177,7 @@ impl<'a> X11Test<'a> {
             .env("FAKEROOT", &self.test.fakeroot)
             .env("FAKEROOT_DIRS", "1")
             .arg("-c")
-            .arg(format!("{}", cmd.as_ref()))
+            .arg(cmd.as_ref())
             .output()
             .unwrap()
     }
@@ -265,24 +258,23 @@ impl<'a> X11Test<'a> {
             self.screenshot_file.with_file_name(name)
         };
 
-        self.cmd(format!(
-            "{scrot} | {convert} > {file}",
-            scrot = format!(
-                "scrot --autoselect {x},{y},{w},{h} -",
-                x = x,
-                y = y,
-                w = w,
-                h = h
-            ),
-            convert = format!(
-                "convert - -crop {w}x{h}+{x}+{y} -",
-                w = w,
-                h = h,
-                x = w / 2,
-                y = y,
-            ),
-            file = file.display()
-        ));
+        let scrot = format!(
+            "scrot --autoselect {x},{y},{w},{h} -",
+            x = x,
+            y = y,
+            w = w,
+            h = h
+        );
+        let convert = format!(
+            "convert - -crop {w}x{h}+{x}+{y} -",
+            w = w,
+            h = h,
+            x = w / 2,
+            y = y,
+        );
+        let file = file.display();
+
+        self.cmd(format!("{scrot} | {convert} > {file}"));
     }
 }
 

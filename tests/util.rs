@@ -26,7 +26,7 @@ const FAKE_TIME_LIB_PATHS: &[&str] = &[
 pub fn get_faketime_lib() -> &'static str {
     for path in FAKE_TIME_LIB_PATHS {
         if PathBuf::from(path).exists() {
-            return *path;
+            return path;
         }
     }
 
@@ -217,11 +217,7 @@ impl Test {
 
     pub fn add_fake_file(&self, name: impl AsRef<str>, contents: impl AsRef<str>) {
         let name = name.as_ref();
-        let name = if name.starts_with("/") {
-            &name[1..]
-        } else {
-            name
-        };
+        let name = name.strip_prefix('/').unwrap_or(name);
 
         let path = self.fakeroot.join(name);
         fs::create_dir_all(path.parent().unwrap()).unwrap();

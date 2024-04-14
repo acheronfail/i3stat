@@ -39,7 +39,7 @@ impl<T> Deref for RcCell<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        &self.get()
+        self.get()
     }
 }
 

@@ -5,7 +5,7 @@ use clap::builder::StyledStr;
 use futures::Future;
 use serde_json::Value;
 use sysinfo::{System, SystemExt};
-use tokio::sync::mpsc::error::{SendError, TryRecvError};
+use tokio::sync::mpsc::error::SendError;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::sleep;
 
@@ -97,11 +97,8 @@ impl Context {
         tokio::select! {
             Some(event) = self.rx_event.recv() => {
                 closure(event).await;
-                loop {
-                    match self.rx_event.try_recv() {
-                        Ok(event) => closure(event).await,
-                        Err(TryRecvError::Empty) | Err(TryRecvError::Disconnected)=> break,
-                    }
+                while let Ok(event) = self.rx_event.try_recv() {
+                    closure(event).await
                 }
             }
             _ = sleep(duration) => {}

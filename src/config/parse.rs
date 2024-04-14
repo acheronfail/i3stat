@@ -14,7 +14,7 @@ use crate::error::Result;
 fn expand_include_path(s: impl AsRef<str>, cfg_dir: impl AsRef<Path>) -> Result<Vec<PathBuf>> {
     let cfg_dir = cfg_dir.as_ref();
     // perform expansion, see: man 3 wordexp
-    Ok(wordexp(s.as_ref(), Wordexp::new(0), 0)?
+    wordexp(s.as_ref(), Wordexp::new(0), 0)?
         .map(|path| -> Result<_> {
             // convert expansion to path
             let path = PathBuf::from(path);
@@ -30,7 +30,7 @@ fn expand_include_path(s: impl AsRef<str>, cfg_dir: impl AsRef<Path>) -> Result<
                 }
             }
         })
-        .collect::<Result<_>>()?)
+        .collect::<Result<_>>()
 }
 
 pub fn parse(args: &Cli) -> Result<AppConfig> {
@@ -39,11 +39,11 @@ pub fn parse(args: &Cli) -> Result<AppConfig> {
         .as_ref()
         .map(|p| p.to_owned())
         .or_else(|| dirs::config_dir().map(|d| d.join("i3stat/config")))
-        .ok_or_else(|| "failed to find config file")?;
+        .ok_or("failed to find config file")?;
 
     let cfg_dir = cfg_file
         .parent()
-        .ok_or_else(|| "failed to find config dir")?;
+        .ok_or("failed to find config dir")?;
 
     // main configuration file
     let mut figment = Figment::new()
@@ -64,7 +64,7 @@ pub fn parse(args: &Cli) -> Result<AppConfig> {
                 Ok(user_paths) => {
                     let mut paths = vec![];
                     for unexpanded in user_paths {
-                        match expand_include_path(&unexpanded, &cfg_dir) {
+                        match expand_include_path(&unexpanded, cfg_dir) {
                             Ok(path) => paths.extend(path),
                             Err(e) => {
                                 log::warn!("failed to include config '{}': {}", unexpanded, e);

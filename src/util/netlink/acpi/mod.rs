@@ -92,9 +92,9 @@ static ACPI_EVENT_IDS: OnceCell<(u16, u32)> = OnceCell::const_new();
 /// Initialises local cache of the required ACPI netlink ids
 /// You can see these with the tool `genl-ctrl-list`.
 async fn init_ids() -> Result<&'static (u16, u32)> {
-    Ok(ACPI_EVENT_IDS
+    ACPI_EVENT_IDS
         .get_or_try_init(get_acpi_id_from_netlink)
-        .await?)
+        .await
 }
 
 async fn event_family_id() -> Result<u16> {

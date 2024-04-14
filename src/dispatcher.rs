@@ -35,7 +35,7 @@ impl Dispatcher {
 
     /// Send `BarEvent::Signal` to all bar items
     pub async fn signal_all(&self) -> Result<()> {
-        Ok(join_all(
+        join_all(
             self.bar_senders
                 .iter()
                 .enumerate()
@@ -47,7 +47,8 @@ impl Dispatcher {
             if let Err(e) = r {
                 log::warn!("{}", e);
             }
-        }))
+        });
+        Ok(())
     }
 
     /// Send the given `BarEvent` to the item at the given index

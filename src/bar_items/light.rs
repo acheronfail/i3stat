@@ -90,7 +90,7 @@ impl LightFile {
         }
 
         // sort by max brightness
-        backlights.sort_unstable_by_key(|ref pair| pair.1);
+        backlights.sort_unstable_by_key(|pair| pair.1);
 
         // return a light for the "brightest" backlight
         match backlights.last() {

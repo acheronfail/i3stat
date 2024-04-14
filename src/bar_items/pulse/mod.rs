@@ -177,7 +177,7 @@ impl RcCell<PulseState> {
         }
 
         // get the next object (that isn't a source monitor)
-        let next_obj = match dir.cycle(curr_obj_idx, &objects, |o| !o.is_source_monitor) {
+        let next_obj = match dir.cycle(curr_obj_idx, objects, |o| !o.is_source_monitor) {
             Some(obj) => obj,
             None => return,
         };
@@ -219,7 +219,7 @@ impl RcCell<PulseState> {
         // groups, etc)
         let mut inner = self.clone();
         let next_obj_index = next_obj.index;
-        self.set_object_port(what, next_obj_index, &next_prt_name, move |success| {
+        self.set_object_port(what, next_obj_index, next_prt_name, move |success| {
             // sometimes setting the active port doesn't change the default, so check for
             // that and set it ourselves if needed
             let should_try_set_default = success
@@ -252,19 +252,15 @@ impl RcCell<PulseState> {
         log::trace!("set_{what}_port_by_index {object_idx} {port_name}");
         match what {
             Object::Sink => {
-                introspect.set_sink_port_by_index(object_idx, &port_name, Some(Box::new(f)));
+                introspect.set_sink_port_by_index(object_idx, port_name, Some(Box::new(f)));
             }
             Object::Source => {
-                introspect.set_source_port_by_index(object_idx, &port_name, Some(Box::new(f)));
+                introspect.set_source_port_by_index(object_idx, port_name, Some(Box::new(f)));
             }
         }
     }
 
-    fn update_volume<'a, 'b>(
-        &'a self,
-        cv: &'b mut ChannelVolumes,
-        vol: Vol,
-    ) -> &'b mut ChannelVolumes {
+    fn update_volume<'b>(&self, cv: &'b mut ChannelVolumes, vol: Vol) -> &'b mut ChannelVolumes {
         let step = Volume::NORMAL.0 / 100;
         let current_pct = cv.max().0 / step;
         match vol {
@@ -302,7 +298,7 @@ impl RcCell<PulseState> {
         F: FnMut(bool) + 'static,
     {
         log::trace!("set_volume_{what} {vol}");
-        (match what {
+        if let Some(p) = match what {
             Object::Sink => self.default_sink().map(|mut p| {
                 self.set_volume_sink(p.index, self.update_volume(&mut p.volume, vol), f);
                 p
@@ -311,12 +307,11 @@ impl RcCell<PulseState> {
                 self.set_volume_source(p.index, self.update_volume(&mut p.volume, vol), f);
                 p
             }),
-        })
-        .map(|p| {
+        } {
             // send notification
             let _ = self.tx.send(p.notify_volume_mute());
             self.play_volume_sample_if_enabled(what);
-        });
+        }
     }
 
     fn set_mute<F>(&mut self, what: Object, mute: bool, f: F)
@@ -324,7 +319,7 @@ impl RcCell<PulseState> {
         F: FnMut(bool) + 'static,
     {
         log::trace!("set_mute_{what} {mute}");
-        (match what {
+        if let Some(p) = match what {
             Object::Sink => self.default_sink().map(|mut p| {
                 p.mute = mute;
                 self.set_mute_sink(p.index, p.mute, f);
@@ -335,18 +330,17 @@ impl RcCell<PulseState> {
                 self.set_mute_source(p.index, p.mute, f);
                 p
             }),
-        })
-        .map(|p| {
+        } {
             let _ = self.tx.send(p.notify_volume_mute());
             self.play_volume_sample_if_enabled(what);
-        });
+        }
     }
 
     fn toggle_mute<F>(&mut self, what: Object, f: F)
     where
         F: FnMut(bool) + 'static,
     {
-        (match what {
+        if let Some(p) = match what {
             Object::Sink => self.default_sink().map(|mut p| {
                 p.mute = !p.mute;
                 self.set_mute_sink(p.index, p.mute, f);
@@ -357,11 +351,10 @@ impl RcCell<PulseState> {
                 self.set_mute_source(p.index, p.mute, f);
                 p
             }),
-        })
-        .map(|p| {
+        } {
             let _ = self.tx.send(p.notify_volume_mute());
             self.play_volume_sample_if_enabled(what);
-        });
+        }
     }
 
     fn play_volume_sample_if_enabled(&mut self, what: Object) {
@@ -516,13 +509,13 @@ impl RcCell<PulseState> {
                 });
             };
 
-            info.default_sink_name
-                .as_ref()
-                .map(|name| update_if_needed(&mut inner, Object::Sink, name.to_string().into()));
+            if let Some(name) = info.default_sink_name.as_ref() {
+                update_if_needed(&mut inner, Object::Sink, name.to_string().into())
+            }
 
-            info.default_source_name
-                .as_ref()
-                .map(|name| update_if_needed(&mut inner, Object::Source, name.to_string().into()));
+            if let Some(name) = info.default_source_name.as_ref() {
+                update_if_needed(&mut inner, Object::Source, name.to_string().into())
+            }
 
             inner.update_item();
         });
@@ -639,7 +632,7 @@ impl BarItem for Pulse {
         });
 
         let dbus = dbus_connection(BusType::Session).await?;
-        let notifications = NotificationsProxy::new(&dbus).await?;
+        let notifications = NotificationsProxy::new(dbus).await?;
         loop {
             tokio::select! {
                 // handle events

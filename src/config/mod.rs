@@ -68,7 +68,7 @@ impl AppConfig {
     }
 
     /// Sort the items by reading the index defined in the configuration.
-    fn sort(mut items: &mut [Item]) {
+    fn sort(items: &mut [Item]) {
         let len = items.len();
         let max = len.saturating_sub(1);
         let mut item_order = (0..len).collect::<Vec<usize>>();
@@ -79,7 +79,7 @@ impl AppConfig {
             }
         }
 
-        sort_by_indices(&mut items, item_order);
+        sort_by_indices(items, item_order);
     }
 
     /// Ensure configuration of item names have no duplicates.
