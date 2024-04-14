@@ -239,11 +239,11 @@ fn main() -> Result<()> {
             match theme.pointer_mut(&pointer) {
                 Some(value) => {
                     let trimmed = json_value.trim();
-                    let new_value = match serde_json::from_str::<Value>(&trimmed) {
+                    let new_value = match serde_json::from_str::<Value>(trimmed) {
                         // passed a direct JSON value
                         Ok(value) => Ok(value),
                         // assume string if it doesn't definitely look like some JSON value
-                        Err(_) if !trimmed.starts_with(&['[', '{', '\'', '"']) => {
+                        Err(_) if !trimmed.starts_with(['[', '{', '\'', '"']) => {
                             Ok(Value::String(trimmed.into()))
                         }
                         // pass through any other error
@@ -273,18 +273,20 @@ fn main() -> Result<()> {
             width,
             height,
         } => {
-            let mut click = I3ClickEvent::default();
-            click.button = button.0;
-            click.instance = Some(target.clone());
-            click.modifiers = modifiers.into_iter().map(|m| m.0).collect();
-            x.map(|x| click.x = x);
-            y.map(|y| click.y = y);
-            relative_x.map(|relative_x| click.relative_x = relative_x);
-            relative_y.map(|relative_y| click.relative_y = relative_y);
-            output_x.map(|output_x| click.output_x = output_x);
-            output_y.map(|output_y| click.output_y = output_y);
-            width.map(|width| click.width = width);
-            height.map(|height| click.height = height);
+            let click = I3ClickEvent {
+                name: None,
+                button: button.0,
+                instance: Some(target.clone()),
+                modifiers: modifiers.into_iter().map(|m| m.0).collect(),
+                x: x.unwrap_or_default(),
+                y: y.unwrap_or_default(),
+                relative_x: relative_x.unwrap_or_default(),
+                relative_y: relative_y.unwrap_or_default(),
+                output_x: output_x.unwrap_or_default(),
+                output_y: output_y.unwrap_or_default(),
+                width: width.unwrap_or_default(),
+                height: height.unwrap_or_default(),
+            };
 
             let event = IpcBarEvent::Click(click);
             send_and_print_response(
