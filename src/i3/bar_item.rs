@@ -51,7 +51,7 @@ impl Serialize for I3MinWidth {
         match self {
             I3MinWidth::Pixels(n) => serializer.serialize_u64(*n as u64),
             I3MinWidth::StringCount(n) => serializer.serialize_str(&"x".repeat(*n)),
-            I3MinWidth::String(s) => serializer.serialize_str(&s),
+            I3MinWidth::String(s) => serializer.serialize_str(s),
         }
     }
 }

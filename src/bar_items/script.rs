@@ -54,9 +54,9 @@ impl BarItem for Script {
             }
             BarEvent::Click(c) => {
                 env.remove("I3_SIGNAL");
-                c.name.map(|name| {
-                    env.insert("I3_NAME", name.to_string());
-                });
+                if let Some(name) = c.name {
+                    env.insert("I3_NAME", name);
+                }
                 env.insert(
                     "I3_MODIFIERS",
                     c.modifiers

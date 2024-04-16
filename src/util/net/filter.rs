@@ -151,7 +151,7 @@ mod tests {
 
     #[test]
     fn interface_filter_ser() {
-        let to_s = |i| serde_json::to_value(&i).unwrap();
+        let to_s = |i| serde_json::to_value(i).unwrap();
 
         assert_eq!(to_s(InterfaceFilter::new("foo", None)), "foo");
         assert_eq!(

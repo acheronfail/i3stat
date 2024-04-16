@@ -138,13 +138,11 @@ impl Bat {
 
     pub async fn get_info(&self) -> Result<BatInfo> {
         let name = self.name()?.to_owned();
-        Ok(
-            try_join!(self.percent(), self.get_state()).map(|(charge, state)| BatInfo {
-                name,
-                charge,
-                state,
-            })?,
-        )
+        try_join!(self.percent(), self.get_state()).map(|(charge, state)| BatInfo {
+            name,
+            charge,
+            state,
+        })
     }
 
     pub async fn find_all() -> Result<Vec<Bat>> {
@@ -212,7 +210,7 @@ impl Battery {
         let name = if info.name == "BAT0" {
             icon
         } else {
-            info.name.as_str().into()
+            info.name.as_str()
         };
         I3Item::new(format!("{}  {:.0}%", name, info.charge))
             .short_text(format!("{:.0}%", info.charge))
@@ -229,14 +227,14 @@ impl BarItem for Battery {
 
         let mut show_watts = false;
         let mut p = Paginator::new();
-        if batteries.len() == 0 {
+        if batteries.is_empty() {
             bail!("no batteries found");
         } else {
             p.set_len(batteries.len())?;
         }
 
         let dbus = dbus_connection(BusType::Session).await?;
-        let notifications = NotificationsProxy::new(&dbus).await?;
+        let notifications = NotificationsProxy::new(dbus).await?;
         let mut on_acpi_event = battery_acpi_events().await?;
         let mut sent_critical_notification = false;
         loop {
@@ -338,9 +336,8 @@ async fn battery_acpi_events() -> Result<Receiver<BatteryAcpiEvent>> {
                     _ => continue,
                 };
 
-                if result.is_err() {
-                    // SAFETY: we just checked with `.is_err()`
-                    break result.unwrap_err();
+                if let Err(err) = result {
+                    break err;
                 }
             }
         };

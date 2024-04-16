@@ -81,7 +81,7 @@ async fn async_main(args: Cli) -> Result<RuntimeStopReason> {
 
     // if we reach here, then something went wrong, so clean up
     signal_handle.close();
-    return result;
+    result
 }
 
 fn setup_i3_bar(config: &RcCell<AppConfig>) -> Result<(RcCell<Bar>, RcCell<Dispatcher>)> {

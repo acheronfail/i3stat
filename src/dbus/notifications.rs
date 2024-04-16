@@ -16,6 +16,7 @@ type Hints = HashMap<&'static str, Value<'static>>;
 )]
 trait Notifications {
     #[dbus_proxy(name = "Notify")]
+    #[allow(clippy::too_many_arguments)]
     fn notify_full(
         &self,
         app_name: &str,
@@ -106,14 +107,13 @@ impl<'a> NotificationsProxy<'a> {
         timeout: i32,
     ) {
         let cached_id = once_cell.get().cloned();
-        match self.notify(cached_id, hints, summary, body, timeout).await {
-            Some(id) => match cached_id {
+        if let Some(id) = self.notify(cached_id, hints, summary, body, timeout).await {
+            match cached_id {
                 Some(_) => { /* do nothing, id already saved */ }
                 None => {
                     let _ = once_cell.set(id);
                 }
-            },
-            None => { /* do nothing, an error occurred */ }
+            }
         }
     }
 

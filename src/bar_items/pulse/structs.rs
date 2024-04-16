@@ -178,10 +178,10 @@ impl InOut {
         let current_idx = self.current_port_idx();
         match dir {
             Dir::Next => self.ports[current_idx + 1..]
-                .into_iter()
+                .iter()
                 .find(|p| p.available()),
             Dir::Prev => self.ports[..current_idx]
-                .into_iter()
+                .iter()
                 .rev()
                 .find(|p| p.available()),
         }
@@ -207,7 +207,7 @@ impl InOut {
             r#"<span foreground="{}">{} {}%</span>"#,
             if self.mute { theme.dim } else { theme.fg },
             self.port_symbol()
-                .unwrap_or_else(|| match (what, self.mute) {
+                .unwrap_or(match (what, self.mute) {
                     (Object::Sink, false) => "",
                     (Object::Sink, true) => "",
                     (Object::Source, false) => "󰍬",
@@ -270,20 +270,20 @@ impl Dir {
     /// Returns `None` if
     /// * `items` was empty
     /// * `f` excludes all items
-    pub fn cycle<'a, 'b, T, F>(&'a self, start: usize, items: &'b [T], f: F) -> Option<&'b T>
+    pub fn cycle<'b, T, F>(&self, start: usize, items: &'b [T], f: F) -> Option<&'b T>
     where
         F: Fn(&&T) -> bool,
     {
         let limit = items.len() * 2;
         match self {
             Dir::Next => items
-                .into_iter()
+                .iter()
                 .cycle()
                 .skip(start + 1)
                 .take(limit)
                 .find(f),
             Dir::Prev => items
-                .into_iter()
+                .iter()
                 .rev()
                 .cycle()
                 .skip(items.len() - start)

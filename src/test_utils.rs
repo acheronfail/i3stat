@@ -28,11 +28,11 @@ fn m(
         None => format!("{}.1", cmd_name),
     };
 
-    create_dir_all(&dir)?;
+    create_dir_all(dir)?;
     write(dir.join(&file_name), buf)?;
 
     for sub in cmd.get_subcommands() {
-        m(sub, dir, Some(&cmd_name))?;
+        m(sub, dir, Some(cmd_name))?;
     }
 
     Ok(())

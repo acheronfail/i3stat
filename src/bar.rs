@@ -9,11 +9,13 @@ use crate::error::Result;
 use crate::i3::{I3Item, I3Markup};
 use crate::theme::Theme;
 
+type ColorAdjusters = HashMap<HexColor, Box<dyn Fn(&HexColor) -> HexColor>>;
+
 pub struct Bar {
     /// The actual bar items - represents the latest state of each individual bar item
     items: Vec<I3Item>,
     /// Cache for any colour adjusters created
-    color_adjusters: HashMap<HexColor, Box<dyn Fn(&HexColor) -> HexColor>>,
+    color_adjusters: ColorAdjusters,
 }
 
 impl Debug for Bar {
@@ -47,7 +49,7 @@ impl Bar {
     pub fn new(item_count: usize) -> Bar {
         Bar {
             items: vec![I3Item::empty(); item_count],
-            color_adjusters: HashMap::new(),
+            color_adjusters: ColorAdjusters::new(),
         }
     }
 
@@ -65,7 +67,7 @@ impl Bar {
 
     /// Convert the bar to a `Value`
     pub fn to_value(&mut self, theme: &Theme) -> Result<Value> {
-        Ok(serde_json::to_value(&self.get_items(theme))?)
+        Ok(serde_json::to_value(self.get_items(theme))?)
     }
 
     fn get_items(&mut self, theme: &Theme) -> Vec<I3Item> {

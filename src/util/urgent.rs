@@ -1,5 +1,6 @@
 use std::time::{Duration, Instant};
 
+#[derive(Default)]
 pub struct UrgentTimer {
     /// If set, then the timer is active. Marks the start of the timer.
     started: Option<Instant>,
@@ -8,11 +9,9 @@ pub struct UrgentTimer {
 }
 
 impl UrgentTimer {
+    #[inline]
     pub fn new() -> UrgentTimer {
-        UrgentTimer {
-            started: None,
-            swapped: false,
-        }
+        UrgentTimer::default()
     }
 
     pub fn swapped(&self) -> bool {
@@ -22,7 +21,7 @@ impl UrgentTimer {
     pub fn toggle(&mut self, on: bool) {
         match on {
             true => {
-                if let None = self.started {
+                if self.started.is_none() {
                     self.reset_timer();
                     self.swapped = false;
                 }

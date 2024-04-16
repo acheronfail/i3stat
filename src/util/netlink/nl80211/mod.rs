@@ -357,7 +357,7 @@ async fn get_scan(
                         // extract the bssid itself
                         let bssid = match bss_attrs
                             .get_attr_payload_as_with_len_borrowed::<&[u8]>(Nl80211Bss::Bssid)
-                            .map(|bytes| MacAddr::try_from(bytes))
+                            .map(MacAddr::try_from)
                         {
                             Ok(Ok(mac_addr)) => mac_addr,
                             // if we can't find a bssid, then keep looking for another one

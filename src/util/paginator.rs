@@ -11,11 +11,19 @@ pub struct Paginator {
     len: usize,
 }
 
+impl Default for Paginator {
+    fn default() -> Self {
+        Self { idx: 0, len: 1 }
+    }
+}
+
 impl Paginator {
-    pub fn new() -> Paginator {
-        Paginator { idx: 0, len: 1 }
+    #[inline]
+    pub fn new() -> Self {
+        Self::default()
     }
 
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.len
     }

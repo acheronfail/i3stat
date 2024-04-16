@@ -73,7 +73,7 @@ impl<'a> Connection<'a> {
 
         Connection {
             name: &interface.name,
-            addr: &addr,
+            addr,
             detail: wireless_info.map(|info| match (info.ssid, info.signal) {
                 (Some(ssid), Some(signal)) => {
                     ConnectionDetail::SsidAndSignal(ssid.to_string(), signal)
