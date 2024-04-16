@@ -16,7 +16,9 @@ use crate::util::format::{float, FloatFormat};
 pub struct Sensors {
     #[serde(with = "crate::human_time")]
     interval: Duration,
-    label: String,
+    #[serde(default)]
+    label: Option<String>,
+    component: String,
     #[serde(flatten)]
     float_fmt: FloatFormat,
 }
@@ -40,10 +42,11 @@ impl BarItem for Sensors {
             ctx.state.sys.refresh_components_list();
         }
 
+        let label = self.label.as_deref().unwrap_or("");
         loop {
             let temp = {
                 let search = ctx.state.sys.components_mut().iter_mut().find_map(|c| {
-                    if c.label() == self.label {
+                    if c.label() == self.component {
                         c.refresh();
                         Some(c.temperature())
                     } else {
@@ -54,14 +57,16 @@ impl BarItem for Sensors {
                 match search {
                     Some(temp) => temp,
                     None => {
-                        break Err(format!("no component found with label: {}", self.label).into())
+                        break Err(
+                            format!("no component found with name: {}", self.component).into()
+                        )
                     }
                 }
             };
 
             let (icon, color) = Self::get_icon(&ctx.config.theme, temp as u32);
             let temp = float(temp, &self.float_fmt);
-            let mut item = I3Item::new(format!("{} {}°C", icon, temp))
+            let mut item = I3Item::new(format!("{} {}°C{}", icon, temp, label))
                 .short_text(format!("{}C", temp))
                 .markup(I3Markup::Pango);
 

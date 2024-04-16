@@ -63,16 +63,23 @@ struct BatInfo {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(transparent)]
 struct Bat {
-    file: PathBuf,
+    /// Battery directory in procfs.
+    dir: PathBuf,
 
+    /// Whether `/charge_{now,full}` is used or `/capacity` to check battery levels.
+    #[serde(skip)]
+    uses_charge: OnceCell<bool>,
+
+    /// Name of the battery.
     #[serde(skip)]
     cached_name: OnceCell<String>,
 }
 
 impl Bat {
-    pub fn new(file: PathBuf) -> Bat {
+    pub fn new(dir: PathBuf) -> Bat {
         Bat {
-            file,
+            dir,
+            uses_charge: OnceCell::new(),
             cached_name: OnceCell::new(),
         }
     }
@@ -80,18 +87,24 @@ impl Bat {
     fn name(&self) -> Result<&String> {
         match self.cached_name.get() {
             Some(cached) => Ok(cached),
-            None => match self.file.file_name() {
+            None => match self.dir.file_name() {
                 Some(name) => match self.cached_name.set(name.to_string_lossy().into_owned()) {
                     Ok(()) => self.name(),
                     Err(_) => bail!("failed to set name cache"),
                 },
-                None => bail!("failed to parse file name from: {}", self.file.display()),
+                None => bail!("failed to parse file name from: {}", self.dir.display()),
             },
         }
     }
 
+    fn uses_charge(&self) -> bool {
+        *self.uses_charge.get_or_init(|| {
+            self.dir.join("charge_now").exists() && self.dir.join("charge_full").exists()
+        })
+    }
+
     async fn read(&self, file_name: impl AsRef<str>) -> Result<String> {
-        Ok(read_to_string(self.file.join(file_name.as_ref())).await?)
+        Ok(read_to_string(self.dir.join(file_name.as_ref())).await?)
     }
 
     async fn read_usize(&self, file_name: impl AsRef<str>) -> Result<usize> {
@@ -102,13 +115,17 @@ impl Bat {
         Ok(BatState::from_str(self.read("status").await?.trim())?)
     }
 
-    // NOTE: there is also `/capacity` which returns an integer percentage
     pub async fn percent(&self) -> Result<f32> {
-        let (charge_now, charge_full) = try_join!(
-            self.read_usize("charge_now"),
-            self.read_usize("charge_full"),
-        )?;
-        Ok((charge_now as f32) / (charge_full as f32) * 100.0)
+        match self.uses_charge() {
+            false => Ok(self.read_usize("capacity").await? as f32),
+            true => {
+                let (charge_now, charge_full) = try_join!(
+                    self.read_usize("charge_now"),
+                    self.read_usize("charge_full"),
+                )?;
+                Ok((charge_now as f32) / (charge_full as f32) * 100.0)
+            }
+        }
     }
 
     pub async fn watts_now(&self) -> Result<f64> {
@@ -136,8 +153,15 @@ impl Bat {
         while let Some(entry) = entries.next_entry().await? {
             if entry.file_type().await?.is_symlink() {
                 let file = entry.path();
-                if fs::try_exists(file.join("charge_now")).await? {
-                    batteries.push(Bat::new(file));
+                let b = fs::try_exists(file.join("capacity")).await;
+                let a = fs::try_exists(file.join("charge_now")).await;
+
+                match (a, b) {
+                    (Ok(true), _) | (_, Ok(true)) => {
+                        log::debug!("autodetected battery: {}", &file.display());
+                        batteries.push(Bat::new(file));
+                    }
+                    _ => {}
                 }
             }
         }
@@ -332,7 +356,7 @@ mod tests {
     fn de() {
         let path = "/sys/class/power_supply/BAT0";
         let battery = serde_json::from_str::<Bat>(&format!(r#""{}""#, path)).unwrap();
-        assert_eq!(battery.file, PathBuf::from(path));
+        assert_eq!(battery.dir, PathBuf::from(path));
     }
 
     #[test]

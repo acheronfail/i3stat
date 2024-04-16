@@ -184,7 +184,9 @@ name = "cpu-temp"
 interval = "5s"
 # The name of the component to display temperature for.
 # The `i3stat-sensors` command is provided and outputs a list of components that can be used.
-label = "coretemp Package id 0"
+component = "coretemp Package id 0"
+# Optional: set a label to be shown in the item (useful if you have multiple sensor items)
+label = " (cpu)"
 # See: FLOAT FORMAT OPTIONS
 pad = ' '
 pad_count = 2
