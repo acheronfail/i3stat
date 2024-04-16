@@ -48,7 +48,7 @@ libpulse-binding = { version = "2.28.1", features = ["pa_v14"] }
 libpulse-tokio = "0.1.0"
 log = "0.4.20"
 neli = { version = "0.7.0-rc2", features = ["tokio", "async"] }
-nix = { version = "0.27.1", features = ["net"] }
+nix = { version = "0.28.0", features = ["net"] }
 num-traits = "0.2.17"
 paste = "1.0.14"
 pretty_env_logger = "0.5.0"
