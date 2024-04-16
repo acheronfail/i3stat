@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use clap::builder::StyledStr;
 use futures::Future;
 use serde_json::Value;
-use sysinfo::{System, SystemExt};
+use sysinfo::System;
 use tokio::sync::mpsc::error::SendError;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::sleep;

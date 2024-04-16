@@ -5,7 +5,7 @@ use bytesize::ByteSize;
 use hex_color::HexColor;
 use serde_derive::{Deserialize, Serialize};
 use strum::EnumIter;
-use sysinfo::{NetworkExt, NetworksExt, SystemExt};
+use sysinfo::Networks;
 use tokio::time::Instant;
 
 use crate::context::{BarEvent, BarItem, Context, StopAction};
@@ -116,13 +116,13 @@ impl BarItem for NetUsage {
 
         let div_as_u64 = |u, f| (u as f64 / f) as u64;
         let mut last_check = Instant::now();
+
+        let mut networks = Networks::new();
         loop {
             let (down, up) = {
-                let networks = ctx.state.sys.networks_mut();
-
                 // NOTE: can call `networks.refresh()` instead of this to only update networks rather
                 // than searching for new ones each time
-                networks.refresh_networks_list();
+                networks.refresh_list();
 
                 // this returns the number of bytes since the last refresh
                 let (down, up) = networks.iter().fold((0, 0), |(d, u), (interface, net)| {

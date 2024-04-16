@@ -59,7 +59,7 @@ serde_repr = "0.1.17"
 signal-hook = "0.3.17"
 signal-hook-tokio = { version = "0.3.1", features = ["futures-v0_3"] }
 strum = { version = "0.26.2", features = ["derive"] }
-sysinfo = { version = "0.29.10", default-features = false }
+sysinfo = { version = "0.30.10", default-features = false }
 tokio = { version = "1.33.0", features = ["full"] }
 tokio-util = "0.7.10"
 wordexp = "0.1.0"
