@@ -57,12 +57,16 @@ fn get_u8_bytes(slice: &[c_char]) -> Result<Vec<u8>> {
     // with `TypeId` here.
     // According to my tests (with `cargo-show-asm`), this is always optimised out completely since
     // `TypeId` returns a constant value, so it's just as good as a compile-time check.
+    #[allow(
+        unused_comparisons,
+        clippy::absurd_extreme_comparisons,
+        clippy::unnecessary_cast
+    )]
     if TypeId::of::<c_char>() == TypeId::of::<i8>() {
         slice
             .iter()
             .take_while(|c| **c != 0)
             .map(|c| -> Result<u8> {
-                #[allow(unused_comparisons)]
                 if *c < 0 {
                     Err(format!("slice contained signed char: {}", c).into())
                 } else {
@@ -71,6 +75,7 @@ fn get_u8_bytes(slice: &[c_char]) -> Result<Vec<u8>> {
             })
             .collect::<Result<Vec<_>>>()
     } else {
+        #[allow(clippy::unnecessary_cast)]
         Ok(slice.iter().map(|&c| c as u8).collect())
     }
 }
