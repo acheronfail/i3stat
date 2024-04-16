@@ -76,15 +76,15 @@ impl Keys {
         Ok(match self.is_on().await {
             Ok(is_on) => format!(
                 r#"<span foreground="{}">{}</span>"#,
-                if is_on { theme.fg } else { theme.dim },
+                (if is_on { theme.fg } else { theme.dim }).display_rgb(),
                 self.symbol()
             ),
             Err(e) => {
                 log::error!("{}", e);
                 format!(
                     r#"<span background="{}" foreground="{}">{}</span>"#,
-                    theme.red,
-                    theme.bg,
+                    theme.red.display_rgb(),
+                    theme.bg.display_rgb(),
                     self.symbol()
                 )
             }

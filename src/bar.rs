@@ -177,8 +177,10 @@ impl Bar {
                     .full_text(format!(
                         " {} ",
                         // replace `config.theme.dim` use in pango spans
-                        item.full_text
-                            .replace(&theme.dim.to_string(), &adjusted_dim.to_string())
+                        item.full_text.replace(
+                            &theme.dim.display_rgb().to_string(),
+                            &adjusted_dim.display_rgb().to_string()
+                        )
                     ))
                     .separator(false)
                     .separator_block_width_px(0)

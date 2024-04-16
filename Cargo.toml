@@ -39,7 +39,7 @@ clap = { version = "4.2.7", features = ["derive"] }
 dirs = "5.0.1"
 figment = { version = "0.10.12", features = ["toml", "yaml", "json"] }
 futures = "0.3.29"
-hex_color = { version = "2.0.0", features = ["serde"] }
+hex_color = { version = "3.0.0", features = ["serde"] }
 hound = "3.5.1"
 humantime-serde = "1.1.1"
 indexmap = { version = "2.1.0", features = ["serde"] }

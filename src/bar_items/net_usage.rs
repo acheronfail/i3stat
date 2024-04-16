@@ -92,7 +92,7 @@ impl BarItem for NetUsage {
     async fn start(&self, mut ctx: Context) -> Result<StopAction> {
         let fg = |bytes: u64, theme: &Theme| {
             self.get_color(theme, bytes)
-                .map(|c| format!(r#" foreground="{}""#, c))
+                .map(|c| format!(r#" foreground="{}""#, c.display_rgb()))
                 .unwrap_or("".into())
         };
 
