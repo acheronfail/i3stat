@@ -7,10 +7,10 @@ use sysinfo::{ComponentExt, RefreshKind, System, SystemExt};
 ///
 /// Each line contains a sensor and its temperature, in the following format:
 ///
-///     TEMP:LABEL
+///     TEMP:COMPONENT
 ///
-/// Where TEMP is the temperature in Celsius, and LABEL is the name of the sensor.
-/// The LABEL property can by used to configure bar items with type "sensors".
+/// Where TEMP is the temperature in Celsius, and COMPONENT is the name of the sensor.
+/// The COMPONENT property can by used to configure bar items with type "sensors".
 struct Cli;
 
 fn main() {
