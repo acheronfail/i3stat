@@ -5,7 +5,9 @@ _default:
 
 # setup repository and install dev dependencies
 setup:
-  if ! command -v cargo-lbuild >/dev/null 2>&1 /dev/null; then cargo install cargo-limit; fi
+  cd ./scripts/node && yarn
+
+  if ! command -v cargo-lbuild >/dev/null 2>&1 /dev/null; then cargo install --locked cargo-limit; fi
 
   if command -v pacman >/dev/null 2>&1 /dev/null; then sudo pacman -Sy --needed \
     clang dbus dunst libfaketime libpulse i3-wm imagemagick scrot xorg-server-xephyr xorg-server-xvfb yarn; \
@@ -55,9 +57,9 @@ install *args:
 
 # start a nested X server with i3 and i3stat
 debug dimensions="3800x200": _lbuild
-  Xephyr -ac -br -reset -terminate -screen {{dimensions}} :1 &
-  until [ -e /tmp/.X11-unix/X1 ]; do sleep 0.1; done
-  env -u I3SOCK DISPLAY=:1.0 i3-with-shmlog --config ./scripts/i3.conf
+  Xephyr -ac -br -reset -terminate -screen {{dimensions}} :42 &
+  until [ -e /tmp/.X11-unix/X42 ]; do sleep 0.1; done
+  env -u I3SOCK DISPLAY=:42.0 i3-with-shmlog --config ./scripts/i3.conf
 
 # run tests in a nested dbus session so the host session isn't affected
 alias t := test
