@@ -1,17 +1,10 @@
+# Hacking on i3stat
+
+* All new development is done on the `next` branch! Don't target `master`!
+* Run the tests with `just` (not via `cargo`)
+* Read the rest of this file!
+
 # Tips
-
-## Nerd Fonts
-
-Nerd Font icons come in two variants. If the font was called "A", the the variants are:
-
-* "A Nerd Font"
-* "A Nerd Font Mono"
-
-The one with the "Mono" suffix has all the icons 'squashed' into a single monospace character's width.
-This is a compatibility for programs that don't support double-width characters, but does make some of the icons appear too small.
-
-Unfortunately, as far as I can tell, i3's statusbar doesn't properly support the double-width character icons.
-So, if the normal font is used, sometimes the icons appear to overlap neighbouring characters.
 
 ## Debugging integration tests
 
@@ -25,6 +18,19 @@ The following environment variables are available:
 It's a cheaper method of keeping immutable data around without having to reallocate the inner data every time.
 Since mutating the data isn't necessary, this can just point the the existing data and we get cheap clones.
 See https://www.youtube.com/watch?v=A4cKi7PTJSs for a good explanation.
+
+## Nerd Fonts
+
+Nerd Font icons come in two variants. If the font was called "A", the the variants are:
+
+* "A Nerd Font"
+* "A Nerd Font Mono"
+
+The one with the "Mono" suffix has all the icons 'squashed' into a single monospace character's width.
+This is a compatibility for programs that don't support double-width characters, but does make some of the icons appear too small.
+
+Unfortunately, as far as I can tell, i3's statusbar doesn't properly support the double-width character icons.
+So, if the normal font is used, sometimes the icons appear to overlap neighbouring characters.
 
 # Creating the next release
 
