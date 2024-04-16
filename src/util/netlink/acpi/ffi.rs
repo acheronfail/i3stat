@@ -41,11 +41,11 @@ pub struct AcpiGenericNetlinkEvent {
 
 impl AcpiGenericNetlinkEvent {
     /// https://github.com/torvalds/linux/blob/f8dba31b0a826e691949cd4fdfa5c30defaac8c5/include/acpi/battery.h#L7
-    pub const DEVICE_CLASS_BATTERY: &str = "battery";
+    pub const DEVICE_CLASS_BATTERY: &'static str = "battery";
     /// https://github.com/torvalds/linux/blob/f8dba31b0a826e691949cd4fdfa5c30defaac8c5/drivers/acpi/ac.c#L23
-    pub const DEVICE_CLASS_AC: &str = "ac_adapter";
+    pub const DEVICE_CLASS_AC: &'static str = "ac_adapter";
     /// https://github.com/torvalds/linux/blob/f8dba31b0a826e691949cd4fdfa5c30defaac8c5/include/acpi/processor.h#L17
-    pub const DEVICE_CLASS_PROCESSOR: &str = "processor";
+    pub const DEVICE_CLASS_PROCESSOR: &'static str = "processor";
 }
 
 /// Checks a slice of C's chars to ensure they're not signed, needed because C's `char` type could

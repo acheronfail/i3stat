@@ -65,7 +65,7 @@ static PULSE_NOTIFICATION_ID: OnceCell<u32> = OnceCell::const_new();
 static BATTERY_NOTIFICATION_ID: OnceCell<u32> = OnceCell::const_new();
 
 impl<'a> NotificationsProxy<'a> {
-    const APP_NAME: &str = "i3stat";
+    const APP_NAME: &'static str = "i3stat";
 
     // util ----------------------------------------------------------------------------------------
 
