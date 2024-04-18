@@ -931,7 +931,7 @@ dependencies = [
 
 [[package]]
 name = "i3stat"
-version = "0.13.0"
+version = "0.13.1"
 dependencies = [
  "async-trait",
  "automod",
