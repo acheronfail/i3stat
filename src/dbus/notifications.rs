@@ -4,20 +4,20 @@
 use std::collections::HashMap;
 
 use tokio::sync::OnceCell;
-use zbus::dbus_proxy;
+use zbus::proxy;
 use zbus::zvariant::Value;
 
 type Hints = HashMap<&'static str, Value<'static>>;
-#[dbus_proxy(
+#[proxy(
     default_path = "/org/freedesktop/Notifications",
     default_service = "org.freedesktop.Notifications",
     interface = "org.freedesktop.Notifications",
     gen_blocking = false
 )]
 trait Notifications {
-    #[dbus_proxy(name = "Notify")]
+    #[zbus(name = "Notify")]
     #[allow(clippy::too_many_arguments)]
-    fn notify_full(
+    async fn notify_full(
         &self,
         app_name: &str,
         replaces_id: u32,
@@ -65,7 +65,7 @@ static PULSE_NOTIFICATION_ID: OnceCell<u32> = OnceCell::const_new();
 static BATTERY_NOTIFICATION_ID: OnceCell<u32> = OnceCell::const_new();
 
 impl<'a> NotificationsProxy<'a> {
-    const APP_NAME: &str = "i3stat";
+    const APP_NAME: &'static str = "i3stat";
 
     // util ----------------------------------------------------------------------------------------
 

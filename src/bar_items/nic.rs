@@ -88,7 +88,7 @@ impl<'a> Connection<'a> {
     fn format(&self, theme: &Theme, wireless_display: WirelessDisplay) -> (String, String) {
         let fg = format!(
             r#" foreground="{}""#,
-            match self.quality {
+            (match self.quality {
                 Some(quality) => match quality {
                     100..=u8::MAX => theme.green,
                     80..=99 => theme.green,
@@ -97,7 +97,8 @@ impl<'a> Connection<'a> {
                     _ => theme.red,
                 },
                 None => theme.green,
-            }
+            })
+            .display_rgb()
         );
         (
             format!(

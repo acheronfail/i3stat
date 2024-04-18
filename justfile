@@ -59,7 +59,7 @@ install *args:
 debug dimensions="3800x200": _lbuild
   Xephyr -ac -br -reset -terminate -screen {{dimensions}} :42 &
   until [ -e /tmp/.X11-unix/X42 ]; do sleep 0.1; done
-  env -u I3SOCK DISPLAY=:42.0 i3-with-shmlog --config ./scripts/i3.conf
+  env -u I3SOCK PATH="$PWD/target/debug:$PATH" DISPLAY=:42.0 i3-with-shmlog --config ./scripts/i3.conf
 
 # run tests in a nested dbus session so the host session isn't affected
 alias t := test

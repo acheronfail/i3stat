@@ -5,7 +5,6 @@ use bytesize::ByteSize;
 use hex_color::HexColor;
 use serde_derive::{Deserialize, Serialize};
 use strum::EnumIter;
-use sysinfo::SystemExt;
 
 use crate::context::{BarEvent, BarItem, Context, StopAction};
 use crate::error::Result;

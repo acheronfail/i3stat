@@ -13,7 +13,9 @@ pub fn fraction(theme: &Theme, num: usize, den: usize) -> String {
     // inside this block
     format!(
         r#" <span line_height="1024" foreground="{}"><sup>{}</sup>/<sub>{}</sub></span>"#,
-        theme.dim, num, den
+        theme.dim.display_rgb(),
+        num,
+        den
     )
 }
 

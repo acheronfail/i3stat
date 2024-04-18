@@ -177,9 +177,7 @@ impl InOut {
     pub fn next_port(&self, dir: Dir) -> Option<&Port> {
         let current_idx = self.current_port_idx();
         match dir {
-            Dir::Next => self.ports[current_idx + 1..]
-                .iter()
-                .find(|p| p.available()),
+            Dir::Next => self.ports[current_idx + 1..].iter().find(|p| p.available()),
             Dir::Prev => self.ports[..current_idx]
                 .iter()
                 .rev()
@@ -205,14 +203,13 @@ impl InOut {
     pub fn format(&self, what: Object, theme: &Theme) -> String {
         format!(
             r#"<span foreground="{}">{} {}%</span>"#,
-            if self.mute { theme.dim } else { theme.fg },
-            self.port_symbol()
-                .unwrap_or(match (what, self.mute) {
-                    (Object::Sink, false) => "",
-                    (Object::Sink, true) => "",
-                    (Object::Source, false) => "󰍬",
-                    (Object::Source, true) => "󰍭",
-                }),
+            (if self.mute { theme.dim } else { theme.fg }).display_rgb(),
+            self.port_symbol().unwrap_or(match (what, self.mute) {
+                (Object::Sink, false) => "",
+                (Object::Sink, true) => "",
+                (Object::Source, false) => "󰍬",
+                (Object::Source, true) => "󰍭",
+            }),
             self.volume_pct(),
         )
     }
@@ -276,12 +273,7 @@ impl Dir {
     {
         let limit = items.len() * 2;
         match self {
-            Dir::Next => items
-                .iter()
-                .cycle()
-                .skip(start + 1)
-                .take(limit)
-                .find(f),
+            Dir::Next => items.iter().cycle().skip(start + 1).take(limit).find(f),
             Dir::Prev => items
                 .iter()
                 .rev()

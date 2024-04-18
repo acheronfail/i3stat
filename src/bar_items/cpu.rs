@@ -3,7 +3,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use hex_color::HexColor;
 use serde_derive::{Deserialize, Serialize};
-use sysinfo::{CpuExt, CpuRefreshKind, SystemExt};
+use sysinfo::CpuRefreshKind;
 
 use crate::context::{BarItem, Context, StopAction};
 use crate::error::Result;

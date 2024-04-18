@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use bytesize::ByteSize;
 use hex_color::HexColor;
 use serde_derive::{Deserialize, Serialize};
-use sysinfo::{Disk as SysDisk, DiskExt, SystemExt};
+use sysinfo::{Disk as SysDisk, Disks};
 
 use crate::context::{BarItem, Context, StopAction};
 use crate::error::Result;
@@ -79,13 +79,12 @@ impl DiskStats {
 impl BarItem for Disk {
     async fn start(&self, mut ctx: Context) -> Result<StopAction> {
         let mut p = Paginator::new();
+        let mut disks = Disks::new();
         loop {
             let stats: Vec<DiskStats> = {
-                ctx.state.sys.refresh_disks();
-                ctx.state.sys.refresh_disks_list();
-                ctx.state
-                    .sys
-                    .disks()
+                disks.refresh();
+                disks.refresh_list();
+                disks
                     .iter()
                     .filter(|d| {
                         if self.mounts.is_empty() {

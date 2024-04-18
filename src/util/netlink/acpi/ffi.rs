@@ -41,11 +41,11 @@ pub struct AcpiGenericNetlinkEvent {
 
 impl AcpiGenericNetlinkEvent {
     /// https://github.com/torvalds/linux/blob/f8dba31b0a826e691949cd4fdfa5c30defaac8c5/include/acpi/battery.h#L7
-    pub const DEVICE_CLASS_BATTERY: &str = "battery";
+    pub const DEVICE_CLASS_BATTERY: &'static str = "battery";
     /// https://github.com/torvalds/linux/blob/f8dba31b0a826e691949cd4fdfa5c30defaac8c5/drivers/acpi/ac.c#L23
-    pub const DEVICE_CLASS_AC: &str = "ac_adapter";
+    pub const DEVICE_CLASS_AC: &'static str = "ac_adapter";
     /// https://github.com/torvalds/linux/blob/f8dba31b0a826e691949cd4fdfa5c30defaac8c5/include/acpi/processor.h#L17
-    pub const DEVICE_CLASS_PROCESSOR: &str = "processor";
+    pub const DEVICE_CLASS_PROCESSOR: &'static str = "processor";
 }
 
 /// Checks a slice of C's chars to ensure they're not signed, needed because C's `char` type could
@@ -57,12 +57,16 @@ fn get_u8_bytes(slice: &[c_char]) -> Result<Vec<u8>> {
     // with `TypeId` here.
     // According to my tests (with `cargo-show-asm`), this is always optimised out completely since
     // `TypeId` returns a constant value, so it's just as good as a compile-time check.
+    #[allow(
+        unused_comparisons,
+        clippy::absurd_extreme_comparisons,
+        clippy::unnecessary_cast
+    )]
     if TypeId::of::<c_char>() == TypeId::of::<i8>() {
         slice
             .iter()
             .take_while(|c| **c != 0)
             .map(|c| -> Result<u8> {
-                #[allow(unused_comparisons)]
                 if *c < 0 {
                     Err(format!("slice contained signed char: {}", c).into())
                 } else {
@@ -71,6 +75,7 @@ fn get_u8_bytes(slice: &[c_char]) -> Result<Vec<u8>> {
             })
             .collect::<Result<Vec<_>>>()
     } else {
+        #[allow(clippy::unnecessary_cast)]
         Ok(slice.iter().map(|&c| c as u8).collect())
     }
 }

@@ -232,7 +232,15 @@ impl Test {
 
 impl Drop for Test {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.dir).unwrap();
+        fs::remove_dir_all(&self.dir)
+            .map_err(|e| {
+                format!(
+                    "failed to clean up test dir '{}': {}",
+                    self.dir.display(),
+                    e
+                )
+            })
+            .unwrap()
     }
 }
 

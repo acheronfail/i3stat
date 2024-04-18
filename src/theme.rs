@@ -101,7 +101,7 @@ impl Theme {
         Ok(())
     }
 
-    const DEFAULT_POWERLINE: &[ColorPair] = &[
+    const DEFAULT_POWERLINE: &'static [ColorPair] = &[
         ColorPair::new(HexColor::rgb(216, 222, 233), HexColor::rgb(46, 52, 64)),
         ColorPair::new(HexColor::rgb(229, 233, 240), HexColor::rgb(59, 66, 82)),
         ColorPair::new(HexColor::rgb(236, 239, 244), HexColor::rgb(67, 76, 94)),

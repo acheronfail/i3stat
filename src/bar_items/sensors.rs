@@ -4,7 +4,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use hex_color::HexColor;
 use serde_derive::{Deserialize, Serialize};
-use sysinfo::{ComponentExt, SystemExt};
+use sysinfo::Components;
 use tokio::time::sleep;
 
 use crate::context::{BarItem, Context, StopAction};
@@ -37,15 +37,13 @@ impl Sensors {
 
 #[async_trait(?Send)]
 impl BarItem for Sensors {
-    async fn start(&self, mut ctx: Context) -> Result<StopAction> {
-        {
-            ctx.state.sys.refresh_components_list();
-        }
+    async fn start(&self, ctx: Context) -> Result<StopAction> {
+        let mut components = Components::new_with_refreshed_list();
 
         let label = self.label.as_deref().unwrap_or("");
         loop {
             let temp = {
-                let search = ctx.state.sys.components_mut().iter_mut().find_map(|c| {
+                let search = components.iter_mut().find_map(|c| {
                     if c.label() == self.component {
                         c.refresh();
                         Some(c.temperature())

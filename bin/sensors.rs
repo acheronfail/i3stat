@@ -1,5 +1,5 @@
 use clap::{ColorChoice, Parser};
-use sysinfo::{ComponentExt, RefreshKind, System, SystemExt};
+use sysinfo::Components;
 
 #[derive(Debug, Parser)]
 #[clap(author, version, long_about, name = "i3stat-sensors", color = ColorChoice::Always)]
@@ -16,8 +16,7 @@ struct Cli;
 fn main() {
     Cli::parse();
 
-    let sys = System::new_with_specifics(RefreshKind::new().with_components_list());
-    sys.components()
+    Components::new_with_refreshed_list()
         .iter()
         .for_each(|c| println!("{:>width$.2}°C:{}", c.temperature(), c.label(), width = 6));
 }
