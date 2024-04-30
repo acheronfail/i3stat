@@ -74,6 +74,7 @@ pub enum ItemInner {
     Script(Script),
     Sensors(Sensors),
     Time(Time),
+    Tuxedo(Tuxedo),
 }
 
 impl ItemInner {
@@ -97,6 +98,7 @@ impl ItemInner {
             ItemInner::Script(_) => "script",
             ItemInner::Sensors(_) => "sensors",
             ItemInner::Time(_) => "time",
+            ItemInner::Tuxedo(_) => "tuxedo",
         }
     }
 }
@@ -131,6 +133,7 @@ impl Item {
             ItemInner::Script(inner) => Box::new(inner.clone()),
             ItemInner::Sensors(inner) => Box::new(inner.clone()),
             ItemInner::Time(inner) => Box::new(inner.clone()),
+            ItemInner::Tuxedo(inner) => Box::new(inner.clone()),
         }
     }
 

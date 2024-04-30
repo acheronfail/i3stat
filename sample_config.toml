@@ -70,256 +70,259 @@ powerline = [
 # pad_count: optional; how long to pad the number with. If not provided then it will pad to 3 digits
 #                      before the decimal point.
 # precision: optional; how many digits to display after the decimal point. Defaults to 0.
-[[items]]
-# Provides statistics of upload and download rates for all network interfaces
-type = "net_usage"
-# How often this item should refresh
-interval = "1s"
-# Anything under this threshold will show as "-"
-minimum = "1 kiB"
-# Optionally set the display mode, one of:
-#   bits:    display as bits     8 Mbits
-#   bytes:   display as bytes    1 MB     (default)
-#   bibytes: display as *bibytes 1 MiB
-display = "bytes"
-# Up to 5 levels can be passed, and will affect the color of the item:
-#     0..1st: theme.dim
-#   1st..2nd: theme.normal
-#   2nd..3rd: theme.yellow
-#   3rd..4th: theme.orange
-#   4th..5th: theme.red
-#   5th..MAX: theme.purple
-thresholds = ["1kiB", "1MiB", "10MiB", "25MiB", "100MiB"]
-# Optionally provide a list of interface names to ignore when calculating usage
-# ignored_interfaces = ["vpn0"]
+# [[items]]
+# # Provides statistics of upload and download rates for all network interfaces
+# type = "net_usage"
+# # How often this item should refresh
+# interval = "1s"
+# # Anything under this threshold will show as "-"
+# minimum = "1 kiB"
+# # Optionally set the display mode, one of:
+# #   bits:    display as bits     8 Mbits
+# #   bytes:   display as bytes    1 MB     (default)
+# #   bibytes: display as *bibytes 1 MiB
+# display = "bytes"
+# # Up to 5 levels can be passed, and will affect the color of the item:
+# #     0..1st: theme.dim
+# #   1st..2nd: theme.normal
+# #   2nd..3rd: theme.yellow
+# #   3rd..4th: theme.orange
+# #   4th..5th: theme.red
+# #   5th..MAX: theme.purple
+# thresholds = ["1kiB", "1MiB", "10MiB", "25MiB", "100MiB"]
+# # Optionally provide a list of interface names to ignore when calculating usage
+# # ignored_interfaces = ["vpn0"]
 
-[[items]]
-# A raw item - these are static items that don't change, and display the values here
-type = "raw"
-# See i3's bar documentation for what fields are available: https://i3wm.org/docs/i3bar-protocol.html
-full_text = "raw"
-short_text = "!"
-# This is an example of configuring custom actions for an item.
-# [items.actions] is available for every item type! (See the COMMON OPTIONS section above.)
-[items.actions]
-# Run a command
-left_click = "paplay /usr/share/sounds/freedesktop/stereo/bell.oga"
-# Run a command with specific modifiers
-middle_click = { modifiers = ["Shift"], command = "i3-msg exec nemo" }
-# Define different commands for different modifier combinations
-right_click = [
-  # Hint: triple quotes are an easy way to escape inner quotes in TOML.
-  { modifiers = ['Shift'], command = """ i3-msg exec "zenity --info --text 'HELLO FROM I3STAT!'" """ },
-  { modifiers = ['Control'], command = """ i3-msg exec "zenity --info --text 'hello from i3stat!'" """ },
-]
+# [[items]]
+# # A raw item - these are static items that don't change, and display the values here
+# type = "raw"
+# # See i3's bar documentation for what fields are available: https://i3wm.org/docs/i3bar-protocol.html
+# full_text = "raw"
+# short_text = "!"
+# # This is an example of configuring custom actions for an item.
+# # [items.actions] is available for every item type! (See the COMMON OPTIONS section above.)
+# [items.actions]
+# # Run a command
+# left_click = "paplay /usr/share/sounds/freedesktop/stereo/bell.oga"
+# # Run a command with specific modifiers
+# middle_click = { modifiers = ["Shift"], command = "i3-msg exec nemo" }
+# # Define different commands for different modifier combinations
+# right_click = [
+#   # Hint: triple quotes are an easy way to escape inner quotes in TOML.
+#   { modifiers = ['Shift'], command = """ i3-msg exec "zenity --info --text 'HELLO FROM I3STAT!'" """ },
+#   { modifiers = ['Control'], command = """ i3-msg exec "zenity --info --text 'hello from i3stat!'" """ },
+# ]
 
-[[items]]
-# Kerberos item - simply calls `klist` and displays the result
-type = "krb"
-# How often this item should refresh
-interval = "2m"
-# Optionally enable this item only when specific networks are active.
-# This is the same format as the `filter` property in the `nic` item.
-# only_on = ["vpn0:v4"]
+# [[items]]
+# # Kerberos item - simply calls `klist` and displays the result
+# type = "krb"
+# # How often this item should refresh
+# interval = "2m"
+# # Optionally enable this item only when specific networks are active.
+# # This is the same format as the `filter` property in the `nic` item.
+# # only_on = ["vpn0:v4"]
 
-[[items]]
-# "Network Interfaces" item, provides an interactive list of interfaces and ip addresses, as well as
-# WiFi signal strength and SSIDs if found. Supports updating itself automatically on network changes.
-type = "nic"
+# [[items]]
+# # "Network Interfaces" item, provides an interactive list of interfaces and ip addresses, as well as
+# # WiFi signal strength and SSIDs if found. Supports updating itself automatically on network changes.
+# type = "nic"
 
-# Optionally pass an `interval` to force updates - since it updates automatically this shouldn't be
-# needed.
+# # Optionally pass an `interval` to force updates - since it updates automatically this shouldn't be
+# # needed.
+# # interval = "60s"
+
+# # Optionally define how connection details will be displayed when connected to a WiFi network
+# # Values are:
+# # - `percent`: e.g., "80% at <ssid>"     (default)
+# # - `dbm`:     e.g., "-65 dBm at <ssid>"
+# # - `hidden`:  nothing is shown
+# wireless_display = "percent"
+# # The `wireless_display` setting can be optionally paired with this one to refresh the WiFi details
+# # at a desired interval. If unset, it only updates when the item itself updates.
+# wireless_refresh_interval = "2m"
+
+# # Optionally pass a filter. Filters are formatted as `name[:type]`, where `name` is the interface
+# # name, and `type` is an optional part which is either `v4` or `v6`.
+# #
+# # If `name` is an empty string, then all interfaces are matched, for example:
+# # - `vpn0:v4` will match ip4 addresses for the `vpn` interface
+# # - `:v6`     will match all interfaces which have an ip6 address
+# # filter = [":v4", "vpn0:v6"]
+
+# [[items]]
+# # Disk usage item - provides an interactive list of disks and their free space.
+# type = "disk"
+# # How often this item should refresh
 # interval = "60s"
+# # Optionally provide an alias for mount points (rather than the path)
+# aliases = [
+#   { path = "/", name = "root" },
+#   { path = "~/some_other_mount", name = "my_cool_mount" }
+# ]
+# # Optionally only include these specific mount points rather than autodetecting
+# # mounts = ["/"]
+# [items.actions]
+# # Open the currently displayed mount point:
+# left_click = """ i3-msg exec "nemo $_mount_point" """
 
-# Optionally define how connection details will be displayed when connected to a WiFi network
-# Values are:
-# - `percent`: e.g., "80% at <ssid>"     (default)
-# - `dbm`:     e.g., "-65 dBm at <ssid>"
-# - `hidden`:  nothing is shown
-wireless_display = "percent"
-# The `wireless_display` setting can be optionally paired with this one to refresh the WiFi details
-# at a desired interval. If unset, it only updates when the item itself updates.
-wireless_refresh_interval = "2m"
+# [[items]]
+# # CPU usage item - provides updates of CPU usage expressed as a percentage
+# # Also includes FLOAT FORMAT OPTIONS
+# type = "cpu"
+# # How often this item should refresh
+# interval = "2s"
+# # Open an application on click
+# [items.actions]
+# left_click = "i3-msg exec systemmonitor"
 
-# Optionally pass a filter. Filters are formatted as `name[:type]`, where `name` is the interface
-# name, and `type` is an optional part which is either `v4` or `v6`.
-#
-# If `name` is an empty string, then all interfaces are matched, for example:
-# - `vpn0:v4` will match ip4 addresses for the `vpn` interface
-# - `:v6`     will match all interfaces which have an ip6 address
-# filter = [":v4", "vpn0:v6"]
+# [[items]]
+# # Display the temperature of a given component.
+# type = "sensors"
+# # See: COMMON OPTIONS
+# name = "cpu-temp"
+# # How often this item should refresh
+# interval = "5s"
+# # The name of the component to display temperature for.
+# # The `i3stat-sensors` command is provided and outputs a list of components that can be used.
+# component = "coretemp Package id 0"
+# # Optional: set a label to be shown in the item (useful if you have multiple sensor items)
+# label = " (cpu)"
+# # See: FLOAT FORMAT OPTIONS
+# pad = ' '
+# pad_count = 2
 
-[[items]]
-# Disk usage item - provides an interactive list of disks and their free space.
-type = "disk"
-# How often this item should refresh
-interval = "60s"
-# Optionally provide an alias for mount points (rather than the path)
-aliases = [
-  { path = "/", name = "root" },
-  { path = "~/some_other_mount", name = "my_cool_mount" }
-]
-# Optionally only include these specific mount points rather than autodetecting
-# mounts = ["/"]
-[items.actions]
-# Open the currently displayed mount point:
-left_click = """ i3-msg exec "nemo $_mount_point" """
+# [[items]]
+# # Display information about the system's memory usage
+# type = "mem"
+# # How often this item should refresh
+# interval = "10s"
+# # Optionally set the display mode, one of:
+# #   bytes:      display free memory as a byte size (default)
+# #   percentage: display used memory as a percentage
+# display = "bytes"
+# # Also includes FLOAT FORMAT OPTIONS for when displaying as a percentage
 
-[[items]]
-# CPU usage item - provides updates of CPU usage expressed as a percentage
-# Also includes FLOAT FORMAT OPTIONS
-type = "cpu"
-# How often this item should refresh
-interval = "2s"
-# Open an application on click
-[items.actions]
-left_click = "i3-msg exec systemmonitor"
+# [[items]]
+# # Display infomation about the current sink (sound output) and source (sound input). This is a very
+# # versatile item and has a tight integration to pulseaudio/pipewire.
+# # Scrolling up/down will change the volume of the current sink.
+# # Middle clicking will mute the current sink.
+# # Left clicking will cycle between ports for the current sink (i.e., speakers, headphones, etc).
+# # All of the above actions will affect the source rather than the sink while `shift` is held.
+# #
+# # This item also has a highly featured ipc interface, see `i3stat-ipc custom pulse` for more info.
+# type = "pulse"
 
-[[items]]
-# Display the temperature of a given component.
-type = "sensors"
-# See: COMMON OPTIONS
-name = "cpu-temp"
-# How often this item should refresh
-interval = "5s"
-# The name of the component to display temperature for.
-# The `i3stat-sensors` command is provided and outputs a list of components that can be used.
-component = "coretemp Package id 0"
-# Optional: set a label to be shown in the item (useful if you have multiple sensor items)
-label = " (cpu)"
-# See: FLOAT FORMAT OPTIONS
-pad = ' '
-pad_count = 2
+# # Control the increment of volume changes (expressed in percent) when increasing/decreasing the volume.
+# # Defaults to 5
+# increment = 5
 
-[[items]]
-# Display information about the system's memory usage
-type = "mem"
-# How often this item should refresh
-interval = "10s"
-# Optionally set the display mode, one of:
-#   bytes:      display free memory as a byte size (default)
-#   percentage: display used memory as a percentage
-display = "bytes"
-# Also includes FLOAT FORMAT OPTIONS for when displaying as a percentage
+# # Optionally provide a `.wav` file to be played each time the volume is changed.
+# # increment_sound = "path/to/your/volume/sound.wav"
 
-[[items]]
-# Display infomation about the current sink (sound output) and source (sound input). This is a very
-# versatile item and has a tight integration to pulseaudio/pipewire.
-# Scrolling up/down will change the volume of the current sink.
-# Middle clicking will mute the current sink.
-# Left clicking will cycle between ports for the current sink (i.e., speakers, headphones, etc).
-# All of the above actions will affect the source rather than the sink while `shift` is held.
-#
-# This item also has a highly featured ipc interface, see `i3stat-ipc custom pulse` for more info.
-type = "pulse"
+# # Set an upper limit to the volume, expressed in percent.
+# max_volume = 120
+# # Configure optional notifications, supported values are:
+# #   none            no notifications (the default)
+# #   volume_mute     notifications on volume up/down and mute
+# #   new_source_sink notifications when new sources/sinks are added
+# #   defaults_change notifications when the default source/sink changes
+# #   all             all notifications
+# notify = "none"
 
-# Control the increment of volume changes (expressed in percent) when increasing/decreasing the volume.
-# Defaults to 5
-increment = 5
+# # server_name = "pipewire-0"
 
-# Optionally provide a `.wav` file to be played each time the volume is changed.
-# increment_sound = "path/to/your/volume/sound.wav"
+# [items.actions]
+# left_click = { modifiers = ["Control"], command = "i3-msg exec pavucontrol" }
 
-# Set an upper limit to the volume, expressed in percent.
-max_volume = 120
-# Configure optional notifications, supported values are:
-#   none            no notifications (the default)
-#   volume_mute     notifications on volume up/down and mute
-#   new_source_sink notifications when new sources/sinks are added
-#   defaults_change notifications when the default source/sink changes
-#   all             all notifications
-notify = "none"
+# [[items]]
+# # Show current light brightness (and also adjust it).
+# type = "light"
+# # Optionally provide a path to a specific backlight:
+# # path = "/sys/class/backlight/intel_backlight"
+# # Optionally specify how much percentage to increment the light by when scrolling (default is 5):
+# # increment = 10
 
-# server_name = "pipewire-0"
+# [[items]]
+# # Show information about CapsLock/NumLock/ScrollLock.
+# type = "kbd"
+# # Which keys to show, available options are: caps_lock, num_lock or scroll_lock
+# show = ["caps_lock", "num_lock"]
+# # This item doesn't watch any keyboard input or anything, so to make it useful it's recommended to
+# # assign a signal to it here, and then bind a key to that in i3' config in order to refresh it.
+# # For example: `bindsym --release Caps_Lock exec pkill -RTMIN+4 i3stat`.
+# # See: COMMON OPTIONS
+# signal = 4
 
-[items.actions]
-left_click = { modifiers = ["Control"], command = "i3-msg exec pavucontrol" }
+# [[items]]
+# # Display information about a battery
+# type = "battery"
+# # How often this item should refresh
+# interval = "10s"
+# # Should notifications be sent when an AC Adapter is plugged/unplugged?
+# notify_on_adapter = true
+# # Optionally trigger a critical (and sticky) notification under a certain percentage.
+# # This notification will stay unless the percentage goes above the threshold, or the battery state
+# # is anything other than discharging.
+# notify_percentage = 5
 
-[[items]]
-# Show current light brightness (and also adjust it).
-type = "light"
-# Optionally provide a path to a specific backlight:
-# path = "/sys/class/backlight/intel_backlight"
-# Optionally specify how much percentage to increment the light by when scrolling (default is 5):
-# increment = 10
-
-[[items]]
-# Show information about CapsLock/NumLock/ScrollLock.
-type = "kbd"
-# Which keys to show, available options are: caps_lock, num_lock or scroll_lock
-show = ["caps_lock", "num_lock"]
-# This item doesn't watch any keyboard input or anything, so to make it useful it's recommended to
-# assign a signal to it here, and then bind a key to that in i3' config in order to refresh it.
-# For example: `bindsym --release Caps_Lock exec pkill -RTMIN+4 i3stat`.
-# See: COMMON OPTIONS
-signal = 4
-
-[[items]]
-# Display information about a battery
-type = "battery"
-# How often this item should refresh
-interval = "10s"
-# Should notifications be sent when an AC Adapter is plugged/unplugged?
-notify_on_adapter = true
-# Optionally trigger a critical (and sticky) notification under a certain percentage.
-# This notification will stay unless the percentage goes above the threshold, or the battery state
-# is anything other than discharging.
-notify_percentage = 5
-
-# Optionally specify a list of particular batteries to show. If not provided, it will attempt to
-# discover all the batteries on the system.
-# batteries = ["/sys/class/power_supply/BAT0"]
+# # Optionally specify a list of particular batteries to show. If not provided, it will attempt to
+# # discover all the batteries on the system.
+# # batteries = ["/sys/class/power_supply/BAT0"]
 
 
-[[items]]
-# Display the current date or time
-type = "time"
-# Format for the long display
-format_long = "%Y-%m-%d %H:%M:%S"
-# Format for the short display (i3bar will show the short text of an item if space is limited)
-format_short = "%H:%M"
-# How often this item should refresh
-interval = "1s"
-# Open a calendar when clicking on the time item
-[items.actions]
-left_click = "i3-msg exec gsimplecal"
+# [[items]]
+# # Display the current date or time
+# type = "time"
+# # Format for the long display
+# format_long = "%Y-%m-%d %H:%M:%S"
+# # Format for the short display (i3bar will show the short text of an item if space is limited)
+# format_short = "%H:%M"
+# # How often this item should refresh
+# interval = "1s"
+# # Open a calendar when clicking on the time item
+# [items.actions]
+# left_click = "i3-msg exec gsimplecal"
 
-[[items]]
-# Run a script and display its output as an item. By default the command's STDOUT is displayed.
-# Arguments are passed via the environment to the script:
-#   I3_SIGNAL     set to "true" is this refresh was triggered by a signal
-# The following are passed through from the i3 click event:
-#   I3_NAME
-#   I3_MODIFIERS
-#   I3_BUTTON
-#   I3_X
-#   I3_Y
-#   I3_RELATIVE_X
-#   I3_RELATIVE_Y
-#   I3_OUTPUT_X
-#   I3_OUTPUT_Y
-#   I3_WIDTH
-#   I3_HEIGHT
-type = "script"
-# See: COMMON OPTIONS
-name = "clicks"
-# The command to run
-command = "echo -n `if [ ! -z $I3_BUTTON ]; then echo button=$I3_BUTTON; else echo bar item; fi`"
-# The format of the output, either: simple or json. Defaults to simple.
-output = "simple"
-# The markup of the output, either: none or pango. This is the same as i3's markup property.
-# Defaults to none.
-markup = "none"
+# [[items]]
+# # Run a script and display its output as an item. By default the command's STDOUT is displayed.
+# # Arguments are passed via the environment to the script:
+# #   I3_SIGNAL     set to "true" is this refresh was triggered by a signal
+# # The following are passed through from the i3 click event:
+# #   I3_NAME
+# #   I3_MODIFIERS
+# #   I3_BUTTON
+# #   I3_X
+# #   I3_Y
+# #   I3_RELATIVE_X
+# #   I3_RELATIVE_Y
+# #   I3_OUTPUT_X
+# #   I3_OUTPUT_Y
+# #   I3_WIDTH
+# #   I3_HEIGHT
+# type = "script"
+# # See: COMMON OPTIONS
+# name = "clicks"
+# # The command to run
+# command = "echo -n `if [ ! -z $I3_BUTTON ]; then echo button=$I3_BUTTON; else echo bar item; fi`"
+# # The format of the output, either: simple or json. Defaults to simple.
+# output = "simple"
+# # The markup of the output, either: none or pango. This is the same as i3's markup property.
+# # Defaults to none.
+# markup = "none"
+
+# [[items]]
+# # An example of a script using pango formatting and JSON output.
+# type = "script"
+# name = "custom"
+# command = """ echo -n '{"full_text":"<span foreground=\\"orange\\">G'"'"'day</span>"}' """
+# output = "json"
+# markup = "pango"
+
+# [[items]]
+# # A simple item which will display an icon if Dunst is currently paused. Can be used as an
+# # indicator for a simple "do not disturb" mode.
+# type = "dunst"
 
 [[items]]
-# An example of a script using pango formatting and JSON output.
-type = "script"
-name = "custom"
-command = """ echo -n '{"full_text":"<span foreground=\\"orange\\">G'"'"'day</span>"}' """
-output = "json"
-markup = "pango"
-
-[[items]]
-# A simple item which will display an icon if Dunst is currently paused. Can be used as an
-# indicator for a simple "do not disturb" mode.
-type = "dunst"
+type = "tuxedo"

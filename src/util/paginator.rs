@@ -24,6 +24,21 @@ impl Paginator {
         self.idx
     }
 
+    /// Explicitly set the index of the paginator.
+    // Returns an error if `idx >= paginator.len`.
+    pub fn set_idx(&mut self, idx: usize) -> Result<()> {
+        if idx >= self.len {
+            bail!(
+                "{} is greater than paginator's current length {}",
+                idx,
+                self.len
+            );
+        }
+
+        self.idx = idx;
+        Ok(())
+    }
+
     /// Set the length of the paginator.
     /// Returns an error if `len == 0`, which is invalid.
     pub fn set_len(&mut self, len: usize) -> Result<()> {

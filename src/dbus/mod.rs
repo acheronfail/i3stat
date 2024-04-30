@@ -1,5 +1,6 @@
 pub mod dunst;
 pub mod notifications;
+pub mod tuxedo;
 
 use tokio::sync::OnceCell;
 use zbus::Connection;

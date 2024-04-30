@@ -1,0 +1,6 @@
+ 2024-01-22T10:35:39.107Z TRACE i3stat::config::parse > read config file: /home/acheronfail/.config/i3stat/config.shark-arch.toml
+ 2024-01-22T10:35:39.110Z DEBUG i3stat::signals       > mapping signal 4 (38) to item: 9 (kbd)
+ 2024-01-22T10:35:39.238Z ERROR i3stat                > item[5] exited with error: no component found with label: coretemp Package id 0
+thread 'main' panicked at 'Pulse fed a bad FD: Os { code: 17, kind: AlreadyExists, message: "File exists" }', /home/acheronfail/.cargo/registry/src/index.crates.io-6f17d22bba15001f/libpulse-tokio-0.1.0/src/lib.rs:290:69
+stack backtrace:
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
