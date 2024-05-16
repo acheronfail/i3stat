@@ -53,6 +53,9 @@ powerline = [
 # type:   required;    the type of the item
 # name:   optional;    a name for the item - makes some ipc operations easier
 # index:  optional;    where to position this item in the bar - defaults to the current index in `items`
+# hidden: optional;    a boolean value indicating if this item should be hidden or not
+#                      This is really only useful if you intend to interact with the item via its CLI
+#                      interface, and don't want it to take up space in the bar.
 # signal: optional;    a real-time signal can be mapped to an item, and when i3stat receives this signal
 #                      the item will be refreshed - useful for manually triggering item updates.
 #                      The same signal can be used for multiple items.

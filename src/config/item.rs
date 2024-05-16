@@ -52,8 +52,14 @@ pub struct Common {
     pub signal: Option<u32>,
     /// Optionally set or unset the separator for this item.
     pub separator: Option<bool>,
-    /// Optionally configure actions for each item
+    /// Optionally configure actions for each item.
     pub actions: Option<Actions>,
+    /// Optionally hide items. This is useful for some items which have a CLI
+    /// interface; sometimes it's nice to provide the CLI without needing to
+    /// take up space in the bar. (E.g., multiple "light" items, one for a laptop
+    /// screen and another for the keyboard backlight, and you don't have to show
+    /// the item for the keyboard backlight in the bar.)
+    pub hidden: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, EnumIter)]
