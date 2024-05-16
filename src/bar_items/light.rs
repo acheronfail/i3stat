@@ -102,7 +102,7 @@ impl LightFile {
         }
     }
 
-    pub async fn format(&self) -> Result<I3Item> {
+    pub async fn format(&self, label: Option<&str>) -> Result<I3Item> {
         let pct = self.get().await?;
         let icon = match pct {
             0..=29 => "󰃜",
@@ -113,12 +113,20 @@ impl LightFile {
             90..=u8::MAX => "󰃠",
         };
 
-        Ok(I3Item::new(format!("{} {:>3}%", icon, pct)))
+        Ok(I3Item::new(format!(
+            "{} {:>3}%{}",
+            icon,
+            pct,
+            label.unwrap_or("")
+        )))
     }
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Light {
+    /// Optional label for this light
+    #[serde(default)]
+    label: Option<String>,
     /// Optional path to a specific light.
     path: Option<PathBuf>,
     /// How much to increment the light when scrolling up or down.
@@ -136,7 +144,8 @@ impl BarItem for Light {
 
         let increment = self.increment.unwrap_or(5) as i8;
         loop {
-            ctx.update_item(light.format().await?).await?;
+            ctx.update_item(light.format(self.label.as_deref()).await?)
+                .await?;
             match ctx.wait_for_event(None).await {
                 // mouse events
                 Some(BarEvent::Click(click)) => match click.button {

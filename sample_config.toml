@@ -240,6 +240,8 @@ left_click = { modifiers = ["Control"], command = "i3-msg exec pavucontrol" }
 type = "light"
 # Optionally provide a path to a specific backlight:
 # path = "/sys/class/backlight/intel_backlight"
+# Optionally provide a label that will be appended:
+# label = " screen"
 # Optionally specify how much percentage to increment the light by when scrolling (default is 5):
 # increment = 10
 
