@@ -241,12 +241,25 @@ left_click = { modifiers = ["Control"], command = "i3-msg exec pavucontrol" }
 [[items]]
 # Show current light brightness (and also adjust it).
 type = "light"
+# This item hsa been given a specific name so it doesn't clash with the next light item
+name = "light1"
 # Optionally provide a path to a specific backlight:
 # path = "/sys/class/backlight/intel_backlight"
 # Optionally provide a label that will be appended:
 # label = " screen"
 # Optionally specify how much percentage to increment the light by when scrolling (default is 5):
 # increment = 10
+
+[[items]]
+# An example of an additional light item that's used to control keyboard brightness
+# It's hidden, so it doesn't appear in the bar, but you can still interact with it via IPC, e.g.:
+# `i3stat-ipc custom light2 increase`
+type = "light"
+# Specific name to use for ipc-related controls
+name = "light2"
+# Hide this item from the bar
+hidden = true
+# path = "/sys/devices/platform/keyboard_driver/leds/keyboard"
 
 [[items]]
 # Show information about CapsLock/NumLock/ScrollLock.
