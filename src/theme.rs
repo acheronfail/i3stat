@@ -19,14 +19,14 @@ impl ColorPair {
 pub struct PowerlineSeparator {
     value: String,
     #[serde(default)]
-    scale: Option<u32>,
+    size: Option<u32>,
 }
 
 impl PowerlineSeparator {
     pub fn to_span(&self) -> String {
-        match self.scale {
+        match self.size {
             None => self.value.clone(),
-            Some(pct) => format!(r#"<span size="{}%">{}</span>"#, pct, self.value),
+            Some(pct) => format!(r#"<span size="{}">{}</span>"#, pct, self.value),
         }
     }
 }
@@ -151,7 +151,7 @@ impl Theme {
     fn default_powerline_separator() -> PowerlineSeparator {
         PowerlineSeparator {
             value: "".into(),
-            scale: None,
+            size: None,
         }
     }
 }

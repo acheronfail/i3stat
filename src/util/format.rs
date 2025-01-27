@@ -9,10 +9,10 @@ pub fn fraction(theme: &Theme, num: usize, den: usize) -> String {
         return String::new();
     }
 
-    // NOTE: need the `line_height` hack so it doesn't change the vertical alignment of other text
-    // inside this block
+    // NOTE: the `rise` attributes are used to prevent messing with vertical alignment
+    // of other text in the bar, or vertical height of the bar itself
     format!(
-        r#" <span line_height="1024" foreground="{}"><sup>{}</sup>/<sub>{}</sub></span>"#,
+        r#" <span size="smaller" foreground="{}"><span rise="5000">{}</span>/<span rise="-5000">{}</span></span>"#,
         theme.dim.display_rgb(),
         num,
         den

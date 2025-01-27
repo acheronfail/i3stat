@@ -34,9 +34,10 @@ blue = "#8fbcbb"
 powerline_enable = false
 
 # you can customise the powerline separator symbol here
-# the `scale` field is optional and can be used as a workaround for font icon size inconsistencies
-powerline_separator = { value = "", scale = 115 }
-# powerline_separator = { value = "", scale = 115 }
+# the `size` field is optional and can be used as a workaround for font icon size inconsistencies
+# (`size` is specified in thousands of a point, so 8000 would be 8pt)
+powerline_separator = { value = "", size = 16_000 }
+# powerline_separator = { value = "", size = 16_000 }
 
 # the colors that are cycled through for each powerline item - at least two must be present
 powerline = [
