@@ -53,7 +53,7 @@ install *args:
   cargo install --offline --path . "$@"
   mkdir -p ~/.config/i3stat/
   -cp --no-clobber ./sample_config.toml ~/.config/i3stat/config.toml
-  i3-msg restart
+  i3-msg restart 2>/dev/null || swaymsg reload
 
 # start a nested X server with i3 and i3stat
 debug dimensions="3800x200": _lbuild

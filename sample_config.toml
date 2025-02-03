@@ -342,3 +342,11 @@ markup = "pango"
 # A simple item which will display an icon if Dunst is currently paused. Can be used as an
 # indicator for a simple "do not disturb" mode.
 type = "dunst"
+# NOTE: there's a wayland alternative for `mako`, just keep in mind that it has some limitations
+# at the moment since it's not possible to subscribe to `mako`'s state: https://github.com/emersion/mako/issues/554
+# It also requires the following to be set in `mako`'s configuration:
+# ```mako_config
+# [mode=do-not-disturb]
+# invisible=1
+# ```
+#type = "mako"
