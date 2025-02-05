@@ -3,7 +3,6 @@
 
 use std::collections::HashMap;
 
-use tokio::sync::OnceCell;
 use zbus::proxy;
 use zbus::zvariant::Value;
 
@@ -61,10 +60,6 @@ macro_rules! hints {
     }};
 }
 
-static PULSE_DEFAULTS_ID: OnceCell<u32> = OnceCell::const_new();
-static PULSE_NOTIFICATION_ID: OnceCell<u32> = OnceCell::const_new();
-static BATTERY_NOTIFICATION_ID: OnceCell<u32> = OnceCell::const_new();
-
 impl<'a> NotificationsProxy<'a> {
     const APP_NAME: &'static str = "i3stat";
 
@@ -99,41 +94,32 @@ impl<'a> NotificationsProxy<'a> {
         }
     }
 
-    async fn notify_id(
+    async fn notify_with_stack(
         &self,
-        once_cell: &OnceCell<u32>,
-        hints: Hints,
+        stack_tag: &'static str,
+        mut hints: Hints,
         summary: impl AsRef<str>,
         body: impl AsRef<str>,
         timeout: i32,
-    ) {
-        let cached_id = once_cell.get().cloned();
-        if let Some(id) = self.notify(cached_id, hints, summary, body, timeout).await {
-            match cached_id {
-                Some(_) => { /* do nothing, id already saved */ }
-                None => {
-                    let _ = once_cell.set(id);
-                }
-            }
-        }
+    ) -> Option<u32> {
+        // NOTE: previously we just saved the id of the notification, and then updated that notification
+        // by sending the id again. This works for dunst, but it doesn't work for mako (for mako, when the
+        // original notification disappears, using the id does nothing).
+        // So instead, we use the `x-dunst-stack-tag` hint which mako also supports.
+        hints.insert("x-dunst-stack-tag", stack_tag.into());
+        self.notify(None, hints, summary, body, timeout).await
     }
 
     // impl ----------------------------------------------------------------------------------------
 
-    // NOTE: Using ids to set the same notification means it is updated in place, but using `x-dunst-stack-tag`
-    // means the original notification is removed, and then a new one is added.
-    // We use both here, because mako doesn't behave properly when solely using the id method (it only replaces
-    // the notification while it exists, but once it's gone the id can't be re-used).
-
     // NOTE: most implementations of XDG notifications over dbus expect an i32, so use that
     // (xorg/dunst seem to support using u32's, but sway/mako don't - better to go with the crowd here).
     pub async fn pulse_volume_mute(&self, name: impl AsRef<str>, pct: i32, mute: bool) {
-        self.notify_id(
-            &PULSE_NOTIFICATION_ID,
+        self.notify_with_stack(
+            "pulse_volume_mute",
             hints! {
                 "value" => pct,
                 "urgency" => Urgency::Low,
-                "x-dunst-stack-tag" => "pulse_volume_mute"
             },
             name,
             format!("{}{}%", if mute { " " } else { " " }, pct),
@@ -154,12 +140,9 @@ impl<'a> NotificationsProxy<'a> {
     }
 
     pub async fn pulse_defaults_change(&self, name: impl AsRef<str>, what: impl AsRef<str>) {
-        self.notify_id(
-            &PULSE_DEFAULTS_ID,
-            hints! {
-                "urgency" => Urgency::Low,
-                "x-dunst-stack-tag" => "pulse_defaults_change"
-            },
+        self.notify_with_stack(
+            "pulse_defaults_change",
+            hints! { "urgency" => Urgency::Low },
             format!("Default {}", what.as_ref()),
             name,
             2_000,
@@ -184,12 +167,9 @@ impl<'a> NotificationsProxy<'a> {
 
     /// Trigger a critical battery charge notification that will never timeout
     pub async fn battery_critical(&self, pct: u8) {
-        self.notify_id(
-            &BATTERY_NOTIFICATION_ID,
-            hints! {
-                "urgency" => Urgency::Critical,
-                "x-dunst-stack-tag" => "battery_critical"
-            },
+        self.notify_with_stack(
+            "battery_critical",
+            hints! { "urgency" => Urgency::Critical },
             "Critical Battery Warning!",
             format!("Remaining: {}%", pct),
             // NOTE: timeout of `0` means that this notification will not go away
@@ -200,13 +180,7 @@ impl<'a> NotificationsProxy<'a> {
 
     /// Use to disable a previously sent critical battery notification
     pub async fn battery_critical_off(&self) {
-        self.notify_id(
-            &BATTERY_NOTIFICATION_ID,
-            hints! { "x-dunst-stack-tag" => "battery_critical" },
-            "",
-            "",
-            1,
-        )
-        .await;
+        self.notify_with_stack("battery_critical", hints! {}, "", "", 1)
+            .await;
     }
 }
