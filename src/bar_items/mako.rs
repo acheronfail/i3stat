@@ -1,7 +1,10 @@
+use crate::dbus::mako::MakoProxy;
+use crate::dbus::{dbus_connection, BusType};
 use crate::error::Result;
 
 use async_trait::async_trait;
 use clap::Parser;
+use futures::StreamExt;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::process::Command;
@@ -64,14 +67,24 @@ impl Mako {
 #[async_trait(?Send)]
 impl BarItem for Mako {
     async fn start(&self, mut ctx: Context) -> Result<StopAction> {
-        // TODO: can't subscribe to events - https://github.com/emersion/mako/issues/554
-        // so for now, just call out to `makoctl` each time
+        let connection = dbus_connection(BusType::Session).await?;
+        let mako_proxy = MakoProxy::new(connection).await?;
+        let mut stream = mako_proxy.receive_modes_changed().await;
+
+        // TODO: when `mako` releases this https://github.com/emersion/mako/pull/552
+        // we'll be able to subscribe to events, but until then just call out to `makoctl` each time
+        // we're able to setup the dbus listener now, but we should remove the `makoctl` calls later
         let _ = ctx
             .update_item(Mako::item(&ctx.config.theme, Mako::dnd_enabled().await?))
             .await?;
 
         loop {
             tokio::select! {
+                Some(change) = stream.next() => {
+                    let dnd_on = change.get().await?.iter().any(|line| line == MAKO_DND_MODE);
+                    let _ = ctx.update_item(Mako::item(&ctx.config.theme, dnd_on)).await;
+                }
+
                 Some(ev) = ctx.wait_for_event(None) => {
                     if let BarEvent::Custom { payload, responder } = ev {
                         let resp = match MakoCommand::try_parse_from(payload) {
