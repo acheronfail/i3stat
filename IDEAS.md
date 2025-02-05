@@ -9,7 +9,7 @@ There's no guarantee they'll ever be added or implemented, and they'll likely be
 
 ## Bugs
 
-* ...
+* when devices with batteries are disconnected it crashes the battery item
 
 ## Improvements
 

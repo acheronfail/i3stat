@@ -120,13 +120,13 @@ impl<'a> NotificationsProxy<'a> {
 
     // impl ----------------------------------------------------------------------------------------
 
-    // NOTE" Using ids to set the same notification means it is updated in place, but using `x-dunst-stack-tag`
+    // NOTE: Using ids to set the same notification means it is updated in place, but using `x-dunst-stack-tag`
     // means the original notification is removed, and then a new one is added.
     // We use both here, because mako doesn't behave properly when solely using the id method (it only replaces
     // the notification while it exists, but once it's gone the id can't be re-used).
 
     // NOTE: most implementations of XDG notifications over dbus expect an i32, so use that
-    // (xorg/dunst seem to support using u32's here, but sway/mako don't - better to go with the crowd here).
+    // (xorg/dunst seem to support using u32's, but sway/mako don't - better to go with the crowd here).
     pub async fn pulse_volume_mute(&self, name: impl AsRef<str>, pct: i32, mute: bool) {
         self.notify_id(
             &PULSE_NOTIFICATION_ID,

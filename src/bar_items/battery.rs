@@ -19,8 +19,6 @@ use crate::theme::Theme;
 use crate::util::acpi::ffi::AcpiGenericNetlinkEvent;
 use crate::util::{netlink_acpi_listen, Paginator};
 
-// FIXME: allow devices with batteries to be unplugged and not error this item
-
 #[derive(Debug)]
 enum BatState {
     Unknown,
