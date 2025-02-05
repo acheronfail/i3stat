@@ -120,19 +120,20 @@ impl<'a> NotificationsProxy<'a> {
 
     // impl ----------------------------------------------------------------------------------------
 
+    // NOTE" Using ids to set the same notification means it is updated in place, but using `x-dunst-stack-tag`
+    // means the original notification is removed, and then a new one is added.
+    // We use both here, because mako doesn't behave properly when solely using the id method (it only replaces
+    // the notification while it exists, but once it's gone the id can't be re-used).
+
     // NOTE: most implementations of XDG notifications over dbus expect an i32, so use that
     // (xorg/dunst seem to support using u32's here, but sway/mako don't - better to go with the crowd here).
-    // NOTE: also, instead of using and saving ids, an alternative approach is to set the following hint:
-    //  `"x-dunst-stack-tag" => "pulse_volume_mute"`
-    // This has slightly different behaviour: instead of updating the original notification in-place, it
-    // removes it, and re-adds another one (essentially ensuring that the notification is always at the
-    // top of the stack).
     pub async fn pulse_volume_mute(&self, name: impl AsRef<str>, pct: i32, mute: bool) {
         self.notify_id(
             &PULSE_NOTIFICATION_ID,
             hints! {
                 "value" => pct,
                 "urgency" => Urgency::Low,
+                "x-dunst-stack-tag" => "pulse_volume_mute"
             },
             name,
             format!("{}{}%", if mute { " " } else { " " }, pct),
@@ -155,7 +156,10 @@ impl<'a> NotificationsProxy<'a> {
     pub async fn pulse_defaults_change(&self, name: impl AsRef<str>, what: impl AsRef<str>) {
         self.notify_id(
             &PULSE_DEFAULTS_ID,
-            hints! { "urgency" => Urgency::Low },
+            hints! {
+                "urgency" => Urgency::Low,
+                "x-dunst-stack-tag" => "pulse_defaults_change"
+            },
             format!("Default {}", what.as_ref()),
             name,
             2_000,
@@ -182,7 +186,10 @@ impl<'a> NotificationsProxy<'a> {
     pub async fn battery_critical(&self, pct: u8) {
         self.notify_id(
             &BATTERY_NOTIFICATION_ID,
-            hints! { "urgency" => Urgency::Critical },
+            hints! {
+                "urgency" => Urgency::Critical,
+                "x-dunst-stack-tag" => "battery_critical"
+            },
             "Critical Battery Warning!",
             format!("Remaining: {}%", pct),
             // NOTE: timeout of `0` means that this notification will not go away
@@ -193,7 +200,13 @@ impl<'a> NotificationsProxy<'a> {
 
     /// Use to disable a previously sent critical battery notification
     pub async fn battery_critical_off(&self) {
-        self.notify_id(&BATTERY_NOTIFICATION_ID, hints! {}, "", "", 1)
-            .await;
+        self.notify_id(
+            &BATTERY_NOTIFICATION_ID,
+            hints! { "x-dunst-stack-tag" => "battery_critical" },
+            "",
+            "",
+            1,
+        )
+        .await;
     }
 }
