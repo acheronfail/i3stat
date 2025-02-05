@@ -45,9 +45,10 @@ impl<'a> From<Urgency> for Value<'a> {
 
 /// Easily create a hints notifications map.
 macro_rules! hints {
-    () => {
-        HashMap::new() as Hints
-    };
+    () => {{
+        let hints: Hints = HashMap::new();
+        hints
+    }};
 
     ($($key:expr => $value:expr $(,)?)+) => {{
         let mut hints: Hints = HashMap::new();
