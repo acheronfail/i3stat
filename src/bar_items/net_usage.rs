@@ -120,9 +120,7 @@ impl BarItem for NetUsage {
         let mut networks = Networks::new();
         loop {
             let (down, up) = {
-                // NOTE: can call `networks.refresh()` instead of this to only update networks rather
-                // than searching for new ones each time
-                networks.refresh_list();
+                networks.refresh(true);
 
                 // this returns the number of bytes since the last refresh
                 let (down, up) = networks.iter().fold((0, 0), |(d, u), (interface, net)| {

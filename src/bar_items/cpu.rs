@@ -42,9 +42,9 @@ impl BarItem for Cpu {
                 // refresh cpu usage
                 ctx.state
                     .sys
-                    .refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage());
+                    .refresh_cpu_specifics(CpuRefreshKind::nothing().with_cpu_usage());
                 // fetch cpu usage since we last refreshed
-                ctx.state.sys.global_cpu_info().cpu_usage()
+                ctx.state.sys.global_cpu_usage()
             };
 
             let theme = &ctx.config.theme;
