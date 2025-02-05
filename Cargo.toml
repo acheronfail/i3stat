@@ -70,13 +70,13 @@ name = "integration"
 path = "tests/mod.rs"
 
 [dev-dependencies]
-automod = "1.0.8"
-clap_mangen = "0.2.11"
+automod = "1.0.14"
 clap = { version = "4.2.7", features = ["derive"] }
+clap_mangen = "0.2.26"
 fakeroot = "0.4.1"
-rand = "0.8.5"
-timeout-readwrite = "0.3.3"
-xcb = { version = "1.2.1", features = ["xkb", "xtest"] }
+rand = "0.9.0"
+timeout-readwrite = "0.4.0"
+xcb = { version = "1.5.0", features = ["xkb", "xtest"] }
 x11 = { version = "2.21.0", features = ["xlib"] }
 
 [profile.release]
