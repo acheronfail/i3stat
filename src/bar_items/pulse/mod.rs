@@ -715,7 +715,7 @@ impl BarItem for Pulse {
                     }
                     Command::NotifyVolume { name, volume, mute } => {
                         if self.notify.should_notify(NotificationSetting::VolumeMute) {
-                            let _ = notifications.pulse_volume_mute(name, volume, mute).await;
+                            let _ = notifications.pulse_volume_mute(name, volume as i32, mute).await;
                         }
                     }
                     Command::NotifyNewSourceSink { name, what } => {

@@ -14,7 +14,7 @@ type Hints = HashMap<&'static str, Value<'static>>;
     interface = "org.freedesktop.Notifications",
     gen_blocking = false
 )]
-trait Notifications {
+pub trait Notifications {
     #[zbus(name = "Notify")]
     #[allow(clippy::too_many_arguments)]
     async fn notify_full(
@@ -119,7 +119,14 @@ impl<'a> NotificationsProxy<'a> {
 
     // impl ----------------------------------------------------------------------------------------
 
-    pub async fn pulse_volume_mute(&self, name: impl AsRef<str>, pct: u32, mute: bool) {
+    // NOTE: most implementations of XDG notifications over dbus expect an i32, so use that
+    // (xorg/dunst seem to support using u32's here, but sway/mako don't - better to go with the crowd here).
+    // NOTE: also, instead of using and saving ids, an alternative approach is to set the following hint:
+    //  `"x-dunst-stack-tag" => "pulse_volume_mute"`
+    // This has slightly different behaviour: instead of updating the original notification in-place, it
+    // removes it, and re-adds another one (essentially ensuring that the notification is always at the
+    // top of the stack).
+    pub async fn pulse_volume_mute(&self, name: impl AsRef<str>, pct: i32, mute: bool) {
         self.notify_id(
             &PULSE_NOTIFICATION_ID,
             hints! {
