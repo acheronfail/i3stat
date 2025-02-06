@@ -68,7 +68,7 @@ sdebug dimensions="1900x100": _lbuild
 # run tests in a nested dbus session so the host session isn't affected
 alias t := test
 test *args:
-  dbus-run-session -- env RUST_LOG=i3stat=trace I3STAT_TEST=1 cargo test --all "$@"
+  dbus-run-session -- env RUST_LOG=i3stat=trace I3STAT_TEST=1 bash -c 'pkill dunst; dunst & cargo test --all "$@"'
 
 # `eval` this for an easy debug loop for screenshot tests
 # NOTE: requires `fd` be present, and the terminal is `kitty`
