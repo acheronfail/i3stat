@@ -37,13 +37,17 @@ pub struct I3ClickEvent {
     pub name: Option<String>,
     pub instance: Option<String>,
     pub button: I3Button,
+    // TODO: remove default if this is ever supported in `sway`, because unfortunately it's
+    // current not: https://github.com/swaywm/sway/issues/5571
+    #[serde(default)]
     pub modifiers: HashSet<I3Modifier>,
     pub x: usize,
     pub y: usize,
     pub relative_x: usize,
     pub relative_y: usize,
-    pub output_x: usize,
-    pub output_y: usize,
+    // NOTE: these two are options because `sway` doesn't include them...
+    pub output_x: Option<usize>,
+    pub output_y: Option<usize>,
     pub width: usize,
     pub height: usize,
 }

@@ -16,9 +16,11 @@ struct Cli;
 fn main() {
     Cli::parse();
 
-    Components::new_with_refreshed_list()
-        .iter()
-        .for_each(|c| println!("{:>width$.2}°C:{}", c.temperature(), c.label(), width = 6));
+    Components::new_with_refreshed_list().iter().for_each(|c| {
+        if let Some(temp) = c.temperature() {
+            println!("{:>width$.2}°C:{}", temp, c.label(), width = 6)
+        }
+    });
 }
 
 #[cfg(test)]

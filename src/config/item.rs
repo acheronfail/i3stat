@@ -52,8 +52,14 @@ pub struct Common {
     pub signal: Option<u32>,
     /// Optionally set or unset the separator for this item.
     pub separator: Option<bool>,
-    /// Optionally configure actions for each item
+    /// Optionally configure actions for each item.
     pub actions: Option<Actions>,
+    /// Optionally hide items. This is useful for some items which have a CLI
+    /// interface; sometimes it's nice to provide the CLI without needing to
+    /// take up space in the bar. (E.g., multiple "light" items, one for a laptop
+    /// screen and another for the keyboard backlight, and you don't have to show
+    /// the item for the keyboard backlight in the bar.)
+    pub hidden: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, EnumIter)]
@@ -67,6 +73,7 @@ pub enum ItemInner {
     Kbd(Kbd),
     Krb(Krb),
     Light(Light),
+    Mako(Mako),
     Mem(Mem),
     NetUsage(NetUsage),
     Nic(Nic),
@@ -90,6 +97,7 @@ impl ItemInner {
             ItemInner::Kbd(_) => "kbd",
             ItemInner::Krb(_) => "krb",
             ItemInner::Light(_) => "light",
+            ItemInner::Mako(_) => "mako",
             ItemInner::Mem(_) => "mem",
             ItemInner::NetUsage(_) => "net_usage",
             ItemInner::Nic(_) => "nic",
@@ -124,6 +132,7 @@ impl Item {
             ItemInner::Kbd(inner) => Box::new(inner.clone()),
             ItemInner::Krb(inner) => Box::new(inner.clone()),
             ItemInner::Light(inner) => Box::new(inner.clone()),
+            ItemInner::Mako(inner) => Box::new(inner.clone()),
             ItemInner::Mem(inner) => Box::new(inner.clone()),
             ItemInner::NetUsage(inner) => Box::new(inner.clone()),
             ItemInner::Nic(inner) => Box::new(inner.clone()),

@@ -282,8 +282,8 @@ fn main() -> Result<()> {
                 y: y.unwrap_or_default(),
                 relative_x: relative_x.unwrap_or_default(),
                 relative_y: relative_y.unwrap_or_default(),
-                output_x: output_x.unwrap_or_default(),
-                output_y: output_y.unwrap_or_default(),
+                output_x: Some(output_x.unwrap_or_default()),
+                output_y: Some(output_y.unwrap_or_default()),
                 width: width.unwrap_or_default(),
                 height: height.unwrap_or_default(),
             };

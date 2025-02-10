@@ -1,8 +1,10 @@
+name: Verify
+
 on:
   push:
     branches: [ "next" ]
   pull_request:
-    branches: [ "master", "next" ]
+    branches: [ "master" ]
 
 env:
   CARGO_TERM_COLOR: always

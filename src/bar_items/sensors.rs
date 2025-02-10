@@ -53,8 +53,8 @@ impl BarItem for Sensors {
                 });
 
                 match search {
-                    Some(temp) => temp,
-                    None => {
+                    Some(Some(temp)) => temp,
+                    Some(None) | None => {
                         break Err(
                             format!("no component found with name: {}", self.component).into()
                         )

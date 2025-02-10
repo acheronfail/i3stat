@@ -11,8 +11,15 @@ use serde_json::Value;
 use self::util::x_click;
 use crate::i3::util::MouseButton;
 use crate::util::{
-    find_object_containing, get_current_exe, get_exe, get_fakeroot_lib, get_faketime_lib,
-    wait_for_file, LogOnDropChild, Test, FAKE_TIME,
+    find_object_containing,
+    get_current_exe,
+    get_exe,
+    get_fakeroot_lib,
+    get_faketime_lib,
+    wait_for_file,
+    LogOnDropChild,
+    Test,
+    FAKE_TIME,
 };
 
 // start nested x server displays at 10

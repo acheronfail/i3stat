@@ -41,9 +41,7 @@ pub fn parse(args: &Cli) -> Result<AppConfig> {
         .or_else(|| dirs::config_dir().map(|d| d.join("i3stat/config")))
         .ok_or("failed to find config file")?;
 
-    let cfg_dir = cfg_file
-        .parent()
-        .ok_or("failed to find config dir")?;
+    let cfg_dir = cfg_file.parent().ok_or("failed to find config dir")?;
 
     // main configuration file
     let mut figment = Figment::new()

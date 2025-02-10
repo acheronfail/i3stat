@@ -72,8 +72,12 @@ impl BarItem for Script {
                 env.insert("I3_Y", c.y.to_string());
                 env.insert("I3_RELATIVE_X", c.relative_x.to_string());
                 env.insert("I3_RELATIVE_Y", c.relative_y.to_string());
-                env.insert("I3_OUTPUT_X", c.output_x.to_string());
-                env.insert("I3_OUTPUT_Y", c.output_y.to_string());
+                if let Some(x) = c.output_x {
+                    env.insert("I3_OUTPUT_X", x.to_string());
+                }
+                if let Some(y) = c.output_y {
+                    env.insert("I3_OUTPUT_Y", y.to_string());
+                }
                 env.insert("I3_WIDTH", c.width.to_string());
                 env.insert("I3_HEIGHT", c.height.to_string());
             }

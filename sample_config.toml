@@ -34,9 +34,10 @@ blue = "#8fbcbb"
 powerline_enable = false
 
 # you can customise the powerline separator symbol here
-# the `scale` field is optional and can be used as a workaround for font icon size inconsistencies
-powerline_separator = { value = "", scale = 115 }
-# powerline_separator = { value = "", scale = 115 }
+# the `size` field is optional and can be used as a workaround for font icon size inconsistencies
+# (`size` is specified in thousands of a point, so 8000 would be 8pt)
+powerline_separator = { value = "", size = 16_000 }
+# powerline_separator = { value = "", size = 16_000 }
 
 # the colors that are cycled through for each powerline item - at least two must be present
 powerline = [
@@ -53,6 +54,9 @@ powerline = [
 # type:   required;    the type of the item
 # name:   optional;    a name for the item - makes some ipc operations easier
 # index:  optional;    where to position this item in the bar - defaults to the current index in `items`
+# hidden: optional;    a boolean value indicating if this item should be hidden or not
+#                      This is really only useful if you intend to interact with the item via its CLI
+#                      interface, and don't want it to take up space in the bar.
 # signal: optional;    a real-time signal can be mapped to an item, and when i3stat receives this signal
 #                      the item will be refreshed - useful for manually triggering item updates.
 #                      The same signal can be used for multiple items.
@@ -238,10 +242,25 @@ left_click = { modifiers = ["Control"], command = "i3-msg exec pavucontrol" }
 [[items]]
 # Show current light brightness (and also adjust it).
 type = "light"
+# This item hsa been given a specific name so it doesn't clash with the next light item
+name = "light1"
 # Optionally provide a path to a specific backlight:
 # path = "/sys/class/backlight/intel_backlight"
+# Optionally provide a label that will be appended:
+# label = " screen"
 # Optionally specify how much percentage to increment the light by when scrolling (default is 5):
 # increment = 10
+
+[[items]]
+# An example of an additional light item that's used to control keyboard brightness
+# It's hidden, so it doesn't appear in the bar, but you can still interact with it via IPC, e.g.:
+# `i3stat-ipc custom light2 increase`
+type = "light"
+# Specific name to use for ipc-related controls
+name = "light2"
+# Hide this item from the bar
+hidden = true
+# path = "/sys/devices/platform/keyboard_driver/leds/keyboard"
 
 [[items]]
 # Show information about CapsLock/NumLock/ScrollLock.
@@ -323,3 +342,11 @@ markup = "pango"
 # A simple item which will display an icon if Dunst is currently paused. Can be used as an
 # indicator for a simple "do not disturb" mode.
 type = "dunst"
+# NOTE: there's a wayland alternative for `mako`, just keep in mind that it has some limitations
+# at the moment since it's not possible to subscribe to `mako`'s state: https://github.com/emersion/mako/issues/554
+# It also requires the following to be set in `mako`'s configuration:
+# ```mako_config
+# [mode=do-not-disturb]
+# invisible=1
+# ```
+#type = "mako"

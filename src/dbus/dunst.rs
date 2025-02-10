@@ -6,7 +6,7 @@ use zbus::proxy;
     interface = "org.dunstproject.cmd0",
     gen_blocking = false
 )]
-trait Dunst {
+pub trait Dunst {
     #[zbus(property, name = "paused")]
     fn paused(&self) -> zbus::Result<bool>;
 }

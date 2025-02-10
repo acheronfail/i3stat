@@ -75,7 +75,10 @@ impl Context {
         &self,
         item: I3Item,
     ) -> std::result::Result<(), SendError<(I3Item, usize)>> {
-        self.tx_item.send((item, self.index)).await?;
+        match self.config.items[self.index].common.hidden {
+            Some(false) | None => self.tx_item.send((item, self.index)).await?,
+            Some(true) => {}
+        }
         Ok(())
     }
 

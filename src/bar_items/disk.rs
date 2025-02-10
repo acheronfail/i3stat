@@ -82,8 +82,7 @@ impl BarItem for Disk {
         let mut disks = Disks::new();
         loop {
             let stats: Vec<DiskStats> = {
-                disks.refresh();
-                disks.refresh_list();
+                disks.refresh(true);
                 disks
                     .iter()
                     .filter(|d| {

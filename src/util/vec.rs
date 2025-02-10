@@ -54,6 +54,7 @@ pub fn sort_by_indices<T>(slice: &mut [T], mut indices: Vec<usize>) {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     #[test]
@@ -120,13 +121,13 @@ mod tests {
     /// test a bunch of random datasets to ensure it works for all configurations
     #[test]
     fn monkey_test() {
-        use rand::distributions::{Distribution, Uniform};
+        use rand::distr::{Distribution, Uniform};
         use rand::prelude::SliceRandom;
 
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         for _ in 0..100 {
             // get a random length
-            let len: usize = Uniform::from(0..10).sample(&mut rng);
+            let len: usize = Uniform::try_from(0..10).unwrap().sample(&mut rng);
 
             // create the expected sorted output
             let sorted = (0..len).collect::<Vec<usize>>();

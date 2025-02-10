@@ -1,4 +1,5 @@
 pub mod dunst;
+pub mod mako;
 pub mod notifications;
 
 use tokio::sync::OnceCell;
