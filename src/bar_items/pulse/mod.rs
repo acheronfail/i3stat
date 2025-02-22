@@ -53,6 +53,9 @@ pub struct Pulse {
     increment: u32,
     /// Path to a `.wav` file to play each time the sound is changed
     increment_sound: Option<PathBuf>,
+    /// Optionally adjust the volume the increment sound is played at, measured
+    /// in percent (useful if the provided sample is too quiet/loud)
+    increment_sound_volume: Option<u32>,
     /// The maximum allowed volume; measured in percent
     max_volume: Option<u32>,
     /// Whether to send notifications on server state changes
@@ -72,6 +75,7 @@ pub struct PulseState {
     tx: UnboundedSender<Command>,
     increment: u32,
     increment_sound: bool,
+    increment_sound_volume: Option<Volume>,
     max_volume: Option<u32>,
     pa_ctx: PAContext,
     default_sink: Rc<str>,
@@ -128,6 +132,11 @@ macro_rules! impl_pa_methods {
             }
         }
     };
+}
+
+#[inline]
+fn get_volume_step() -> u32 {
+    Volume::NORMAL.0 / 100
 }
 
 impl RcCell<PulseState> {
@@ -261,7 +270,7 @@ impl RcCell<PulseState> {
     }
 
     fn update_volume<'b>(&self, cv: &'b mut ChannelVolumes, vol: Vol) -> &'b mut ChannelVolumes {
-        let step = Volume::NORMAL.0 / 100;
+        let step = get_volume_step();
         let current_pct = cv.max().0 / step;
         match vol {
             Vol::Decr(inc_pct) => {
@@ -359,7 +368,8 @@ impl RcCell<PulseState> {
 
     fn play_volume_sample_if_enabled(&mut self, what: Object) {
         if matches!(what, Object::Sink) && self.increment_sound {
-            self.pa_ctx.play_sample(SAMPLE_NAME, None, None, None);
+            let volume = self.increment_sound_volume;
+            self.pa_ctx.play_sample(SAMPLE_NAME, None, volume, None);
         }
     }
 
@@ -602,6 +612,9 @@ impl BarItem for Pulse {
             tx,
             increment: self.increment,
             increment_sound: false,
+            increment_sound_volume: self
+                .increment_sound_volume
+                .map(|pct| Volume(pct * get_volume_step())),
             max_volume: self.max_volume,
 
             pa_ctx,
@@ -610,6 +623,8 @@ impl BarItem for Pulse {
             sinks: vec![],
             sources: vec![],
         });
+
+        log::trace!("isv: {:?}", &inner.increment_sound_volume);
 
         // subscribe to server changes
         let (exit_tx, mut exit_rx) = mpsc::unbounded_channel();
