@@ -111,7 +111,7 @@ impl BarItem for NetUsage {
                 "{:>8}",
                 if bytes >= min {
                     match display {
-                        UsageDisplay::Bits => format_bytes(bytes, false, true),
+                        UsageDisplay::Bits => format_bytes(bytes, true, true),
                         UsageDisplay::Bytes => format_bytes(bytes, false, false),
                         UsageDisplay::Bibytes => format_bytes(bytes, true, false),
                     }
