@@ -50,7 +50,7 @@ run bin *args:
 
 # install locally, copy sample configuration and restart i3
 install *args:
-  cargo install --path . "$@"
+  cargo install --locked --path . "$@"
   mkdir -p ~/.config/i3stat/
   -cp --no-clobber ./sample_config.toml ~/.config/i3stat/config.toml
   i3-msg restart 2>/dev/null || swaymsg reload
