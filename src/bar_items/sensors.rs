@@ -43,7 +43,7 @@ impl BarItem for Sensors {
         let label = self.label.as_deref().unwrap_or("");
         loop {
             let temp = {
-                let search = components.iter_mut().find_map(|c| {
+                let mut search = components.iter_mut().find_map(|c| {
                     if c.label() == self.component {
                         c.refresh();
                         Some(c.temperature())
@@ -51,6 +51,18 @@ impl BarItem for Sensors {
                         None
                     }
                 });
+
+                // didn't find an exact match, so try to find a component that contains the name
+                if let None = search {
+                    search = components.iter_mut().find_map(|c| {
+                        if c.label().contains(&self.component) {
+                            c.refresh();
+                            Some(c.temperature())
+                        } else {
+                            None
+                        }
+                    })
+                }
 
                 match search {
                     Some(Some(temp)) => temp,
