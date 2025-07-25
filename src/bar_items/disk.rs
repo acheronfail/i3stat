@@ -68,7 +68,7 @@ impl DiskStats {
             format!(
                 "󰋊 {} {}",
                 name,
-                ByteSize(self.available_bytes).to_string_as(true)
+                ByteSize(self.available_bytes).display().iec()
             ),
             name,
         )

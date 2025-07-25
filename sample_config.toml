@@ -322,7 +322,8 @@ left_click = "i3-msg exec gsimplecal"
 type = "script"
 # See: COMMON OPTIONS
 name = "clicks"
-# The command to run
+# The command to run. Make sure that if your command spawns child processes, then it properly `disown`'s them
+# otherwise i3stat will waiting for the child processes to exit before updating this item.
 command = "echo -n `if [ ! -z $I3_BUTTON ]; then echo button=$I3_BUTTON; else echo bar item; fi`"
 # The format of the output, either: simple or json. Defaults to simple.
 output = "simple"

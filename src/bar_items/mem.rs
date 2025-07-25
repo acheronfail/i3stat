@@ -58,7 +58,7 @@ impl BarItem for Mem {
 
             let used_pct = ((total - available) as f64 / total as f64) * 100.0;
             let s = match *display.current() {
-                MemDisplay::Bytes => ByteSize(available).to_string_as(true),
+                MemDisplay::Bytes => format!("{}", ByteSize(available).display().iec()),
                 MemDisplay::Percentage => format!("{}%", float(used_pct, &self.float_fmt)),
             };
 

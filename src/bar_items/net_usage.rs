@@ -78,7 +78,16 @@ impl NetUsage {
 }
 
 fn format_bytes(bytes: u64, si: bool, as_bits: bool) -> String {
-    let mut s = ByteSize(if as_bits { bytes * 8 } else { bytes }).to_string_as(si);
+    let s = ByteSize(if as_bits { bytes * 8 } else { bytes });
+    let mut s = format!(
+        "{}",
+        if si {
+            s.display().si()
+        } else {
+            s.display().iec()
+        }
+    );
+
     if as_bits {
         s.pop();
         format!("{}bits", s)
@@ -102,7 +111,7 @@ impl BarItem for NetUsage {
                 "{:>8}",
                 if bytes >= min {
                     match display {
-                        UsageDisplay::Bits => format_bytes(bytes, false, true),
+                        UsageDisplay::Bits => format_bytes(bytes, true, true),
                         UsageDisplay::Bytes => format_bytes(bytes, false, false),
                         UsageDisplay::Bibytes => format_bytes(bytes, true, false),
                     }

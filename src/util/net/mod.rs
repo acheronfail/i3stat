@@ -73,7 +73,7 @@ impl Interfaces {
     }
 
     /// Get a specific interface by its index
-    pub fn get_interface(&self, index: i32) -> Option<&NetlinkInterface> {
+    pub fn get_interface(&self, index: i64) -> Option<&NetlinkInterface> {
         self.inner.get(&index)
     }
 
