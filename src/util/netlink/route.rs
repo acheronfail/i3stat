@@ -31,7 +31,7 @@ use tokio::sync::mpsc::{self, Receiver, Sender};
 use super::NetlinkInterface;
 use crate::error::Result;
 
-pub type InterfaceUpdate = IndexMap<i32, NetlinkInterface>;
+pub type InterfaceUpdate = IndexMap<i64, NetlinkInterface>;
 
 type RtNext<T> = Option<std::result::Result<Nlmsghdr<Rtm, T>, RouterError<Rtm, T>>>;
 
@@ -134,7 +134,7 @@ async fn handle_netlink_route_messages(
 
 /// Request all interfaces with their addresses from rtnetlink(7)
 async fn get_all_interfaces(socket: &Rc<NlRouter>) -> Result<InterfaceUpdate> {
-    let mut interface_map = IndexMap::<i32, NetlinkInterface>::new();
+    let mut interface_map = IndexMap::<i64, NetlinkInterface>::new();
 
     // first, get all the interfaces: we need this for the interface names
     {
@@ -194,7 +194,7 @@ async fn get_all_interfaces(socket: &Rc<NlRouter>) -> Result<InterfaceUpdate> {
                     }
                 }
 
-                interface_map.insert(*ifinfomsg.ifi_index(), interface_info);
+                interface_map.insert(*ifinfomsg.ifi_index() as i64, interface_info);
             }
         }
     }
@@ -227,7 +227,7 @@ async fn get_all_interfaces(socket: &Rc<NlRouter>) -> Result<InterfaceUpdate> {
                 };
 
                 if let NlPayload::Payload(ifaddrmsg) = header.nl_payload() {
-                    match interface_map.get_mut(ifaddrmsg.ifa_index()) {
+                    match interface_map.get_mut(&(*ifaddrmsg.ifa_index() as i64)) {
                         Some(if_info) => {
                             // handle to the attributes of this message
                             let attr_handle = ifaddrmsg.rtattrs().get_attr_handle();
