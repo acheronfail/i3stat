@@ -69,7 +69,7 @@ pub fn get_current_exe() -> PathBuf {
 pub fn wait_for_file(path: impl AsRef<Path>, timeout: Duration) {
     let start = Instant::now();
     loop {
-        thread::sleep(Duration::from_millis(100));
+        thread::sleep(Duration::from_millis(300));
         if path.as_ref().exists() {
             break;
         }
