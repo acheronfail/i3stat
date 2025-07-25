@@ -64,17 +64,15 @@ pub async fn netlink_ipaddr_listen(
         let tx = tx.clone();
         let socket = socket.clone();
         async move {
-            if let Err(e) = handle_manual_trigger(socket, manual_trigger, tx).await {
-                log::error!("fatal error while handling manual network updates: {}", e);
-            }
+            let Err(e) = handle_manual_trigger(socket, manual_trigger, tx).await;
+            log::error!("fatal error while handling manual network updates: {}", e);
         }
     });
 
     // spawn task to listen for network address updates
     tokio::task::spawn_local(async move {
-        if let Err(e) = handle_netlink_route_messages(socket, multicast, tx).await {
-            log::error!("fatal error handling netlink route messages: {}", e);
-        }
+        let Err(e) = handle_netlink_route_messages(socket, multicast, tx).await;
+        log::error!("fatal error handling netlink route messages: {}", e);
     });
 
     Ok(rx)
